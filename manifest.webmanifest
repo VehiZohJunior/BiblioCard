@@ -1,0 +1,29 @@
+{
+  "name": "BiblioCard",
+  "short_name": "BiblioCard",
+  "description": "Ta bibliographie, tirée de tes documents : mise en forme NORCAMES, APA, ISO 690, Chicago et MLA, avec contrôle.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#151515",
+  "theme_color": "#151515",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

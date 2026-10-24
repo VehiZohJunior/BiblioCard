@@ -1,0 +1,130 @@
+BiblioCard : mode d'emploi de la version pour ton site
+=======================================================
+
+Contenu du dossier
+  index.html            la page de l'application
+  css/bibliocard.css    les styles
+  js/moteur.js          le moteur : normes, lecture des références, contrôles
+                        (testable seul avec Node, sans navigateur)
+  js/i18n-en.js         la traduction anglaise de l'interface
+  js/app.js             l'interface
+  sw.js, manifest...    installation sur téléphone et fonctionnement hors connexion
+  addin/                le module pour Microsoft Word
+  tests/                les tests automatiques
+
+Ce dossier contient la version complète de BiblioCard pour ton propre site.
+Sur cette version, tout fonctionne : vérification d'existence (OpenAlex, HAL,
+CrossRef), recherche par DOI, lecture des PDF scannés, installation sur
+téléphone et fonctionnement hors connexion.
+
+Option 1 : GitHub Pages (idéal pour les tests et le comité)
+  1. Crée un compte gratuit sur github.com.
+  2. Crée un dépôt public nommé « bibliocard ».
+  3. « Add file » puis « Upload files » : dépose TOUS les fichiers de ce dossier.
+  4. Settings > Pages > Source : « Deploy from a branch », branche « main », dossier « / (root) ».
+  5. Ton adresse : https://TON-PSEUDO.github.io/bibliocard/
+  Attention : les conditions de GitHub Pages interdisent un usage commercial.
+
+Option 2 : Cloudflare Pages (pour un usage commercial, gratuit lui aussi)
+  1. Crée un compte gratuit sur pages.cloudflare.com.
+  2. « Créer un projet » puis « Téléverser des fichiers » (Direct Upload).
+  3. Dépose ce dossier. Ton adresse se termine par .pages.dev.
+
+Installer sur téléphone : ouvre l'adresse dans Chrome (Android) puis
+« Installer l'appli », ou dans Safari (iPhone) : Partager > Sur l'écran d'accueil.
+
+Fichiers : index.html (l'application), sw.js (hors connexion),
+manifest.webmanifest et icônes (installation).
+
+Catalogue partagé des références africaines (facultatif, gratuit)
+==================================================================
+Sur ton propre site, le catalogue commun s'appuie sur une base Supabase
+(offre gratuite, sans carte bancaire).
+
+  1. Crée un compte sur supabase.com, puis « New project ».
+  2. Ouvre « SQL Editor », colle ce texte et clique sur « Run » :
+
+     create table catalogue (
+       id bigint generated always as identity primary key,
+       tkey text not null,
+       ref jsonb not null,
+       contributor text not null,
+       created_at timestamptz default now(),
+       unique (tkey, contributor)
+     );
+     alter table catalogue enable row level security;
+     create policy "lecture publique" on catalogue for select using (true);
+     create policy "ajout public" on catalogue for insert
+       with check (char_length(tkey) < 200 and pg_column_size(ref) < 8000);
+
+     -- signalements d'erreurs (modération)
+     create table signalements (
+       id bigint generated always as identity primary key,
+       tkey text not null, contributor text not null,
+       created_at timestamptz default now(), unique (tkey, contributor)
+     );
+     alter table signalements enable row level security;
+     create policy "lecture" on signalements for select using (true);
+     create policy "ajout" on signalements for insert with check (char_length(tkey) < 200);
+
+     -- synchronisation entre appareils (chaque utilisateur ne voit que la sienne)
+     create table bibliotheques (
+       user_id uuid primary key references auth.users on delete cascade,
+       json text not null, updated_at bigint not null
+     );
+     alter table bibliotheques enable row level security;
+     create policy "la mienne" on bibliotheques for all
+       using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+  3. Dans « Project Settings » > « API », copie l'adresse du projet
+     (Project URL) et la clé publique (anon public).
+  4. Dans BiblioCard : Tableau de bord > Références > Catalogue partagé,
+     colle l'adresse et la clé, puis « Connecter le catalogue ».
+
+Seules des données bibliographiques publiques y sont envoyées, de façon
+anonyme. Pour retirer une entrée erronée : Supabase > « Table Editor ».
+
+Mode encadreur
+==============
+L'étudiant clique sur Tableau de bord > Export > « Envoyer à mon encadreur »
+et transmet le fichier .bibliocard par WhatsApp ou e-mail. L'encadreur
+l'ouvre avec « Choisir des fichiers », commente, puis « Renvoyer mes
+commentaires ». L'étudiant ouvre ce second fichier de la même façon.
+
+Modération du catalogue
+=======================
+Chaque utilisateur peut signaler une entrée erronée. Une entrée est masquée
+pour tous dès qu'au moins deux personnes la signalent et qu'elle a autant de
+signalements que de confirmations. Pour supprimer définitivement une entrée :
+Supabase > Table Editor > catalogue.
+
+Synchroniser ses appareils
+==========================
+Une fois le catalogue connecté : Tableau de bord > Export, encadreur et
+sauvegarde > Synchroniser mes appareils. L'utilisateur reçoit un lien de
+connexion par e-mail, sans mot de passe. Dans Supabase, vérifie que
+Authentication > URL Configuration > Site URL et Redirect URLs contiennent
+l'adresse de ton site (par exemple https://TON-PSEUDO.github.io/bibliocard/).
+
+Module pour Microsoft Word
+==========================
+  1. Dans addin/manifest.xml, remplace TON-PSEUDO par ton nom d'utilisateur
+     GitHub (aux endroits indiqués), puis remets le site en ligne.
+  2. Word sur le web : Insertion > Compléments > Mes compléments >
+     Charger mon complément, puis choisis manifest.xml.
+     Word sur ordinateur : voir « Charger une version test d'un complément
+     Office » dans l'aide Microsoft.
+  3. Le panneau BiblioCard s'ouvre dans Word : choisis le projet et la norme,
+     touche « Citer » pour insérer la citation au curseur, ou insère toute la
+     bibliographie. Si le panneau ne trouve pas ta bibliothèque, importe une
+     copie de secours (.json) ou un dossier de relecture (.bibliocard).
+  Le module a été testé avec un Word simulé ; un essai dans le vrai Word
+  reste à faire.
+
+Tests automatiques
+==================
+Il faut Node.js (gratuit). Dans le dossier tests :
+  npm install
+  npm test
+Chaque test affiche ✓ ou ✗, puis le bilan. Relance-les après chaque
+modification du code.

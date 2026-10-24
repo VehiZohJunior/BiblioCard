@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BiblioCard pour Word</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+:root{--bg:#fff;--ink:#16202B;--muted:#5A6673;--line:#D3D9DF;--sunk:#F3F5F7;--brass:#6E5210;--proof:#B3261E;font-family:"Segoe UI",system-ui,sans-serif;font-size:14px;color-scheme:light dark}
+@media (prefers-color-scheme: dark){:root{--bg:#1F1F1F;--ink:#ECECEC;--muted:#A3A3A3;--line:#333;--sunk:#262626;--brass:#D6AE57;--proof:#F2867F}}
+body{margin:0;background:var(--bg);color:var(--ink)}
+header{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+header b{font-size:16px}
+main{padding:12px 14px;display:grid;gap:10px}
+select,input,button{font:inherit;color:inherit}
+select,input{border:1px solid var(--line);border-radius:8px;background:var(--sunk);padding:7px 9px;width:100%;box-sizing:border-box}
+.row{display:flex;gap:8px}
+.btn{border:1px solid var(--line);background:var(--sunk);border-radius:8px;padding:8px 12px;cursor:pointer}
+.btn.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.ref{border-top:1px solid var(--line);padding:8px 0;display:grid;grid-template-columns:1fr auto;gap:6px;align-items:start}
+.ref p{margin:0;font-family:Georgia,serif;font-size:13px;line-height:1.5}
+.note{background:var(--sunk);border-radius:8px;padding:8px 10px;color:var(--muted);font-size:13px}
+.err{color:var(--proof)}
+</style>
+</head>
+<body>
+<header><svg width="22" height="22" viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="5" width="22" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="17" r="1.8" fill="#D6AE57"/><path d="M6 9h14M6 12h9" stroke="currentColor" stroke-width="1.4"/></svg><b>BiblioCard</b></header>
+<main>
+  <p class="note" id="msg">Chargement…</p>
+  <label>Projet<select id="proj" aria-label="Projet"></select></label>
+  <label>Norme<select id="style" aria-label="Norme"></select></label>
+  <div class="row"><input id="q" type="search" placeholder="Chercher un auteur, un titre" aria-label="Chercher"><input id="pg" placeholder="Page" aria-label="Page" style="width:70px"></div>
+  <button class="btn pri" id="insBib">Insérer la bibliographie au curseur</button>
+  <div id="list"></div>
+  <label class="btn" style="text-align:center">Importer ma bibliothèque (copie .json ou dossier .bibliocard)<input type="file" id="file" accept=".json,.bibliocard" hidden></label>
+</main>
+<script src="../js/moteur.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const LS = "bibliocard.v3";
+let data = null, inWord = false;
+function load(){ try{ data = JSON.parse(localStorage.getItem(LS) || "null"); }catch(e){ data = null; } }
+function projects(){ if(!data) return []; if(data.projects && Object.keys(data.projects).length) return Object.values(data.projects); return data.sources ? [{id: "p", name: "Ma bibliothèque", sources: data.sources, style: data.style || "cames", profile: "norcames"}] : []; }
+function cur(){ return projects().find(p => p.id === $("#proj").value) || projects()[0]; }
+function prof(p){ return (CAMES_PROFILES[p.profile]) || (data.profiles && data.profiles[p.profile]) || CAMES_PROFILES.norcames; }
+function labeledOf(p, style){ const st = STYLES[style]; return st.numeric ? numberSources(p.sources.map((s, i) => ({...s, _order: i})), []) : withLabels(sortSources(p.sources), st.authorDate); }
+const bibOf = (s, style, p) => style === "cames" ? camesBib(s, prof(p)) : STYLES[style].bib(s);
+function render(){
+  const ps = projects();
+  $("#proj").innerHTML = ps.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+  if(!ps.length){ $("#msg").textContent = "Aucune bibliothèque trouvée sur cet appareil. Dans BiblioCard, va dans Export, encadreur et sauvegarde, télécharge une copie de secours, puis importe-la ci-dessous."; $("#list").innerHTML = ""; return; }
+  const p = cur(); if(!$("#style").dataset.set){ $("#style").value = p.style || "cames"; }
+  const style = $("#style").value, q = norm($("#q").value);
+  const L = labeledOf(p, style).filter(s => !q || norm([s.title, s.container, ...s.authors.map(a => a.family)].join(" ")).includes(q));
+  $("#msg").innerHTML = inWord ? `${p.sources.length} références. Place le curseur dans ton texte, puis touche « Citer ».` : `<span class="err">Ce panneau doit être ouvert dans Word pour insérer du texte.</span>`;
+  $("#list").innerHTML = L.map(s => `<div class="ref"><p>${bibOf(s, style, p)}</p><button class="btn" data-id="${s.id}" ${inWord ? "" : "disabled"}>Citer</button></div>`).join("");
+  $("#list").querySelectorAll("[data-id]").forEach(b => b.onclick = () => cite(L.find(s => s.id === b.dataset.id), style));
+  $("#insBib").disabled = !inWord || !L.length;
+}
+async function cite(s, style){
+  const txt = stripHtml(STYLES[style].cite(s, $("#pg").value.trim(), "parenthese")).replace(/\u00A0/g, "\u00A0");
+  try{ await Word.run(async ctx => { const r = ctx.document.getSelection(); r.insertText(txt, Word.InsertLocation.end); await ctx.sync(); }); }
+  catch(e){ $("#msg").innerHTML = `<span class="err">Insertion impossible : ${esc(e.message || e)}</span>`; }
+}
+async function insertBib(){
+  const p = cur(), style = $("#style").value;
+  const html = `<p style="font-weight:bold;font-size:13pt">Références bibliographiques</p>` + labeledOf(p, style).map(s => `<p style="margin:0 0 6pt 1.25cm;text-indent:-1.25cm;font-family:'Times New Roman';font-size:12pt">${bibOf(s, style, p)}</p>`).join("");
+  try{ await Word.run(async ctx => { ctx.document.getSelection().insertHtml(html, Word.InsertLocation.after); await ctx.sync(); }); $("#msg").textContent = "Bibliographie insérée."; }
+  catch(e){ $("#msg").innerHTML = `<span class="err">Insertion impossible : ${esc(e.message || e)}</span>`; }
+}
+$("#style").innerHTML = Object.entries(STYLES).map(([k, v]) => `<option value="${k}">${esc(v.full)}</option>`).join("");
+$("#style").onchange = () => { $("#style").dataset.set = "1"; render(); };
+$("#proj").onchange = () => { delete $("#style").dataset.set; render(); };
+$("#q").oninput = render;
+$("#insBib").onclick = insertBib;
+$("#file").onchange = async e => { const f = e.target.files[0]; if(!f) return; try{ const d = JSON.parse(await f.text()); data = d.app === "BiblioCard-relecture" ? {projects: {[d.projectId]: {id: d.projectId, name: d.projectName, sources: d.sources, style: d.style, profile: "norcames"}}} : d; localStorage.setItem(LS, JSON.stringify(data)); render(); }catch(err){ $("#msg").innerHTML = `<span class="err">Fichier illisible.</span>`; } };
+load();
+if(window.Office && Office.onReady) Office.onReady(info => { inWord = info.host === Office.HostType.Word; render(); }); else render();
+</script>
+</body>
+</html>

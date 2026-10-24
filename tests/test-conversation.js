@@ -1,0 +1,38 @@
+// Test : conversation
+const {JSDOM} = require("jsdom"); const fs = require("fs"); const mammoth = require("mammoth"); const JSZip = require("jszip");
+const base = require("./charger")();
+const outs = [];
+const dom = new JSDOM(base, {runScripts:"dangerously", pretendToBeVisual:true, url:"https://example.org/", beforeParse(w){ Object.defineProperty(w.navigator, "languages", {get: () => ["fr-FR"]}); w.fetch = async () => { throw new TypeError("blocked"); }; w.JSZip = JSZip; }});
+const w = dom.window; const d = w.document; const errs = []; w.addEventListener("error", e => errs.push(e.message));
+w.mammoth = { convertToHtml: o => mammoth.convertToHtml({buffer: Buffer.from(o.arrayBuffer)}) };
+w.HTMLDialogElement.prototype.showModal = function(){ this.open = true; }; w.HTMLDialogElement.prototype.close = function(){ this.open = false; this.dispatchEvent(new w.Event("close")); };
+w.HTMLAnchorElement.prototype.click = function(){ outs.push({name: this.download}); }; w.URL.createObjectURL = b => { outs.push({blob: b}); return "blob:x"; }; w.URL.revokeObjectURL = () => {};
+w.scrollTo = () => {};
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const say = async t => { const ta = d.querySelector("#smart"); ta.value = t; ta.dispatchEvent(new w.Event("input")); d.querySelector("#addBtn").click(); await wait(250); };
+const last = () => { const m = [...d.querySelectorAll(".msg.a .atext")].pop(); return m ? m.textContent.replace(/\s+/g, " ").trim() : ""; };
+(async () => {
+  await wait(150);
+  console.log("Accueil visible :", w.getComputedStyle(d.querySelector("#welcome")).display !== "none", "| volet caché :", d.querySelector("#side").hidden);
+  const buf = fs.readFileSync(require("path").join(__dirname, "fixtures/memoire.docx"));
+  await w.handleFiles([{ name: "memoire.docx", arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) }]); await wait(100);
+  console.log("Messages :", [...d.querySelectorAll(".msg")].map(m => m.classList.contains("u") ? "[toi] " + m.textContent.trim() : "[app] " + m.querySelector(".atext").textContent.replace(/\s+/g, " ").trim().slice(0, 120)).join("\n          "));
+  console.log("Boutons :", [...d.querySelectorAll(".msg.a .chip")].map(c => c.textContent).join(" | "));
+  console.log("Accueil caché :", w.getComputedStyle(d.querySelector("#welcome")).display === "none");
+  await say("passe en APA"); console.log("\n« passe en APA » →", last().slice(0, 110));
+  await say("vérifie les références"); console.log("« vérifie les références » →", last().slice(0, 110));
+  await say("qu’est-ce qui reste ?"); console.log("« qu’est-ce qui reste ? » →", last().slice(0, 140));
+  outs.length = 0; await say("corrige mon document"); await wait(300); console.log("« corrige mon document » →", last().slice(0, 140), "| fichier :", (outs.find(o => o.name) || {}).name);
+  await say("BERGER Gaston, 1967, L’Homme moderne et son éducation, Paris, PUF.\nTOURÉ Ali, 2019, Les médias ivoiriens, Abidjan, NEI."); console.log("Deux références collées →", last().slice(0, 120));
+  await say("aide"); console.log("« aide » →", last().slice(0, 80));
+  [...d.querySelectorAll(".chip")].find(c => c.textContent === "Voir la bibliographie").click();
+  console.log("\nVolet ouvert :", !d.querySelector("#side").hidden, "| onglet :", d.querySelector('#stabs [aria-pressed="true"]').textContent, "| entrées :", d.querySelectorAll("#side .entry").length);
+  d.querySelector('#stabs [data-st="todo"]').click(); console.log("Onglet À faire :", d.querySelectorAll("#side .task").length, "tâches | badge :", d.querySelector("#sideBadge").textContent);
+  d.querySelector('#stabs [data-st="controle"]').click(); console.log("Onglet Contrôles :", [...d.querySelectorAll("#side .dsec.on")].map(s => s.id).join(", "));
+  d.querySelector("#sideClose").click(); console.log("Volet fermé :", d.querySelector("#side").hidden);
+  d.querySelector("#todoBtn").click(); console.log("Icône en haut à droite → volet :", !d.querySelector("#side").hidden); d.querySelector("#todoBtn").click();
+  d.querySelector("#dashBtn").click(); console.log("Menu de gauche :", [...d.querySelectorAll(".menu button")].map(b => b.textContent.trim()).join(" · "));
+  d.querySelector("#normChange").click(); d.querySelector('#dlg [data-st="vancouver"]').click(); await wait(50); console.log("\nPastille → Vancouver :", last().slice(0, 90), "|", d.querySelector("#side .entry .ref").textContent.slice(0, 50));
+  await wait(800); const saved = JSON.parse(w.localStorage.getItem("bibliocard.v3")); console.log("Conversation enregistrée :", Object.values(saved.projects)[0].thread.length, "messages");
+  console.log("erreurs :", errs.length ? errs : "aucune"); process.exit(0);
+})();

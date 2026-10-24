@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BiblioCard</title>
+<meta name="description" content="Ta bibliographie, tirée de tes documents, et Lian’Z pour rédiger en parlant : NORCAMES, APA, ISO 690, Chicago, MLA, Vancouver, notes ; contrôle, vérification d’existence, similitudes, relecture par l’encadreur.">
+<meta name="theme-color" content="#151515">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+<link rel="stylesheet" href="css/bibliocard.css">
+
+</head>
+<body>
+<a class="skip" href="#smart">Aller à la zone de saisie</a>
+<header class="topbar">
+  <div class="bar">
+    <button class="tb" id="dashBtn" aria-label="Ouvrir le menu"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><path d="M4 7h18M4 13h14M4 19h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <button class="tbtitle" id="projBtn" aria-haspopup="dialog"></button>
+    <button class="tb" id="todoBtn" aria-label="Ouvrir les résultats"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14 4.5v15" stroke="currentColor" stroke-width="1.8"/></svg><span class="badge" id="dashBadge" hidden></span></button>
+  </div>
+</header>
+<div class="dropveil" id="dropVeil" aria-hidden="true"><div><svg width="44" height="44" viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="5" width="22" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="17" r="1.8" fill="var(--brass)"/><path d="M6 9h14M6 12h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><b>Lâche tes fichiers ici</b><span>Word, PDF, BibTeX ou RIS</span></div></div>
+<main class="simple">
+<div id="viewBiblio">
+  <div class="thread" id="thread" aria-live="polite"></div>
+  <section class="welcome" id="welcome" aria-labelledby="h1">
+    <div class="mark"><svg width="58" height="58" viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="5" width="22" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="17" r="1.8" fill="var(--brass)"/><path d="M6 9h14M6 12h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+    <h1 id="h1">Qu’est-ce qu’on cite aujourd’hui ?</h1>
+    <p class="hello">Touche <b>+</b> pour déposer un Word ou un PDF, ou colle une référence en bas.</p>
+    <p class="demo" id="demoLine"><button class="link" id="demoBtn">Essayer avec un mémoire d’exemple</button></p>
+  </section>
+</div>
+
+<div id="viewRedac" class="redac">
+  <button class="back2" id="backBiblio">← Bibliographie</button>
+  <h1>Rédige en parlant</h1>
+  <p class="lead">Lian’Z transcrit fidèlement ce que tu dis, sans rien reformuler. Dis « virgule », « point » ou « nouveau paragraphe » pour ponctuer, et « citation Amin » pour insérer une référence de ta bibliographie.</p>
+  <div class="mic">
+    <button class="micbtn" id="micBtn" aria-label="Commencer la dictée"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>
+    <div class="micmeta"><b id="micTitle">Touche le micro pour dicter</b><span id="micSub"></span></div>
+    <div class="micopts">
+      <label class="sr" for="engSel">Moteur</label><select id="engSel"><option value="live">Direct (navigateur)</option><option value="whisper">Whisper, sur l’appareil</option></select>
+      <label class="sr" for="langSel">Langue</label><select id="langSel"></select>
+    </div>
+  </div>
+  <div class="interim" id="interim" aria-live="polite"></div>
+  <div class="paper">
+    <label class="sr" for="draftTitle">Titre</label><input id="draftTitle" placeholder="Titre de ton travail">
+    <label class="sr" for="draft">Texte</label><textarea id="draft" placeholder="Ton texte apparaît ici pendant que tu parles. Tu peux aussi écrire ou corriger au clavier."></textarea>
+  </div>
+  <div class="wbar">
+    <button class="btn small" id="citeIns">Insérer une citation</button>
+    <button class="btn small" id="undoSeg">Annuler la dernière dictée</button>
+    <button class="btn small primary" id="simBtn">Vérifier les similitudes</button>
+    <span class="cnt" id="wcount"></span>
+  </div>
+  <div class="wbar">
+    <button class="btn small" id="wDoc">Exporter en Word</button>
+    <button class="btn small" id="wPdf">Exporter en PDF</button>
+    <button class="btn small" id="corpusBtn">Ajouter des documents de comparaison</button>
+    <input type="file" id="corpusIn" class="sr" aria-label="Documents de comparaison" multiple accept=".docx,.pdf,.txt">
+  </div>
+  <details class="panel2"><summary>Commandes vocales</summary><div class="in prose">
+    <p><b>Ponctuation</b> : virgule, point (en fin de phrase), point-virgule, deux-points, point d’interrogation, point d’exclamation, points de suspension.</p>
+    <p><b>Mise en page</b> : à la ligne, point à la ligne, nouveau paragraphe.</p>
+    <p><b>Citations</b> : ouvrez les guillemets, fermez les guillemets, ouvrez la parenthèse, fermez la parenthèse. « Citation » suivi du nom d’un auteur de ta bibliographie insère sa référence dans la norme choisie, par exemple « citation Diagne ».</p>
+    <p><b>Correction</b> : « efface ça » supprime la dernière phrase dictée.</p>
+  </div></details>
+  <details class="panel2" id="voixPanel"><summary>Contribuer à la dictée en langues ivoiriennes</summary><div class="in prose" id="voixBox"></div></details>
+  <section class="panel2" style="padding:14px 16px" id="simPanel" hidden><h3 style="margin:0 0 6px;font-size:15px">Contrôle des similitudes</h3><div id="simRes"></div></section>
+</div>
+</main>
+<section id="viewReview" class="simple" style="max-width:820px;margin:0 auto;padding:26px 20px 120px">
+  <div class="revban"><h1 id="revTitle"></h1><p id="revMeta"></p></div>
+  <label class="f" style="max-width:320px;margin-bottom:14px"><span>Ton nom (affiché avec tes commentaires)</span><input id="revName" placeholder="ex. Pr Kouassi"></label>
+  <section class="synth" id="revSynth" aria-label="Synthèse du dossier"><div class="ring" id="revRing"></div><dl class="facts" id="revFacts"></dl></section>
+  <h2 style="font-family:var(--serif);font-size:19px;margin:26px 0 8px">Bibliographie</h2>
+  <article class="sheet"><ol class="biblio" id="revBiblio"></ol></article>
+  <h2 style="font-family:var(--serif);font-size:19px;margin:26px 0 8px" id="revTextH">Texte</h2>
+  <article class="paper" id="revText"></article>
+  <h2 style="font-family:var(--serif);font-size:19px;margin:26px 0 8px">Appréciation générale</h2>
+  <div class="cform"><textarea id="revGeneral" placeholder="Ton avis d’ensemble sur le travail…"></textarea></div>
+  <div class="bigdl"><button class="btn primary" id="revSend">Renvoyer mes commentaires</button><button class="btn" id="revQuit">Quitter la relecture</button></div>
+  <p class="legend" id="revCount"></p>
+</section>
+<div id="printArea"></div>
+
+<aside class="side" id="side" aria-label="Résultats" hidden>
+  <div class="stop">
+    <div class="stabs" role="group" aria-label="Résultats" id="stabs">
+      <button data-st="biblio">Bibliographie</button><button data-st="todo">À faire<span class="badge" id="sideBadge" hidden></span></button><button data-st="controle">Contrôles</button><button data-st="analyse">Analyse</button>
+    </div>
+    <button class="tb" id="sideClose" aria-label="Fermer le volet"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  </div>
+  <div class="sbody">
+    <section class="dsec" id="dt-biblio">
+  <div class="files" id="files"></div>
+  <section class="synth" id="synth" hidden aria-label="Synthèse">
+    <div class="ring" id="ring"></div>
+    <dl class="facts" id="facts"></dl>
+  </section>
+
+  <button class="todo" id="todoBanner" hidden></button>
+
+  <article class="sheet" id="sheet" hidden>
+    <div class="sheethead"><h3 id="hSheet">Références bibliographiques</h3><span id="sheetMeta"></span></div>
+    <ol class="biblio" id="biblio"></ol>
+  </article>
+  <p class="legend" id="legend"></p>
+  <div class="bigdl" id="bigdl" hidden>
+    <button class="btn primary" id="docBtn">Télécharger en Word</button>
+    <button class="btn" id="copyBtn">Copier</button>
+  </div>
+    </section>
+<section class="dsec" id="dt-todo"><div id="tasks"></div></section>
+<section class="dsec" id="dt-controle">
+      <h3>Contrôle des documents</h3>
+      <p class="legend">Compare les citations du texte avec la bibliographie.</p>
+      <div id="reports"></div>
+      <div class="blk">
+        <h3>Vérifier un passage</h3>
+        <textarea class="vtext" id="vText" placeholder="Colle un passage de ton texte…"></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn small" id="vBtn">Vérifier</button></div>
+        <div id="vRes"></div>
+      </div>
+    </section>
+<section class="dsec" id="dt-existence">
+      <h3>Les références existent-elles ?</h3>
+      <p class="legend">Chaque référence est recherchée dans OpenAlex, HAL et CrossRef. BiblioCard repère les DOI inexistants, les DOI qui renvoient à une autre publication et les titres introuvables, signes fréquents de références inventées par une IA ou mal recopiées.</p>
+      <div id="existBox"></div>
+    </section>
+<section class="dsec" id="dt-analyse">
+      <h3>Profil de la bibliographie</h3>
+      <p class="legend">Une lecture d’ensemble, utile pour toi et pour ton encadreur.</p>
+      <div id="analyse"></div>
+    </section>
+<section class="dsec" id="dt-fiabilite">
+      <h3>Lian’Z : dictée et similitudes</h3>
+        <p>Deux moteurs de dictée : la reconnaissance du navigateur, en direct, et Whisper, un modèle libre qui tourne sur l’appareil et gère de nombreuses langues et accents. La transcription est fidèle : seules les commandes vocales deviennent ponctuation. Le contrôle des similitudes compare des séquences de huit mots avec les documents de l’utilisateur, Wikipédia et les résumés d’articles d’OpenAlex, et signale les passages repris sans guillemets ni citation.</p>
+        <h3>Mesure de fiabilité</h3>
+      <p class="legend">Chaque fiche importée garde la trace de ce que l’analyse automatique avait trouvé. Quand tu la relis et la corriges, ta version sert de référence : BiblioCard calcule ce qui était juste, champ par champ. Avec assez de documents, tu obtiens un taux mesuré à présenter.</p>
+      <div id="evalBox"></div>
+    </section>
+  </div>
+</aside>
+<div class="composer" id="composer">
+  <div class="hint" id="hint" aria-live="polite"></div>
+  <div class="cbox">
+    <label class="sr" for="smart">Références, DOI ou URL</label>
+    <textarea id="smart" rows="1" placeholder="Colle une référence, un DOI…"></textarea>
+    <div class="crow">
+      <button class="cb" id="pickBtn" aria-label="Ajouter un document"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button class="pill" id="normChange" aria-haspopup="dialog"><span id="normName"></span> <span class="lvl" id="normProf"></span></button>
+      <span class="sp"></span>
+      <button class="cb" id="cmic" aria-label="Dicter une référence"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>
+      <button class="go" id="addBtn" aria-label="Rédiger en parlant"><svg class="ic-wave" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10v4M8.5 7v10M12 4v16M15.5 7v10M19 10v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="ic-send" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6M6 11.5L12 5.5l6 6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </div>
+  <input type="file" id="fileIn" class="sr" aria-label="Choisir des fichiers" multiple accept=".docx,.pdf,.txt,.bib,.ris,.json,.bibliocard">
+</div>
+<div class="dock" id="dock" hidden>
+  <div class="info"><b id="dockCount"></b><span id="dockNorm"></span></div>
+  <button class="btn primary" id="dockDl">Télécharger</button>
+</div>
+
+<dialog id="dash" aria-labelledby="dashTitle">
+  <div class="dtop">
+    <div class="r"><button class="tb" id="dashBack" aria-label="Retour au menu" hidden><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h2 id="dashTitle">BiblioCard</h2><button class="tb" id="dashClose" aria-label="Fermer le menu"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
+  </div>
+  <div class="dscroll">
+    <section class="dsec" id="dt-home">
+      <button class="newproj" id="newProjBtn"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Nouveau projet</button>
+      <nav class="menu" aria-label="Menu">
+        <button data-go="biblio"><span class="mi"><svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="5" width="22" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="17" r="1.8" fill="var(--brass)"/><path d="M6 9h14M6 12h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>Bibliographie</button>
+        <button data-go="redac"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10v4M8.5 7v10M12 4v16M15.5 7v10M19 10v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Rédaction Lian’Z</button>
+        <button data-dt="norme"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>Norme, profil et langue</button>
+        <button data-dt="fiches"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z M9 10h7M9 14h7M9 18h4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg></span>Références et catalogue</button>
+        <button data-dt="export"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Export, encadreur et sauvegarde</button>
+        <button data-dt="methode"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>Méthode et éthique</button>
+      </nav>
+      <h4 class="mhead">Projets récents</h4>
+      <div id="projList"></div>
+      <div class="dfooter"><div class="status" id="status"><span class="dot"></span><span id="statusText">Prêt</span></div><button class="iconbtn" id="installBtn" hidden>Installer l’appli</button></div>
+    </section>
+    
+
+    <section class="dsec" id="dt-norme">
+      <h3>Langue de l’interface</h3>
+      <div class="seg" role="group" aria-label="Langue" id="uiLangSeg" data-notr="1" style="margin:4px 0 18px"><button data-l="fr">Français</button><button data-l="en">English</button></div>
+      <h3>Norme de la bibliographie</h3>
+      <p class="legend">Toute la bibliographie se remet en forme dès que tu changes.</p>
+      <div class="seg" role="group" aria-label="Norme" id="styleSeg"></div>
+      <p class="normnote" id="normNote"></p>
+      <div id="camesOpts" class="blk">
+        <h3>Profil de revue</h3>
+        <p class="legend">NORCAMES fixe le contenu des références ; chaque revue garde ses choix typographiques. Choisis le profil de la revue visée, ou crée celui de ton école doctorale.</p>
+        <label class="f full"><span>Profil</span><select id="profSel"></select></label>
+        <div id="profBody"></div>
+      </div>
+    </section>
+
+    <section class="dsec" id="dt-fiches">
+      <h3 id="cardsSum">Fiches</h3>
+      <p class="legend">Chaque référence de ta bibliographie. Modifie, retire, ou ajoute à la main.</p>
+      <input class="filter" id="filter" type="search" placeholder="Filtrer les fiches" aria-label="Filtrer les fiches">
+      <div id="cards"></div>
+      <div class="blk"><div class="row"><button class="btn small" id="manualBtn">Saisie manuelle</button><button class="btn small" id="clearBtn">Vider la bibliographie</button></div></div>
+    </section>
+
+    <section class="dsec" id="dt-catalogue">
+      <h3>Catalogue partagé des références africaines</h3>
+      <p class="legend">Les revues CAMES, les thèses et les éditeurs africains sont mal couverts par les bases internationales. Chaque référence vérifiée que tu choisis de partager enrichit un catalogue commun : les autres utilisateurs la retrouvent complète, avec sa ville et son éditeur, et la vérification d’existence la reconnaît.</p>
+      <div id="catBox"></div>
+    </section>
+
+    <section class="dsec" id="dt-citer">
+      <h3>Citer dans le texte</h3>
+      <p class="legend" id="intextSub"></p>
+      <div class="seg" id="citeSeg" role="group" aria-label="Forme" style="margin:0 0 8px"></div>
+      <div id="intext"></div>
+    </section>
+
+    
+
+    
+
+    
+
+    
+
+    <section class="dsec" id="dt-methode">
+      <h3>Comment BiblioCard travaille</h3>
+      <ol class="method">
+        <li><div><b>Lecture sur l’appareil</b><span>Le fichier Word ou PDF est lu dans le navigateur. Il n’est ni envoyé ni conservé : seules les références extraites sont gardées.</span></div></li>
+        <li><div><b>Repérage de la bibliographie</b><span>La dernière section intitulée « Bibliographie » ou « Références » est retenue, la table des matières et les annexes sont écartées. Les lignes coupées sont recollées.</span></div></li>
+        <li><div><b>Structuration de chaque référence</b><span>Auteurs, année, titre, revue ou éditeur, lieu et pages sont identifiés. L’italique de Word sert d’indice pour les titres d’ouvrages et de revues. Dans Claude, une analyse par IA affine ce découpage.</span></div></li>
+        <li><div><b>Vérification d’existence</b><span>Chaque référence est recherchée dans trois bases ouvertes : OpenAlex, HAL et CrossRef. Un DOI inexistant ou qui renvoie à une autre publication est signalé comme suspect.</span></div></li>
+        <li><div><b>Mise en forme et contrôle</b><span>Chaque référence est rédigée selon la norme choisie, les informations manquantes sont signalées, et les citations du texte sont comparées à la bibliographie.</span></div></li>
+      </ol>
+      <div class="blk prose">
+        <h3>Confidentialité</h3>
+        <p>Les documents sont lus sur l’appareil et ne sont jamais envoyés ni conservés en ligne. Seules les références extraites sont enregistrées, sur l’appareil et, si l’utilisateur est connecté, dans son espace personnel.</p>
+        <p>Quand une vérification en ligne est lancée, BiblioCard transmet uniquement le strict nécessaire : le titre et le DOI d’une référence à OpenAlex, HAL et CrossRef, et des extraits de dix mots à Wikipédia et OpenAlex pour le contrôle des similitudes. La dictée « Direct » passe par le service de reconnaissance du navigateur (Google ou Apple) ; la dictée Whisper, elle, reste entièrement sur l’appareil. L’outil est conçu dans l’esprit de la loi ivoirienne de 2013 sur la protection des données à caractère personnel.</p>
+        <h3>Éthique et intégrité scientifique</h3>
+        <p>BiblioCard et Lian’Z n’écrivent jamais à la place de l’étudiant. La dictée transcrit fidèlement sa voix ; l’outil met en forme, vérifie et signale, mais ne génère aucun contenu. Il renforce l’intégrité : détection des références introuvables ou inventées, des passages repris sans guillemets, des incohérences entre texte et bibliographie.</p>
+        <h3>Accessibilité</h3>
+        <p>La dictée ouvre la rédaction académique aux étudiants en situation de handicap moteur ou visuel, à ceux qui écrivent difficilement au clavier, et à ceux qui travaillent sur téléphone. L’application fonctionne hors connexion une fois installée, ce qui compte là où la connexion est rare ou chère.</p>
+        <h3>Normes prises en charge</h3>
+        <p>NORCAMES/LSH, d’après les « Normes d’édition des revues de lettres et sciences humaines dans le système CAMES » ; APA 7e édition ; ISO 690 auteur-date ; Chicago auteur-date ; MLA 9e édition. Les cas que NORCAMES ne précise pas (plusieurs auteurs, pages web, même auteur la même année) suivent l’usage le plus répandu dans les revues du CAMES.</p>
+        <h3>Mesure de fiabilité</h3>
+        <p>Chaque fiche analysée automatiquement conserve son état d’origine. La version relue par l’utilisateur sert de référence : l’exactitude est calculée champ par champ, sans transmettre ni titre ni auteur lorsque les mesures sont partagées.</p>
+        <h3>Indicateur de conformité</h3>
+        <p>Il combine la complétude des champs exigés par la norme pour chaque type de document (70 %) et la part de références entièrement conformes (30 %).</p>
+        <h3>Limites</h3>
+        <p>Une référence introuvable n’est pas forcément fausse : les ouvrages, thèses et revues africains sont encore mal couverts par les bases internationales. Un PDF scanné est lu par reconnaissance de caractères (Tesseract) : la qualité dépend du scan, et cette lecture ne fonctionne que sur la version installée sur ton site. La détection des citations repose sur la forme auteur-date. Les références analysées automatiquement portent la mention « À relire ».</p>
+      </div>
+    </section>
+
+    <section class="dsec" id="dt-export">
+      <h3>Exporter</h3>
+      <div class="exp">
+        <button id="dReport"><b>Rapport de contrôle (.doc)</b><span>Indicateur de conformité, profil, problèmes repérés et bibliographie : à joindre au dépôt ou à transmettre à l’encadreur.</span></button>
+        <button id="dDoc"><b>Word (.docx)</b><span>La bibliographie mise en forme, prête à coller dans ton mémoire.</span></button>
+        <button id="dCopy"><b>Copier</b><span>Avec l’italique, à coller directement dans Word ou Google Docs.</span></button>
+        <button id="dReview"><b>Envoyer à mon encadreur</b><span>Un dossier de relecture (bibliographie, contrôle et texte) à transmettre par WhatsApp ou e-mail. Il l’ouvre dans BiblioCard, commente, et te renvoie ses commentaires.</span></button>
+        <button id="bibBtn"><b>BibTeX (.bib)</b><span>Pour LaTeX et Overleaf.</span></button>
+        <button id="risBtn"><b>RIS (.ris)</b><span>Pour Zotero, Mendeley ou EndNote.</span></button>
+      </div>
+      <div class="blk" id="syncBlk">
+        <h3>Synchroniser mes appareils</h3>
+        <div id="syncBox"></div>
+      </div>
+      <div class="blk">
+        <h3>Sauvegarde</h3>
+        <p class="legend" id="saveInfo"></p>
+        <div class="exp">
+          <button id="bkOut"><b>Télécharger une copie de secours</b><span>Toutes tes fiches dans un fichier .json, à garder avant une date de rendu.</span></button>
+          <button id="bkIn"><b>Restaurer une copie</b><span>Remplace la bibliographie actuelle par celle du fichier.</span></button>
+        </div>
+      </div>
+    </section>
+  </div>
+</dialog>
+
+<dialog id="dlg"></dialog>
+<div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastAct" hidden data-notr="1"></button></div>
+
+<script src="js/i18n-en.js"></script>
+<script src="js/moteur.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+if("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+</script>
+</body>
+</html>
