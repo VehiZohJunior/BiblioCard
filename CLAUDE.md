@@ -76,18 +76,16 @@ Inspirée de l’application Claude :
 
 Règle : **après chaque modification, relancer `npm test` ; pour chaque nouvelle fonction, ajouter un test** `tests/test-*.js`. Pour les vérifications visuelles et d’accessibilité, Playwright et axe-core ont été utilisés (captures au format téléphone 412 × 880, modes clair et sombre).
 
-## Ce qui reste à tester en conditions réelles
+## Tests en conditions réelles
 
-Ces fonctions ont été écrites et testées avec des simulations, jamais dans les conditions réelles :
-1. Dictée avec un vrai micro : moteur « Direct » (reconnaissance du navigateur) et Whisper sur l’appareil (téléchargement du modèle, environ 80 Mo).
-2. Vérification d’existence avec les vraies API OpenAlex, HAL et CrossRef ; recherche par DOI.
-3. Lecture des PDF scannés avec Tesseract.
-4. Contrôle des similitudes avec Wikipédia et OpenAlex.
-5. Synchronisation et catalogue partagé avec un vrai projet Supabase (tables dans LISEZ-MOI.txt).
-6. Module Word dans le vrai Word (web et ordinateur).
-7. Installation sur téléphone et fonctionnement hors connexion (service worker).
+En ligne sur https://vehizohjunior.github.io/BiblioCard/ (dépôt VehiZohJunior/BiblioCard, branche main, racine). Résultats du 2026-10-24 :
 
-Priorité suivante : mettre le projet sous Git, le publier sur GitHub Pages, puis tester ces points un par un et corriger ce qui ne marche pas.
+- **Fait : existence (OpenAlex, HAL, CrossRef) et DOI.** Référence vraie trouvée, référence inventée « introuvable », faux DOI et DOI d’une autre publication « suspects ». HAL répond depuis le site.
+- **Fait : similitudes.** Passage copié de Wikipédia repéré (82 mots, source nommée) ; texte original 0 % ; même passage entre guillemets avec source non signalé.
+- **Fait : PDF scanné (Tesseract).** Page scannée lue sans faute en quelques secondes. Corrigé : Tesseract met une ligne vide avant les lignes en retrait, les références étaient coupées en deux (test `tests/test-pdf-scanne.js`). Pas encore essayé : vrai scan de mauvaise qualité, photo au téléphone.
+- **Fait : hors connexion.** Serveur coupé, l’app se recharge avec moteur, mammoth, pdf.js et JSZip. Le service worker ne s’inscrit qu’en https.
+- **Fait en partie : Whisper.** Modèle téléchargé (21 s) ; voix de synthèse française transcrite avec une seule erreur (« médias ivoiriens » → « médiasivariens »), 12 s pour 6 s d’audio. Reste : un vrai micro, de vraies voix ivoiriennes, le moteur « Direct ».
+- **Reste : Supabase** (compte du porteur), **module Word** (vrai Word), **installation sur téléphone**.
 
 ## Pistes pour la suite
 

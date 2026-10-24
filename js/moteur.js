@@ -392,10 +392,13 @@ function findBibSection(text){
 function splitReferences(text){
   const lines = String(text).split(/\n/).map(l => l.trim());
   const start = /^(?:\[\d+\]|\d{1,3}[.)]\s)|^⟦?[\p{Lu}][\p{L}'’-]+(?:\s[\p{Lu}][\p{L}'’-]+)*(?:,|\s+[\p{Lu}][\p{Ll}]|\s+\(|\s+et\s|\s+\p{Lu}\.)/u;
-  const refs = []; let cur = "";
+  const refs = []; let cur = "", gap = false;
   const push = () => { if(cur) refs.push(cur); cur = ""; };
   lines.forEach(l => {
-    if(!l){ push(); return; }
+    if(!l){ gap = true; return; }
+    // Après une ligne vide : la reconnaissance de caractères (PDF scanné) en met une avant la ligne en retrait
+    // qui continue la référence. On recolle si la référence s’arrêtait sur une virgule ou si la ligne commence en minuscule.
+    if(gap){ gap = false; if(cur && !(/[,;:«–-]\s*$/.test(stripMarks(cur)) || (/^\p{Ll}/u.test(l) && !start.test(l)))) push(); }
     if(cur && start.test(l) && /[.)»”]\s*$/.test(stripMarks(cur)) && YEAR_RE.test(cur)) { push(); cur = l; }
     else cur = cur ? cur + " " + l : l;
   });
