@@ -309,6 +309,10 @@ function splitAuthorsText(t){
   // ISO / MLA : "NOM, Prénom et NOM, Prénom"
   const iso = [...t.matchAll(/([\p{Lu}][\p{Lu}'’ -]{1,}),\s([\p{L}][\p{L}. -]*?)(?=\s(?:et|and|&)\s|,\s[\p{Lu}]{2}|$)/gu)];
   if(iso.length) return iso.map(m => ({family:titleCase(m[1].trim()), given:m[2].trim()}));
+  // Chicago / MLA : "Nom, Prénom" (nom en minuscules), suivi éventuellement de "et Prénom Nom"
+  const inv = /^((?:(?:[DdLl][aeu]s?|[Vv][ao]n|[Dd][aei]l?|[Bb]en|[Oo]uld|[Ee]l)\s+)*[\p{Lu}][\p{L}'’-]+),\s+([\p{Lu}][\p{L}'’.-]*(?:[\s-][\p{Lu}][\p{L}'’.-]*){0,2})$/u;
+  const chunks = t.split(/,?\s+(?:et|and|&)\s+/);
+  if(inv.test(chunks[0])) return chunks.map(c => { const m = c.match(inv); return m ? {family:m[1], given:m[2]} : parseAuthor(c); }).filter(Boolean);
   return t.split(/,\s|\s+(?:et|and|&)\s+/).map(parseAuthor).filter(Boolean);
 }
 const stripMarks = t => String(t||"").replace(/[⟦⟧]/g,"");
