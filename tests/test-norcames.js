@@ -43,4 +43,8 @@ const r = E.verify(texte, biblio);
 egal(r.noInitial.map(x => x.c.rawNoInitial).sort().join(" | "), "Ascher (1998 | Diakité, 1985", "citations sans initiale");
 egal(String(r.ok.length + r.yearOff.length), "3", "auteurs cités rattachés (Ascher, Diakité, UNESCO)");
 
+// 5. Une liste de références dans le texte (éditorial d’un numéro de revue) n’est pas une suite de citations
+const liste = "Références\nDIOP, Cheikh Anta (1954). Nations nègres et culture.\nSAID, Edward (1978). Orientalism.\nUsing C.\nShannon’s (1948) information theory.";
+egal(E.findCitations(liste).map(c => c.family + " " + c.year + " " + c.raw).join(" | "), "Shannon 1948 C. Shannon’s (1948", "liste de références ignorée, citation gardée sur une seule ligne");
+
 console.log(err ? `erreurs : ${err}` : "erreurs : aucune");

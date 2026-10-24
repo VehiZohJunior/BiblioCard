@@ -183,6 +183,18 @@ const exact = {
 "Une référence à la main":"A reference by hand","Formulaire guidé selon le type de document":"Guided form by document type","Un dossier ou des commentaires d’encadreur":"A review file or supervisor comments","Fichier .bibliocard reçu par WhatsApp ou e-mail":".bibliocard file received by WhatsApp or e-mail",
 "Le mémoire d’exemple":"The sample dissertation","Pour découvrir l’outil ou faire une démonstration":"To discover the tool or give a demo","Profils de revues et langue…":"Journal profiles and language…","choisie":"selected",
 };
+// un point du contrôle de structure NORCAMES (les textes cités entre « » restent tels quels)
+const STRUCT_EN = x => x
+  .replace(/^partie absente : (.+)$/, "missing section: $1")
+  .replace(/^ordre : (.+) avant (.+)$/, "order: $1 before $2")
+  .replace(/^(« .+ ») : numéro sans point \(NORCAMES : « 1\. »\)$/, "$1: number without a full stop (NORCAMES: “1.”)")
+  .replace(/^adresse électronique de l’auteur absente avant le résumé$/, "author’s e-mail address missing before the abstract")
+  .replace(/^intitulé (« .+ ») au lieu de « Références bibliographiques »$/, "heading $1 instead of “Références bibliographiques”")
+  .replace(/^(« .+ ») : partie non numérotée$/, "$1: unnumbered section")
+  .replace(/^(« .+ ») : numéro ([\d.]+) après ([\d.]+)$/, "$1: number $2 after $3")
+  .replace(/^(« .+ ») : la première partie porte le numéro ([\d.]+)$/, "$1: the first section is numbered $2")
+  .replace(/^citation de (\d+) mots dans la phrase, à mettre à la ligne et en retrait : (.+)$/, "$1-word quotation inside the sentence, to set on its own line and indented: $2")
+  .replace(/^citation en italique, à mettre en romain entre guillemets : (.+)$/, "italic quotation, to set in roman between quotation marks: $1");
 const re = [
  [/^(\d+) fiches?$/, (m, n) => `${n} ${P(n, "record", "records")}`],
  [/^(\d+) références?$/, (m, n) => `${n} ${P(n, "reference", "references")}`],
@@ -258,6 +270,12 @@ const re = [
  [/^Année différente \((\d+)\)$/, (m, n) => `Different year (${n})`],
  [/^Jamais citées \((\d+)\)$/, (m, n) => `Never cited (${n})`],
  [/^Correspondances \((\d+)\)$/, (m, n) => `Matches (${n})`],
+ [/^Structure NORCAMES de l’article \((\d+)\)$/, (m, n) => `NORCAMES article structure (${n})`],
+ [/^Structure NORCAMES de l’article : conforme \(parties, ordre, numérotation, citations\)\.$/, () => "NORCAMES article structure: compliant (sections, order, numbering, quotations)."],
+ [/^La mise en page \(retrait, interligne, police\) n’est pas contrôlée : vérifie-la selon les consignes de la revue\.$/, () => "Layout (indent, line spacing, font) is not checked: check it against the journal’s guidelines."],
+ [/^Structure de l’article : (\d+) points? à revoir$/, (m, n) => `Article structure: ${n} ${P(n, "point", "points")} to review`],
+ [/^(.+) ne suit pas encore NORCAMES : (.+)$/, (m, f, r) => `${f} does not yet follow NORCAMES: ${r.split(" ; ").map(STRUCT_EN).join("; ")}`],
+ [/^(?:partie absente : .+|ordre : .+ avant .+|adresse électronique de l’auteur absente avant le résumé|intitulé « .+|« .+ » : (?:partie non numérotée|numéro [\d.]+ après [\d.]+|la première partie porte le numéro [\d.]+|numéro sans point \(NORCAMES : « 1\. »\))|citation de \d+ mots dans la phrase, .+|citation en italique, .+)$/, m => STRUCT_EN(m)],
  [/^(.+) : la référence indique (.+)$/, (m, a, b) => `${a}: the reference says ${b}`],
  [/^Vérifier (\d+) références?$/, (m, n) => `Check ${n} ${P(n, "reference", "references")}`],
  [/^Vérification en cours : (\d+) sur (\d+)…$/, (m, a, b) => `Checking: ${a} of ${b}…`],

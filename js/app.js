@@ -187,6 +187,11 @@ function computeTasks(){
     acts:[["Voir les fiches", () => dashTab("fiches")], ["Tout valider", () => { auto.forEach(s => { s._method = s._method || s.origin; s.origin = "Vérifiée"; s._validated = Date.now(); }); save(); renderAll(); toast("Références validées"); }]]});
   fileReports.forEach(({f, r}) => { if(r.unused.length && !ui.dismissed.has("u|" + f.name)) t.push({key:"u|" + f.name, info:true, title:`${r.unused.length} référence${r.unused.length > 1 ? "s" : ""} jamais citée${r.unused.length > 1 ? "s" : ""}`, sub:`Présentes dans la bibliographie de ${f.name}, absentes du texte. La norme demande en général de ne garder que ce qui est cité.`,
     acts:[["Voir lesquelles", () => dashTab("controle")], ["C’est voulu", () => dismiss("u|" + f.name)]]}); });
+  // NORCAMES : structure de l’article (seulement si le document a un résumé ou un abstract)
+  if(state.style === "cames") ui.files.forEach(f => { const s = structureOf(f); if(!s || !s.count || ui.dismissed.has("st|" + f.name)) return;
+    const l = structureIssues(s);
+    t.push({key:"st|" + f.name, info:true, title:`Structure de l’article : ${plur(s.count, "point", "points")} à revoir`, sub:`${f.name} ne suit pas encore NORCAMES : ${l.slice(0, 2).join(" ; ")}${l.length > 2 ? "…" : "."}`,
+      acts:[["Voir le détail", () => dashTab("controle")], ["Ignorer", () => dismiss("st|" + f.name)]]}); });
   // NORCAMES : « (S. Diakité, 1985, p. 105) » ou « M. Ascher (1998, p. 223) », avec l’initiale du prénom
   if(state.style === "cames") fileReports.forEach(({f, r}) => { const n = (r.noInitial || []); if(!n.length || ui.dismissed.has("i|" + f.name)) return;
     const ex = n.slice(0, 3).map(x => `«${NB}${closeParen((x.c.rawNoInitial || x.c.raw).replace(/[(),\s]+$/,""))}${NB}»`).join(", ");
@@ -195,6 +200,19 @@ function computeTasks(){
   return t;
 }
 function dismiss(k){ ui.dismissed.add(k); renderAll(); }
+const structureOf = f => f.text && f.text.length > 300 ? checkArticleStructure(f.text, f.headings) : null;
+function structureIssues(s){
+  const q = t => `«${NB}${t}…${NB}»`;
+  return [
+    ...s.missing.map(x => `partie absente${NB}: ${x}`),
+    ...s.order.map(x => x),
+    ...(s.email ? [] : ["adresse électronique de l’auteur absente avant le résumé"]),
+    ...(s.refsLabel ? [`intitulé ${q(s.refsLabel).replace("…", "")} au lieu de «${NB}Références bibliographiques${NB}»`] : []),
+    ...s.numbering.map(n => `${q(n.text.slice(0, 50))}${NB}: ${n.issue}`),
+    ...s.longQuotes.map(c => `citation de ${c.words} mots dans la phrase, à mettre à la ligne et en retrait${NB}: ${q(c.text.slice(0, 50))}`),
+    ...s.italicQuotes.map(c => `citation en italique, à mettre en romain entre guillemets${NB}: ${q(c.slice(0, 50))}`),
+  ];
+}
 function renderTasks(){
   TASKS = computeTasks();
   const urgent = TASKS.filter(x => !x.info).length;
@@ -213,9 +231,12 @@ function renderTasks(){
 function renderReports(){
   const L = labeled(); const st = STYLES[state.style];
   const docs = ui.files.filter(f => f.body && f.body.trim().length > 200 && (f.mode === "biblio" || f.mode === "texte"));
+  const structBlk = f => { if(state.style !== "cames") return ""; const s = structureOf(f); if(!s) return "";
+    return s.count ? `<details open><summary class="bad">Structure NORCAMES de l’article (${s.count})</summary><ul>${structureIssues(s).map(x => `<li>${esc(x)}</li>`).join("")}</ul><p class="sum">La mise en page (retrait, interligne, police) n’est pas contrôlée${NB}: vérifie-la selon les consignes de la revue.</p></details>`
+      : `<p class="sum">Structure NORCAMES de l’article${NB}: conforme (parties, ordre, numérotation, citations).</p>`; };
   $("#reports").innerHTML = docs.length ? docs.map(f => {
     const r = verifyAny(stripMarks(f.body), L);
-    if(!r.total) return `<div class="report"><h4>${esc(f.name)}</h4><p class="sum">Aucune citation auteur-date repérée dans le texte.</p></div>`;
+    if(!r.total) return `<div class="report"><h4>${esc(f.name)}</h4><p class="sum">Aucune citation auteur-date repérée dans le texte.</p>${structBlk(f)}</div>`;
     const list = (arr, fn) => `<ul>${arr.slice(0,40).map(fn).join("")}</ul>${arr.length > 40 ? `<p class="sum">et ${arr.length - 40} autres</p>` : ""}`;
     const issues = r.missing.length + r.yearOff.length;
     return `<div class="report"><h4>${esc(f.name)}</h4>
@@ -224,6 +245,7 @@ function renderReports(){
       ${r.yearOff.length ? `<details open><summary class="bad">Année différente (${r.yearOff.length})</summary>${list(r.yearOff, x => `<li>${esc(x.c.raw)} : la référence indique ${esc(x.s._label)}</li>`)}</details>` : ""}
       ${r.unused.length ? `<details><summary>Jamais citées (${r.unused.length})</summary>${list(r.unused, s => `<li>${st.cite(s, "", "parenthese")} ${esc(s.title)}</li>`)}</details>` : ""}
       ${r.ok.length ? `<details><summary>Correspondances (${r.ok.length})</summary>${list(r.ok, x => `<li>${esc(x.c.raw)}</li>`)}</details>` : ""}
+      ${structBlk(f)}
     </div>`;
   }).join("") : `<p class="legend">Dépose ton mémoire ou ta thèse sur la page principale : son contrôle apparaîtra ici.</p>`;
 }
@@ -397,24 +419,20 @@ async function extract(file, f){
   if(n.endsWith(".docx")){
     const m = await waitFor("mammoth"); if(!m) throw new Error("le lecteur Word n’a pas pu se charger");
     const r = await m.convertToHtml({arrayBuffer: await file.arrayBuffer()});
+    // titres de parties (styles Titre 1, Titre 2… de Word), pour le contrôle de structure NORCAMES
+    if(f) f.headings = [...r.value.matchAll(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/g)].map(x => stripMarks(htmlToMarked(x[1])).replace(/\s+/g, " ").trim()).filter(Boolean);
     return htmlToMarked(r.value);
   }
   if(n.endsWith(".pdf")){
     const lib = await waitFor("pdfjsLib"); if(!lib) throw new Error("le lecteur PDF n’a pas pu se charger");
     lib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
     const pdf = await lib.getDocument({data: await file.arrayBuffer()}).promise;
-    let out = "";
+    const pages = [];
     for(let p = 1; p <= Math.min(pdf.numPages, 400); p++){
       const c = await (await pdf.getPage(p)).getTextContent();
-      let lastY = null, lastH = 10;
-      c.items.forEach(it => {
-        const y = it.transform[5], h = Math.abs(it.transform[3]) || lastH;
-        if(lastY !== null){ const gap = Math.abs(lastY - y); out += gap > h * 1.9 ? "\n\n" : gap > 2 ? "\n" : (it.str.startsWith(" ") || out.endsWith(" ") ? "" : " "); }
-        out += it.str; lastY = y; lastH = h;
-      });
-      out += "\n\n";
+      pages.push(c.items.filter(it => it.str !== undefined).map(it => ({str: it.str, x: it.transform[4], y: it.transform[5], w: it.width || 0, h: Math.abs(it.transform[3])})));
     }
-    const clean = out.replace(/\n[ \t]*\d{1,4}[ \t]*\n/g, "\n");
+    const clean = pdfPagesToText(pages);
     if(clean.replace(/\s/g, "").length < 60 * Math.min(pdf.numPages, 400) && f) return await ocrPdf(pdf, f);
     return clean;
   }
@@ -1379,7 +1397,7 @@ $("#voixPanel").addEventListener("toggle", () => { if($("#voixPanel").open) rend
 
 /* ================= CORRIGER LE DOCUMENT WORD LUI-MÊME ================= */
 const WNS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-const BIB_HEAD = /^\s*(?:[IVX\d]+[.)-]?\s*)?(r[ée]f[ée]rences bibliographiques|r[ée]f[ée]rences|bibliographie(?:\s+(?:g[ée]n[ée]rale|s[ée]lective|indicative))?|sources et bibliographie|ouvrages cit[ée]s|works cited|references|bibliography|webographie)\s*:?\s*$/i;
+const BIB_HEAD = /^\s*(?:[IVX\d]+[.)-]?\s*)?(r[ée]f[ée]rences bibliographiques|r[ée]f[ée]rences|bibliograp{1,2}h{1,2}ie(?:\s+(?:g[ée]n[ée]rale|s[ée]lective|indicative))?|sources et bibliographie|ouvrages cit[ée]s|works cited|references|bibliograp{1,2}h{1,2}y|webographie)\s*:?\s*$/i;
 const END_HEAD = /^\s*(?:[IVX\d]+[.)-]?\s*)?(annexes?|table des mati[èe]res|index|glossaire|appendix|appendices|liste des (?:tableaux|figures|sigles))\b.{0,40}$/i;
 async function fixDocx(f){
   const JSZip = window.JSZip || await waitFor("JSZip");
@@ -1608,8 +1626,10 @@ const I18N = window.I18N_EN || {exact: {}, re: [], frag: []};
 const SKIP_DEEP = ".ref, .c, .card h5, .pitem h5, .nm, #revText h3, [data-notr], #printArea, textarea, script, style";
 const SKIP_DIRECT = ".pass, .rpara, .cmt";
 const normKey = t => t.replace(/[\u00A0\u202F]/g, " ").replace(/\s+/g, " ").trim();
-function tr(text){
-  if(state.uiLang !== "en" || !text) return text;
+function tr(text){ return state.uiLang === "en" ? trEn(text) : text; }
+// traduction anglaise, quelle que soit la langue affichée (pour reconnaître un texte déjà traduit au retour en français)
+function trEn(text){
+  if(!text) return text;
   const k = normKey(text); if(!k || !/\p{L}/u.test(k)) return text;
   const lead = text.match(/^\s*/)[0], tail = text.match(/\s*$/)[0];
   if(I18N.exact[k] !== undefined) return lead + I18N.exact[k] + tail;
@@ -1620,7 +1640,7 @@ const ORIG = new WeakMap();
 function trNode(n){
   if(n.nodeType === 3){
     const pe = n.parentElement; if(!pe || pe.closest(SKIP_DEEP) || pe.matches(SKIP_DIRECT)) return;
-    let src = ORIG.get(n); if(src === undefined || (n.nodeValue !== src && n.nodeValue !== tr(src))){ src = n.nodeValue; ORIG.set(n, src); }
+    let src = ORIG.get(n); if(src === undefined || (n.nodeValue !== src && n.nodeValue !== trEn(src))){ src = n.nodeValue; ORIG.set(n, src); }
     let out = state.uiLang === "en" ? tr(src) : src;
     if(state.uiLang === "en" && pe.closest(".meta")) I18N.frag.forEach(([a, b]) => out = out.split(a).join(b));
     if(n.nodeValue !== out) n.nodeValue = out;
@@ -1641,7 +1661,7 @@ new MutationObserver(ms => { ms.forEach(m => {
     if(m.type === "characterData") trNode(m.target);
     else if(m.type === "childList") m.addedNodes.forEach(trNode);
     else if(m.type === "attributes"){ const n = m.target, at = m.attributeName, key = "data-fr-" + at, cur = n.getAttribute(at), orig = n.getAttribute(key);
-      if(cur === null || (orig !== null && cur === tr(orig))) return;
+      if(cur === null || (orig !== null && (cur === orig || cur === trEn(orig)))) return;
       n.setAttribute(key, cur); const v = tr(cur); if(v !== cur) n.setAttribute(at, v); }
   }); })
   .observe(document.body, {subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["placeholder","aria-label","title"]});

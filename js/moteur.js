@@ -314,7 +314,9 @@ function splitAuthorsText(t){
   // Chicago / MLA : "Nom, Prénom" (nom en minuscules), suivi éventuellement de "et Prénom Nom"
   const inv = /^((?:(?:[DdLl][aeu]s?|[Vv][ao]n|[Dd][aei]l?|[Bb]en|[Oo]uld|[Ee]l)\s+)*[\p{Lu}][\p{L}'’-]+),\s+([\p{Lu}][\p{L}'’.-]*(?:[\s-][\p{Lu}][\p{L}'’.-]*){0,2})$/u;
   const chunks = t.split(/,?\s+(?:et|and|&)\s+/);
-  if(inv.test(chunks[0])) return chunks.map(c => { const m = c.match(inv); return m ? {family:m[1], given:m[2]} : parseAuthor(c); }).filter(Boolean);
+  // « PERELMAN Chaïm et OLBRECHTS-Tyteca, Lucie » : chaque auteur a au plus une virgule, l’un est inversé
+  const invOk = chunks.length > 1 ? chunks.some(c => inv.test(c)) && chunks.every(c => (c.match(/,/g) || []).length <= 1) : inv.test(chunks[0]);
+  if(invOk) return chunks.map(c => { const m = c.match(inv); return m ? {family:m[1], given:m[2]} : parseAuthor(c); }).filter(Boolean);
   return t.split(/,\s|\s+(?:et|and|&)\s+/).map(parseAuthor).filter(Boolean);
 }
 /* NORCAMES : « NOM Prénom, Année, Zone titre, Lieu de publication, Zone Éditeur ».
@@ -323,18 +325,28 @@ function splitAuthorsText(t){
    L’édition (« 2nde éd. ») et le traducteur (« trad. X ») suivent le titre. */
 function camesTitleZone(rest){
   const segs = rest.replace(/^[\s.,:;]+/,"").replace(/[.\s]+$/,"").split(/,\s+/);
+  const ED = /^(?:\d+\p{L}*|\p{L}+)\s+[ée]d(?:\.|ition)$|^[ée]d(?:\.|ition)\s/iu;
+  let edition = "", translator = "";
+  // « Paris, Hachette, Nouvelle édition » : édition placée après l’éditeur
+  if(segs.length > 2 && ED.test(segs[segs.length - 1])) edition = segs.pop();
+  // « …of Exaggeration. Cambridge, Cambridge University Press » : ville collée au titre par un point
+  if(segs.length === 2){
+    const m = segs[0].match(/^(.+[^.\s]{2})\.\s+(\p{Lu}[\p{L}'’ -]{1,30})$/u);
+    if(m && m[2].split(" ").length <= 3 && !/\d/.test(segs[1])) return {title: m[1].trim(), edition, translator, tail: `, ${m[2]}, ${segs[1]}.`};
+  }
   if(segs.length < 3) return null;
-  let end = segs.findIndex((x, i) => i > 0 && /^(Th[èe]se|M[ée]moire|Rapport)\b/i.test(x));
+  let end = segs.findIndex((x, i) => i > 0 && /^(Th[èe]se|M[ée]moire|Rapport|Ph\.?\s?D|PhD|Doctoral|Master)/i.test(x));
   if(end < 0){
     const city = segs[segs.length - 2], pub = segs[segs.length - 1];
     if(!/^[\p{Lu}][\p{L}'’ -]{1,30}$/u.test(city) || city.split(" ").length > 3 || /\d|https?:/.test(city + pub)) return null;
     end = segs.length - 2;
   }
-  const t = segs.slice(0, end); let edition = "", translator = "";
+  const t = segs.slice(0, end);
+  const TR = /^(?:trad(?:\.|uit(?: par)?)|trans(?:l\.|\.|lated by)?)\s+/i; // « trad. X », « Transl. X »
   while(t.length > 1){
     const last = t[t.length - 1];
-    if(/^(?:\d+\p{L}*|\p{L}+)\s+[ée]d(?:\.|ition)$|^[ée]d(?:\.|ition)\s/iu.test(last)){ edition = last; t.pop(); }
-    else if(/^trad(?:\.|uit)\s/i.test(last)){ translator = last.replace(/^trad(?:\.|uit(?: par)?)\s*/i, ""); t.pop(); }
+    if(ED.test(last)){ edition = last; t.pop(); }
+    else if(TR.test(last)){ translator = last.replace(TR, ""); t.pop(); }
     else break;
   }
   return {title: t.join(", ").trim(), edition, translator, tail: ", " + segs.slice(end).join(", ") + "."};
@@ -357,11 +369,18 @@ function parseRefHeuristic(line){
       .replace(/^\[\d{4}\][\s).,:]*/,""); // date de première édition : « 2002 [1961] »
   }
   // un titre entre guillemets ouvre la référence ; des guillemets plus loin sont un mot cité dans un titre de livre
-  const q = rest.match(/^[«“"]\s?([^»”"]+?)\s?[»”"]/);
+  const q = rest.match(/^[«“"]\s?([^»”"]+?)\s?[»”"]/) || rest.match(/^(?:‘‘|'')\s?(.+?)\s?(?:’’|''|”)/);
   if(q){
     s.title = q[1].replace(/[.,]$/,"").trim();
     const after = rest.slice(rest.indexOf(q[0]) + q[0].length).replace(/^[\s.,]+/,"");
-    if(/^(in|dans)\b\s*:?/i.test(after)){ s.type = "chapter"; s.container = after.replace(/^(in|dans)\s*:?\s*/i,"").split(/[,.]\s/)[0]; }
+    // chapitre : « in Ouvrage » ou « in NOM Prénom (dir.), Ouvrage » ou « Van Dijk, T.A. (ed.) Ouvrage »
+    const isIn = /^(in|dans)\b\s*:?/i.test(after), a2 = after.replace(/^(in|dans)\s*:?\s*/i, "");
+    const ed = a2.match(/^(.{2,120}?)\s*\((?:dir|[ée]ds?|coord|sous la dir)\.?\)\s*,?\s*/i);
+    if(isIn || ed){
+      s.type = "chapter";
+      if(ed) s.editors = ed[1].replace(/[,\s]+$/, "").trim();
+      s.container = (ed ? a2.slice(ed[0].length) : a2).split(/,\s|\.\s(?=\p{Lu})/u)[0].trim();
+    }
     else { s.type = "article"; s.container = after.split(/,\s|\.\s/)[0].replace(/\s?\d+\s?\(.*$/,"").trim(); }
     rest = after;
   } else if(/\d+\s?\(\d+\)|,\s?\d+,\s?\d+\s?[-–]\s?\d+/.test(rest)){
@@ -379,27 +398,37 @@ function parseRefHeuristic(line){
   // thèse en APA : « Titre [Thèse de doctorat, Université…] »
   const br = s.title.indexOf(" ["); if(br > 0){ rest = s.title.slice(br) + " " + rest; s.title = s.title.slice(0, br).trim(); }
   const pg = rest.match(/p{1,2}\.?\s?(\d+\s?[-–]\s?\d+)/) || (s.type !== "book" && rest.match(/(?:,|:)\s?(\d+\s?[-–]\s?\d+)/)); if(pg) s.pages = pg[1].replace(/\s/g,"");
-  const vol = rest.match(/vol\.?\s?(\d+)/i) || rest.match(/(?:^|,\s)(\d+)\s?\(\d+\)/); if(vol) s.volume = vol[1];
-  const iss = rest.match(/n[°o]\.?\s?(\d+)/i) || rest.match(/\d+\s?\((\d+)\)/); if(iss) s.issue = iss[1];
-  if(/th[èe]se|dissertation|m[ée]moire/i.test(raw)){ s.type = "thesis"; const g = raw.match(/(Th[èe]se de doctorat|M[ée]moire de master|PhD dissertation|Doctoral dissertation)/i); if(g) s.genre = g[1]; }
+  const vol = rest.match(/vol(?:ume|\.)?\s?(\d+)/i) || rest.match(/(?:^|,\s)(\d+)\s?\(\d+\)/); if(vol) s.volume = vol[1];
+  const iss = rest.match(/(?:n[°o]\.?|issue|no\.)\s?(\d+)/i) || rest.match(/\d+\s?\((\d+)\)/); if(iss) s.issue = iss[1];
+  if(/th[èe]se|dissertation|m[ée]moire/i.test(raw)){
+    s.type = "thesis"; const g = raw.match(/(Th[èe]se de doctorat|M[ée]moire de master|Ph\.?\s?D\.? dissertation|Doctoral dissertation)/i); if(g) s.genre = g[1];
+    s.title = s.title.replace(/\.\s+(?:Ph\.?\s?D|PhD|Doctoral|Master|Th[èe]se|M[ée]moire)\b.*$/i, ""); // « Titre. Ph.D dissertation under… »
+  }
   const bracket = rest.match(/\[(?:Th[èe]se|M[ée]moire|PhD|Doctoral|Master)[^,\]]*,\s*([^\]]+)\]/i); // APA : [Thèse de doctorat, Université…]
   if(bracket){ s.publisher = bracket[1].trim(); }
   else if(s.type === "book" || s.type === "thesis" || s.type === "chapter"){
-    const cp = rest.match(/([\p{Lu}][\p{L} -]{1,30})\s?:\s?([^,.;]{2,60})/u);
-    if(cp){ s.city = cp[1].trim(); s.publisher = cp[2].trim(); }
-    else if(/^(?:Th[èe]se|M[ée]moire)/i.test(rest) === false && (() => {
+    // chapitre : ville et éditeur viennent après le titre de l’ouvrage collectif (pas dans les noms des directeurs)
+    const zone = s.type === "chapter" && s.container && rest.includes(s.container) ? rest.slice(rest.indexOf(s.container) + s.container.length) : rest;
+    let cp = zone.match(/([\p{Lu}][\p{L} -]{1,30})\s?:\s?([^,.;]{2,60})/u);
+    if(cp){
+      s.city = cp[1].trim(); s.publisher = cp[2].trim();
+      // « Notre Dame, IN: University of Notre Dame Press » : l’État américain renvoie à la ville qui le précède
+      if(/^\p{Lu}{2}$/u.test(s.city)){ const prev = zone.slice(0, cp.index).split(/,\s*/).map(x => x.trim()).filter(x => x && !/^\(|\)$/.test(x)).pop(); if(prev && /^\p{Lu}[\p{L}'’ -]{1,30}$/u.test(prev)) s.city = prev; }
+    }
+    else if(/^(?:Th[èe]se|M[ée]moire)/i.test(zone) === false && (() => {
       // APA : « Titre. Sous-titre, avec virgules. Éditeur. » : l’éditeur est la dernière phrase
-      const sents = rest.replace(/^[\s.,:;]+/,"").replace(/[.\s]+$/,"").split(/\.\s+(?=\p{Lu})/u);
+      const sents = zone.replace(/^[\s.,:;]+/,"").replace(/[.\s]+$/,"").split(/\.\s+(?=\p{Lu})/u);
       const last = sents[sents.length - 1];
       if(sents.length > 1 && !/[,\d[\]]/.test(last)){ s.publisher = last.trim(); return true; }
       return false;
     })()){ /* éditeur trouvé */ }
     else {
-      const segs = rest.split(/,\s/).map(x => x.replace(/^[\s.,:;]+/,"").replace(/[.]$/,"").trim()).filter(x => x && !/\d/.test(x) && !/^(in|dans)\b/i.test(x));
+      const segs = zone.split(/,\s/).map(x => x.replace(/^[\s.,:;]+/,"").replace(/[.]$/,"").trim()).filter(x => x && !/\d/.test(x) && !/^(in|dans)\b/i.test(x) && !/https?:|^visited|^consult/i.test(x));
       if(segs.length >= 2){
         s.city = segs[segs.length-2]; s.publisher = segs[segs.length-1];
         // « Université X, Abidjan » : l’établissement est l’éditeur, même placé avant la ville
-        if(/universit|[ée]cole|institut|presses/i.test(s.city) && !/universit|[ée]cole|institut|presses/i.test(s.publisher)) [s.city, s.publisher] = [s.publisher, s.city];
+        // « l’Harmattan, Côte d’Ivoire » : une « ville » en minuscule est l’éditeur
+        if((/universit|[ée]cole|institut|presses/i.test(s.city) && !/universit|[ée]cole|institut|presses/i.test(s.publisher)) || /^\p{Ll}/u.test(s.city)) [s.city, s.publisher] = [s.publisher, s.city];
       }
       else if(segs.length === 1 && segs[0] !== s.title) s.publisher = segs[0];
     }
@@ -412,6 +441,12 @@ function parseRefHeuristic(line){
       else s.title = it;
     }
   }
+  // « Titre, Journal of…, Volume 6 – Issue 11 » : un volume ou un numéro sans éditeur, c’est un article
+  if(s.type === "book" && (s.volume || s.issue) && !s.city && !s.publisher && !s.url){
+    s.type = "article";
+    s.container = rest.replace(/^[\s.,:;]+/, "").split(/,\s/)[0].replace(/^.*\.\s+(?=\p{Lu})/u, "").replace(/\s*[–-]\s*\p{L}+\s+\d{4}$/u, "").trim();
+  }
+  s.title = s.title.replace(/^(?:‘‘|''|[«“"‘])\s*/, ""); // guillemet ouvrant resté seul
   if(s.url && !s.container && s.type === "book" && !s.publisher){ s.type = "webpage"; try{ s.container = new URL(s.url).hostname.replace(/^www\./,""); }catch(e){} }
   return s;
 }
@@ -420,7 +455,7 @@ function blank(){ return {id: "s" + Math.random().toString(36).slice(2,10), type
 /* ---------- lecture d’un document : section bibliographie + découpage ---------- */
 const YEAR_RE = /(1[5-9]\d{2}|20\d{2}|s\.\s?d\.|n\.\s?d\.)/;
 function findBibSection(text){
-  const head = /^[ \t]*(?:[IVX\d]+[.)-]?\s*)?(r[ée]f[ée]rences bibliographiques|r[ée]f[ée]rences|bibliographie(?:\s+(?:g[ée]n[ée]rale|s[ée]lective|indicative))?|sources et bibliographie|ouvrages cit[ée]s|works cited|references|bibliography|webographie)[ \t]*:?[ \t]*$/gim;
+  const head = /^[ \t]*(?:[IVX\d]+[.)-]?\s*)?(r[ée]f[ée]rences bibliographiques|r[ée]f[ée]rences|bibliograp{1,2}h{1,2}ie(?:\s+(?:g[ée]n[ée]rale|s[ée]lective|indicative))?|sources et bibliographie|ouvrages cit[ée]s|works cited|references|bibliograp{1,2}h{1,2}y|webographie)[ \t]*:?[ \t]*$/gim; // « BIBLIOGRAPPHY » : coquille réelle
   let m, last = null;
   while((m = head.exec(stripMarks(text)))) last = m;
   if(!last) return null;
@@ -432,6 +467,126 @@ function findBibSection(text){
   if(end > 0) section = section.slice(0, end);
   return {body: text.slice(0, idx), section};
 }
+/* ---------- texte d’un PDF ----------
+   pages : pour chaque page, les morceaux de texte de pdf.js {str, x, y, w, h}.
+   Une espace seulement entre deux morceaux réellement séparés (sinon « AL - AZZAWI », « Pro blem »),
+   une ligne vide entre deux paragraphes, et on retire numéros de page, en-têtes et pieds de page
+   qui se répètent (« Revue Flaly no 13, Deuxième semestre »). */
+function pdfPagesToText(pages){
+  const lined = pages.map(items => {
+    const lines = []; let cur = null, lastY = null, lastEnd = null, lastH = 10;
+    items.forEach(it => {
+      const h = it.h || lastH;
+      if(lastY === null || Math.abs(lastY - it.y) > 2){
+        cur = {t: "", gap: lastY !== null && Math.abs(lastY - it.y) > lastH * 1.9}; lines.push(cur); lastEnd = null;
+      } else if(lastEnd !== null && cur.t && !/\s$/.test(cur.t) && !/^\s/.test(it.str) && it.x - lastEnd > h * 0.12) cur.t += " ";
+      cur.t += it.str; lastY = it.y; lastH = h; lastEnd = it.x + it.w;
+    });
+    return lines.map(l => ({...l, t: l.t.replace(/\s+/g, " ").trim()})).filter(l => l.t);
+  });
+  // en-têtes et pieds de page : lignes de haut ou de bas de page qui reviennent (chiffres mis à part)
+  const key = t => t.replace(/\d+/g, "#").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); // « Deuxieme » = « Deuxième »
+  const seen = {};
+  lined.forEach(ls => new Set([...ls.slice(0, 2), ...ls.slice(-2)].map(l => key(l.t))).forEach(k => seen[k] = (seen[k] || 0) + 1));
+  const repeated = k => pages.length >= 3 && seen[k] >= Math.max(3, Math.ceil(pages.length / 3));
+  return lined.map(ls => ls.filter((l, i) => !/^\d{1,4}$/.test(l.t) && !((i < 2 || i >= ls.length - 2) && repeated(key(l.t))))
+    .map((l, i) => (i && l.gap ? "\n\n" : i ? "\n" : "") + l.t).join("")).join("\n");
+}
+/* ---------- structure d’un article selon NORCAMES/LSH ----------
+   text : texte du document (italique marqué ⟦…⟧, paragraphes séparés par une ligne vide).
+   headings : titres de parties repérés par leur style Word (facultatif ; sans eux, seule la
+   suite des numéros est contrôlée, pour ne pas prendre une phrase courte pour un titre).
+   Renvoie null si le document n’a ni résumé ni abstract : ce n’est pas un article de revue. */
+const ART_PARTS = [
+  ["resume", "Résumé", /^r[ée]sum[ée](?!\p{L})/iu],
+  ["motscles", "Mots clés", /^mots?[\s-]*cl[ée]s?(?!\p{L})/iu],
+  ["abstract", "Abstract", /^abstract\b/i],
+  ["keywords", "Key words", /^key[\s-]*words?\b/i],
+  ["introduction", "Introduction", /^(?:\d+[.)]?\s*)?introduction(?:\s+g[ée]n[ée]rale)?\s*:?$/i],
+  ["conclusion", "Conclusion", /^(?:\d+[.)]?\s*)?conclusion(?:\s+g[ée]n[ée]rale)?\s*:?$/i],
+  ["references", "Références bibliographiques", /^(?:r[ée]f[ée]rences bibliographiques|r[ée]f[ée]rences|bibliographie(?:\s+\p{L}+)?)\s*:?$/iu],
+];
+const NUM_HEAD = /^(\d+(?:\.\d+)*)\.?\s+(\S.*)$/;
+const NOT_HEAD = /^(tableau|figure|graphique|source|carte|photo|image|encadr[ée]|note|sch[ée]ma)(?!\p{L})/iu;
+// Le travail se fait ligne par ligne : dans un PDF, un titre (« CONCLUSION », « BIBLIOGRAPHY ») n’est pas
+// toujours séparé du texte par une ligne vide. On part du résumé de l’article : avant lui, un numéro de revue
+// contient sommaire, éditorial et autres articles (« Introduction……IX »).
+function checkArticleStructure(text, headings){
+  const L = String(text || "").split(/\n/).map(r => ({r, t: stripMarks(r).replace(/\s+/g, " ").trim()})).filter(x => x.t);
+  const lines = L.map(x => x.t);
+  const RE = Object.fromEntries(ART_PARTS.map(([k, , re]) => [k, re]));
+  RE.references = /^(?:\d+[.)]?\s*)?(?:r[ée]f[ée]rences bibliographiques|r[ée]f[ée]rences|bibliograp{1,2}h{1,2}(?:ie|y)(?:\s+\p{L}+)?|references|works cited|webographie)\s*:?$/iu;
+  const LABEL = Object.fromEntries(ART_PARTS.map(([k, label]) => [k, label]));
+  const first = (re, from, to, short) => { for(let i = from; i < to; i++) if((!short || lines[i].length < 60) && re.test(lines[i])) return i; return undefined; };
+  const anchors = [first(RE.resume, 0, lines.length), first(RE.abstract, 0, lines.length)].filter(i => i !== undefined);
+  if(!anchors.length) return null;
+  const anchor = Math.min(...anchors), base = Math.max(0, anchor - 15);
+  const at = {};
+  ["resume", "motscles", "abstract", "keywords"].forEach(k => at[k] = first(RE[k], base, lines.length));
+  at.introduction = first(RE.introduction, anchor, lines.length, true);
+  at.conclusion = first(RE.conclusion, anchor, lines.length, true);
+  at.references = first(RE.references, Math.max(anchor, at.conclusion ?? 0, at.introduction ?? 0), lines.length, true) ?? first(RE.references, anchor, lines.length, true);
+  const end = at.references ?? lines.length;
+  const out = {missing: [], order: [], numbering: [], longQuotes: [], italicQuotes: [], email: true, refsLabel: "", terrain: false};
+  const isHead = l => l.length < 80 && !/[.;!?,]$/.test(l);
+  // terrain : Méthodologie, puis Résultats et Discussion
+  const body = (at.introduction ?? anchor) + 1, stop = Math.max(body, at.conclusion ?? end);
+  const find = re => first({test: l => isHead(l) && re.test(l.replace(NUM_HEAD, "$2"))}, body, end);
+  // article de terrain = une méthodologie ET des résultats ; il lui faut alors une discussion
+  const meth = find(/^(m[ée]thodologie|m[ée]thodes?|mat[ée]riels? et m[ée]thodes?|cadre m[ée]thodologique|methodology|methods|methodological)(?!\p{L})/iu);
+  if(meth !== undefined && find(/r[ée]sultats|results/i) !== undefined){
+    out.terrain = true;
+    if(find(/discussion|interpr[ée]tations?/i) === undefined) out.missing.push("Discussion");
+  }
+  ART_PARTS.forEach(([k, label]) => { if(at[k] === undefined) out.missing.push(label); });
+  // intitulé français attendu… sauf pour un article rédigé en anglais (« References », « Bibliography »)
+  const lang = langOf(lines.slice(anchor, end).join(" ").slice(0, 20000));
+  if(at.references !== undefined && lang !== "en" && !/r[ée]f[ée]rences bibliographiques/i.test(lines[at.references])) out.refsLabel = lines[at.references].replace(/\s*:$/, "");
+  // ordre : résumé puis mots clés, abstract puis key words (le bloc anglais peut venir en premier),
+  // puis introduction, conclusion, références
+  const pairs = [["resume", "motscles"], ["abstract", "keywords"]];
+  pairs.forEach(([a, b]) => { if(at[a] !== undefined && at[b] !== undefined && at[b] < at[a]) out.order.push(`ordre : ${LABEL[b]} avant ${LABEL[a]}`); });
+  const chain = ["resume", "motscles", "abstract", "keywords", "introduction", "conclusion", "references"];
+  ["introduction", "conclusion", "references"].forEach(k => {
+    if(at[k] === undefined) return;
+    const before = chain.slice(0, chain.indexOf(k)).filter(e => at[e] !== undefined && at[e] > at[k]).pop();
+    if(before) out.order.push(`ordre : ${LABEL[k]} avant ${LABEL[before]}`);
+  });
+  // adresse électronique de l’auteur, avant le résumé
+  if(!lines.slice(base, anchor).some(l => /[\w.+-]+@[\w-]+\.[\w.-]+/.test(l))) out.email = false;
+  // parties titrées et numérotées « 1. », « 1.1. », « 2.2.1 » (sauf introduction, conclusion et bibliographie)
+  const styled = headings && headings.length ? new Set(headings.map(h => h.replace(/\s+/g, " ").trim())) : null;
+  const capsHead = l => l === l.toLocaleUpperCase("fr") && (l.match(/\p{L}/gu) || []).length >= 8 && l.split(" ").length >= 2 && !/\d/.test(l);
+  let prev = null, format = false;
+  for(let i = body; i < stop; i++){
+    const l = lines[i];
+    if(!isHead(l) || NOT_HEAD.test(l) || /^[«“"(\[]/.test(l)) continue;
+    const m = l.match(NUM_HEAD);
+    if(!m){ if(styled ? styled.has(l) : capsHead(l)) out.numbering.push({text: l, issue: "partie non numérotée"}); continue; }
+    const n = m[1].split(".").map(Number);
+    if(n.some(x => x < 1 || x > 20)) continue; // numéros de versets, de tableaux…
+    if(styled ? !styled.has(l) && l.split(" ").length > 14 : l.split(" ").length > 14 || !/^\p{Lu}/u.test(m[2])) continue;
+    if(prev){
+      const ok = n.length <= prev.length + 1 && n.every((x, j) => j < n.length - 1 ? x === (prev[j] || 0) : x === (j < prev.length ? prev[j] + 1 : 1));
+      if(!ok) out.numbering.push({text: l, issue: `numéro ${m[1]} après ${prev.join(".")}`});
+    } else if(n.some(x => x !== 1)) out.numbering.push({text: l, issue: `la première partie porte le numéro ${m[1]}`});
+    if(n.length === 1 && !/^\d+\.\s/.test(l) && !format){ format = true; out.numbering.push({text: l, issue: "numéro sans point (NORCAMES : « 1. »)"}); }
+    prev = n;
+  }
+  // citations : en romain, entre guillemets ; au-delà de trois lignes (≈ 40 mots avec la phrase qui l’introduit),
+  // à la ligne et en retrait. Une citation qui ouvre sa propre ligne est déjà présentée à part.
+  const zone = L.slice(body, end).map(x => x.r).join("\n");
+  for(const q of zone.matchAll(/[«“]([^»”]{2,})[»”]/g)){
+    if(/⟦/.test(q[1])) out.italicQuotes.push(stripMarks(q[1]).replace(/\s+/g, " ").trim().slice(0, 80));
+    const lineStart = stripMarks(zone.slice(zone.lastIndexOf("\n", q.index) + 1, q.index)).trim();
+    const sentence = stripMarks(zone.slice(Math.max(0, q.index - 400), q.index)).replace(/\s+/g, " ").split(/[.!?]\s+(?=\p{Lu})/u).pop();
+    const qw = stripMarks(q[1]).split(/\s+/).filter(Boolean).length, sw = sentence.split(/\s+/).filter(Boolean).length;
+    // au-delà de 120 mots, c’est un guillemet resté ouvert, pas une citation
+    if(qw >= 25 && qw <= 120 && qw + sw > 40 && lineStart.length > 3) out.longQuotes.push({text: stripMarks(q[1]).replace(/\s+/g, " ").trim().slice(0, 90), words: qw});
+  }
+  out.count = out.missing.length + out.order.length + out.numbering.length + out.longQuotes.length + out.italicQuotes.length + (out.email ? 0 : 1) + (out.refsLabel ? 1 : 0);
+  return out;
+}
 function splitReferences(text){
   const lines = String(text).split(/\n/).map(l => l.trim());
   const start = /^(?:\[\d+\]|\d{1,3}[.)]\s)|^⟦?[\p{Lu}][\p{L}'’-]+(?:\s[\p{Lu}][\p{L}'’-]+)*(?:,|\s+[\p{Lu}][\p{Ll}]|\s+\(|\s+et\s|\s+\p{Lu}\.)/u;
@@ -442,7 +597,13 @@ function splitReferences(text){
     // Après une ligne vide : la reconnaissance de caractères (PDF scanné) en met une avant la ligne en retrait
     // qui continue la référence. On recolle si la référence s’arrêtait sur une virgule ou si la ligne commence en minuscule.
     if(gap){ gap = false; if(cur && !(/[,;:«–-]\s*$/.test(stripMarks(cur)) || (/^\p{Ll}/u.test(l) && !start.test(l)))) push(); }
-    if(cur && start.test(l) && /[.)»”]\s*$/.test(stripMarks(cur)) && YEAR_RE.test(cur)) { push(); cur = l; }
+    // nouvelle référence : la précédente est finie (point) ; ou la ligne s’ouvre sur un NOM en capitales suivi
+    // d’un prénom et donne une année, même si la précédente n’a pas de point final (« …Arizona, Sage »)
+    const strong = /^⟦?\p{Lu}{2}[\p{Lu}'’-]*(?:\s\p{Lu}[\p{Lu}'’-]+)*,?\s+\p{Lu}\p{Ll}/u.test(l) && YEAR_RE.test(l);
+    // « Cambridge, Cambridge University Press. » continue la référence : une nouvelle référence donne son année,
+    // ou s’ouvre sur un NOM en capitales, ou sur « Nom, I. » (liste d’auteurs APA qui passe à la ligne)
+    const opens = YEAR_RE.test(l) || /^⟦?\p{Lu}{2}/u.test(l) || /^\p{Lu}[\p{L}'’-]+,\s(?:\p{Lu}\.\s?)+/u.test(l) || /^(?:\[\d+\]|\d{1,3}[.)]\s)/.test(l);
+    if(cur && start.test(l) && opens && YEAR_RE.test(cur) && (/[.)»”]\s*$/.test(stripMarks(cur)) || strong)) { push(); cur = l; }
     else cur = cur ? cur + " " + l : l;
   });
   push();
@@ -535,7 +696,7 @@ const STOP = new Set(["Le","La","Les","Un","Une","En","Dans","Selon","Depuis","A
 function findCitations(text){
   const found = [];
   // initial : la citation donne l’initiale du prénom, comme le demande NORCAMES (« S. Diakité, 1985 »)
-  const add = (fam, yr, raw, initial) => { fam = fam.replace(/[’']s$/,""); if(!fam || STOP.has(fam) || fam.length < 2) return; found.push({family:fam, year:yr, raw:raw.trim(), initial}); };
+  const add = (fam, yr, raw, initial) => { fam = fam.replace(/[’']s$/,""); if(!fam || STOP.has(fam) || fam.length < 2) return; found.push({family:fam, year:yr, raw:raw.replace(/\s+/g, " ").trim(), initial}); };
   const re1 = /\(([^()]{2,160}?)\)/g; let m;
   while((m = re1.exec(text))){
     m[1].split(/;/).forEach(part => {
@@ -544,7 +705,12 @@ function findCitations(text){
     });
   }
   const re2 = /((?:\p{Lu}\.[\s-]?)*)\s*(\p{Lu}[\p{L}'’-]+)(?:\s+et\s+al\.?)?\s+\((1[5-9]\d{2}|20\d{2})([a-z]?)/gu;
-  while((m = re2.exec(text))) add(m[2], m[3] + m[4], m[0], !!m[1]);
+  while((m = re2.exec(text))){
+    // « DIOP, Cheikh Anta (1954). Nations… » : ligne d’une liste de références, pas une citation
+    const famAt = m.index + m[0].lastIndexOf(m[2], m[0].indexOf("("));
+    if(/^\s*\p{Lu}[\p{Lu}'’ -]+,\s+(?:\p{Lu}[\p{L}'’-]*\s+)*$/u.test(text.slice(text.lastIndexOf("\n", m.index) + 1, famAt))) continue;
+    add(m[2], m[3] + m[4], m[0], !!m[1]);
+  }
   // une entrée par auteur et année ; on retient si l’une des occurrences oublie l’initiale du prénom
   const seen = new Map();
   return found.filter(c => {
@@ -750,4 +916,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
