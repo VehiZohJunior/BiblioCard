@@ -149,12 +149,14 @@ function renderSheet(){
 
 /* ---------- liste « À faire » : tout ce qu’il reste à régler, au même endroit ---------- */
 let TASKS = [];
+// « M. Ascher (1998 » → « M. Ascher (1998) » : la citation relevée s’arrête avant la page
+const closeParen = r => (r.match(/\(/g) || []).length > (r.match(/\)/g) || []).length ? r + ")" : r;
 function computeTasks(){
   const L = labeled(); const t = [];
   const fileReports = ui.files.filter(f => f.body && f.body.trim().length > 200 && (f.mode === "biblio" || f.mode === "texte")).map(f => ({f, r: verifyAny(stripMarks(f.body), L)}));
   fileReports.forEach(({f, r}) => {
     r.missing.forEach(x => { const k = "m|" + norm(x.c.family) + x.c.year; if(ui.dismissed.has(k)) return;
-      t.push({key:k, title:`Référence manquante : ${x.c.raw.replace(/[(),]+$/,"")}`, sub:`Citée dans ${f.name}, mais absente de la bibliographie.`,
+      t.push({key:k, title:`Référence manquante : ${closeParen(x.c.raw.replace(/[(),\s]+$/,""))}`, sub:`Citée dans ${f.name}, mais absente de la bibliographie.`,
         acts:[["Ajouter sa référence", () => { const s = blank(); s.authors = [{family:x.c.family, given:""}]; s.year = x.c.year.replace(/[a-z]$/,""); openForm(s, "title"); }], ["Ignorer", () => dismiss(k)]]}); });
     r.yearOff.forEach(x => { const k = "y|" + x.s.id + x.c.year; if(ui.dismissed.has(k)) return;
       const y = x.c.year.replace(/[a-z]$/,"");
@@ -599,7 +601,7 @@ async function runExistence(manual){
   };
   await Promise.all([worker(), worker(), worker()]);
   net.running = false; save(); renderAll();
-  if(!net.blocked){ const ex = labeled().map(s => ({s, e: existFor(s)})).filter(x => x.e); const c = v => ex.filter(x => x.e.v === v); post({role: "a", kind: "exist", found: c("found").length, suspect: c("suspect").length, none: c("none").length, sus: c("suspect").map(x => x.s.id)}); }
+  if(!net.blocked){ const ex = labeled().map(s => ({s, e: existFor(s)})).filter(x => x.e); const c = v => ex.filter(x => x.e.v === v); post({role: "a", kind: "exist", found: c("found").length, suspect: c("suspect").length, close: c("close").length, none: c("none").length, sus: c("suspect").map(x => x.s.id)}); }
   else if(manual) post({role: "a", kind: "error", text: "Je ne peux pas joindre OpenAlex, HAL ni CrossRef depuis cette page. La vérification fonctionne sur la version installée sur ton site."});
   else if(!net.blocked){ const sus = Object.values(state.exist).filter(e => e.v === "suspect").length; toast(sus ? `${sus} référence${sus > 1 ? "s" : ""} suspecte${sus > 1 ? "s" : ""} : regarde la liste À faire` : "Vérification terminée"); }
 }
@@ -1258,7 +1260,7 @@ function chip(label, act, cls){ return `<button class="chip ${cls || ""}" data-a
 function appBody(m){
   const st = STYLES[state.style];
   const urgent = TASKS.filter(x => !x.info).length;
-  const status = () => { const c = conformity(state.sources, state.style); return `<p>Conformité ${esc(st.name)} : <b>${c.score}${NB}%</b>. ${urgent ? `${plur(urgent, "chose", "choses")} à régler.` : "Rien d’urgent à régler."}</p>`; };
+  const status = () => { const c = conformity(state.sources, state.style); return `<p>Conformité ${esc(st.name)} : <b>${c.score}${NB}%</b>. ${urgent ? `${plur(urgent, "point urgent", "points urgents")} à corriger.` : "Rien d’urgent à régler."}</p>`; };
   switch(m.kind){
     case "import":
       if(m.mode === "biblio") return `<p>J’ai trouvé <b>${plur(m.ids.length, "référence", "références")}</b> dans la bibliographie de ${esc(m.file)}, mises en forme en ${esc(st.full)}.${m.ocr ? " Le document était scanné : relis-les attentivement." : ""}</p>${status()}${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${m.docx ? chip("Corriger mon document Word", {t:"fix", v:m.file}) : ""}${urgent ? chip("Voir ce qu’il reste à régler", {t:"side", v:"todo"}, "warn") : ""}${chip("Télécharger en Word", {t:"dl"})}</div>`;
@@ -1266,7 +1268,7 @@ function appBody(m){
       return `<p>${esc(m.file)} ne contient pas de bibliographie : j’ai repéré ${plur(m.cites || 0, "citation", "citations")} dans le texte et je les compare à ta bibliographie.</p><div class="chips">${chip("Voir le contrôle", {t:"side", v:"controle"}, "pri")}</div>`;
     case "added": return `<p>${m.ids.length ? `J’ai ajouté ${plur(m.ids.length, "référence", "références")}${m.dup ? `, ${plur(m.dup, "doublon écarté", "doublons écartés")}` : ""}.` : "Ces références sont déjà dans ta bibliographie."}</p>${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}</div>`;
     case "restyle": return `<p>C’est fait : toute la bibliographie est en <b>${esc((STYLES[m.style] || st).full)}</b>.</p>${previewIds(labeled().map(s => s.id), 3)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}${chip("Télécharger en Word", {t:"dl"})}</div>`;
-    case "exist": return `<p>Vérification d’existence terminée : <b>${m.found}</b> trouvée${m.found > 1 ? "s" : ""}, <b>${m.suspect}</b> suspecte${m.suspect > 1 ? "s" : ""}, ${m.none} introuvable${m.none > 1 ? "s" : ""}.</p>${m.suspect ? previewIds(m.sus || []) : ""}<div class="chips">${chip("Voir le détail", {t:"side", v:"existence"}, m.suspect ? "warn" : "")}</div>`;
+    case "exist": return `<p>Vérification d’existence terminée : <b>${m.found}</b> trouvée${m.found > 1 ? "s" : ""}, <b>${m.suspect}</b> suspecte${m.suspect > 1 ? "s" : ""}, ${m.close || 0} proche${m.close > 1 ? "s" : ""}, ${m.none} introuvable${m.none > 1 ? "s" : ""}.</p>${m.suspect ? previewIds(m.sus || []) : ""}<div class="chips">${chip("Voir le détail", {t:"side", v:"existence"}, m.suspect ? "warn" : "")}</div>`;
     case "fixed": return `<p>Voici <b>${esc(m.file.replace(/\.docx$/i, ""))}-corrige.docx</b> : ta bibliographie y est remplacée par ${plur(m.n, "référence", "références")} en ${esc((STYLES[m.style] || st).full)}. Le reste du document n’a pas été modifié, y compris les citations dans le texte.</p><div class="chips">${chip("Voir ce qu’il reste à régler", {t:"side", v:"todo"})}</div>`;
     case "comments": return `<p>${esc(m.who || "Ton encadreur")} t’a envoyé ${plur(m.n, "commentaire", "commentaires")}.</p><div class="chips">${chip("Les voir", {t:"side", v:"todo"}, "pri")}</div>`;
     case "todo": return TASKS.length ? `<p>Il reste ${plur(TASKS.length, "point", "points")}, dont ${urgent} à corriger :</p><ul style="margin:4px 0 0;padding-left:20px">${TASKS.slice(0, 5).map(x => `<li>${esc(x.title)}</li>`).join("")}</ul><div class="chips">${chip("Tout voir", {t:"side", v:"todo"}, "pri")}</div>` : `<p>Rien à régler : ta bibliographie est en ordre pour la norme ${esc(st.name)}.</p>`;

@@ -19,9 +19,10 @@ function parseAuthor(raw){
   const p = raw.split(" ");
   if(p.length === 1) return {family:p[0], given:""};
   // NOM Prénom (style CAMES) : mots entièrement en majuscules = nom
-  const caps = p.filter(w => w.length > 1 && w === w.toLocaleUpperCase("fr") && /\p{L}/u.test(w));
+  // (une initiale comme « S. » ou « K.-E. » n’est pas un nom)
+  const caps = p.filter(w => w.length > 1 && w === w.toLocaleUpperCase("fr") && /\p{L}/u.test(w) && !/^(?:\p{Lu}\.-?)+$/u.test(w));
   if(caps.length && caps.length < p.length){
-    const fam = caps.map(w => w.charAt(0) + w.slice(1).toLocaleLowerCase("fr")).join(" ");
+    const fam = caps.map(titleCase).join(" ");
     return {family:fam, given:p.filter(w => !caps.includes(w)).join(" ")};
   }
   let i = p.length - 1;
@@ -299,7 +300,8 @@ function checks(s, styleKey, all){
 }
 
 /* ---------- analyse heuristique d’une référence rédigée ---------- */
-function titleCase(w){ return w.charAt(0) + w.slice(1).toLocaleLowerCase("fr"); }
+// KI-ZERBO → Ki-Zerbo, N'GUESSAN → N'Guessan
+function titleCase(w){ return w.toLocaleLowerCase("fr").replace(/(^|[-'’\s])(\p{Ll})/gu, (m, a, b) => a + b.toLocaleUpperCase("fr")); }
 function splitAuthorsText(t){
   t = t.replace(/[\s(,;:]+$/,"").replace(/([\p{Ll}]{2})\.$/u,"$1").trim();
   if(!t) return [];
@@ -329,9 +331,11 @@ function parseRefHeuristic(line){
     s.year = ym[1];
     const at = raw.indexOf(ym[0]);
     s.authors = splitAuthorsText(raw.slice(0, at));
-    rest = raw.slice(at + ym[0].length).replace(/^[\s).,:]+/,"");
+    rest = raw.slice(at + ym[0].length).replace(/^[\s).,:]+/,"")
+      .replace(/^\[\d{4}\][\s).,:]*/,""); // date de première édition : « 2002 [1961] »
   }
-  const q = rest.match(/[«“"]\s?([^»”"]+?)\s?[»”"]/);
+  // un titre entre guillemets ouvre la référence ; des guillemets plus loin sont un mot cité dans un titre de livre
+  const q = rest.match(/^[«“"]\s?([^»”"]+?)\s?[»”"]/);
   if(q){
     s.title = q[1].replace(/[.,]$/,"").trim();
     const after = rest.slice(rest.indexOf(q[0]) + q[0].length).replace(/^[\s.,]+/,"");
@@ -348,16 +352,31 @@ function parseRefHeuristic(line){
     if(at0 >= 0 && at0 < 6){ s.title = it0; s.type = "book"; rest = rest.slice(at0 + it0.length); }
     else { const seg = rest.split(/\.\s|,\s/); s.title = (seg[0] || "").trim(); s.type = "book"; rest = rest.slice(s.title.length); }
   }
+  // thèse en APA : « Titre [Thèse de doctorat, Université…] »
+  const br = s.title.indexOf(" ["); if(br > 0){ rest = s.title.slice(br) + " " + rest; s.title = s.title.slice(0, br).trim(); }
   const pg = rest.match(/p{1,2}\.?\s?(\d+\s?[-–]\s?\d+)/) || (s.type !== "book" && rest.match(/(?:,|:)\s?(\d+\s?[-–]\s?\d+)/)); if(pg) s.pages = pg[1].replace(/\s/g,"");
   const vol = rest.match(/vol\.?\s?(\d+)/i) || rest.match(/(?:^|,\s)(\d+)\s?\(\d+\)/); if(vol) s.volume = vol[1];
   const iss = rest.match(/n[°o]\.?\s?(\d+)/i) || rest.match(/\d+\s?\((\d+)\)/); if(iss) s.issue = iss[1];
   if(/th[èe]se|dissertation|m[ée]moire/i.test(raw)){ s.type = "thesis"; const g = raw.match(/(Th[èe]se de doctorat|M[ée]moire de master|PhD dissertation|Doctoral dissertation)/i); if(g) s.genre = g[1]; }
-  if(s.type === "book" || s.type === "thesis" || s.type === "chapter"){
+  const bracket = rest.match(/\[(?:Th[èe]se|M[ée]moire|PhD|Doctoral|Master)[^,\]]*,\s*([^\]]+)\]/i); // APA : [Thèse de doctorat, Université…]
+  if(bracket){ s.publisher = bracket[1].trim(); }
+  else if(s.type === "book" || s.type === "thesis" || s.type === "chapter"){
     const cp = rest.match(/([\p{Lu}][\p{L} -]{1,30})\s?:\s?([^,.;]{2,60})/u);
     if(cp){ s.city = cp[1].trim(); s.publisher = cp[2].trim(); }
+    else if(/^(?:Th[èe]se|M[ée]moire)/i.test(rest) === false && (() => {
+      // APA : « Titre. Sous-titre, avec virgules. Éditeur. » : l’éditeur est la dernière phrase
+      const sents = rest.replace(/^[\s.,:;]+/,"").replace(/[.\s]+$/,"").split(/\.\s+(?=\p{Lu})/u);
+      const last = sents[sents.length - 1];
+      if(sents.length > 1 && !/[,\d[\]]/.test(last)){ s.publisher = last.trim(); return true; }
+      return false;
+    })()){ /* éditeur trouvé */ }
     else {
       const segs = rest.split(/,\s/).map(x => x.replace(/^[\s.,:;]+/,"").replace(/[.]$/,"").trim()).filter(x => x && !/\d/.test(x) && !/^(in|dans)\b/i.test(x));
-      if(segs.length >= 2){ s.city = segs[segs.length-2]; s.publisher = segs[segs.length-1]; }
+      if(segs.length >= 2){
+        s.city = segs[segs.length-2]; s.publisher = segs[segs.length-1];
+        // « Université X, Abidjan » : l’établissement est l’éditeur, même placé avant la ville
+        if(/universit|[ée]cole|institut|presses/i.test(s.city) && !/universit|[ée]cole|institut|presses/i.test(s.publisher)) [s.city, s.publisher] = [s.publisher, s.city];
+      }
       else if(segs.length === 1 && segs[0] !== s.title) s.publisher = segs[0];
     }
   }
@@ -575,7 +594,10 @@ function simTitle(a, b){
   const tok = x => new Set(norm(x).split(" ").filter(w => w.length > 2));
   const A = tok(a), B = tok(b); if(!A.size || !B.size) return 0;
   let i = 0; A.forEach(w => { if(B.has(w)) i++; });
-  return 2 * i / (A.size + B.size);
+  const dice = 2 * i / (A.size + B.size);
+  // titre cité sans son sous-titre : « Covenants with and without a sword » ⊂ « …: Self-Governance Is Possible »
+  const small = Math.min(A.size, B.size);
+  return small >= 3 && i === small ? Math.max(dice, .9) : dice;
 }
 function judge(s, cands){
   let best = null, bs = -1;
@@ -587,7 +609,8 @@ function judge(s, cands){
     if(sc > bs){ bs = sc; best = {...c, t, au, yr}; }
   });
   if(best && best.t >= .85 && (best.au || best.yr)) return {v:"found", best};
-  if(best && best.t >= .6) return {v:"close", best};
+  // « proche » = même auteur ou même année avec un titre voisin ; un titre voisin d’un autre auteur à une autre date est une autre œuvre
+  if(best && best.t >= .6 && (best.au || best.yr)) return {v:"close", best};
   return {v:"none", best:null};
 }
 const EXIST_LABEL = {found:"Trouvée", close:"Publication proche", none:"Introuvable", suspect:"Suspecte"};
