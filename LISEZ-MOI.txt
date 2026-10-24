@@ -108,8 +108,7 @@ l'adresse de ton site (par exemple https://TON-PSEUDO.github.io/bibliocard/).
 
 Module pour Microsoft Word
 ==========================
-  1. Dans addin/manifest.xml, remplace TON-PSEUDO par ton nom d'utilisateur
-     GitHub (aux endroits indiqués), puis remets le site en ligne.
+  1. addin/manifest.xml pointe déjà vers https://vehizohjunior.github.io/BiblioCard/
   2. Word sur le web : Insertion > Compléments > Mes compléments >
      Charger mon complément, puis choisis manifest.xml.
      Word sur ordinateur : voir « Charger une version test d'un complément
