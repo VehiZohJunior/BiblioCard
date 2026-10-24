@@ -62,6 +62,16 @@ Inspirée de l’application Claude :
 - Indicateurs : `conformity()`, `analyze()`, `evalRecords()`, `evalStats()`.
 - Lian’Z : `applyVoice()` (commandes vocales), `compareTexts()`, `internalRepeats()`, `pickProbes()`.
 
+## La norme NORCAMES/LSH (document officiel, lu le 2026-10-24)
+
+Source : « Normes d’édition des revues de lettres et sciences humaines dans le système CAMES (NORCAMES/LSH) », 2 pages, fourni par le porteur (DownloadsNORMES-EDITORIALES_CAMES.pdf, non versé au dépôt). `tests/test-norcames.js` reproduit ses exemples mot pour mot.
+
+- **Référence** : NOM Prénom(s), Année, Zone titre, Lieu de publication, Zone Éditeur, pages (p.) pour un article. Ordre alphabétique des noms.
+- **Zone titre** : article en romain entre guillemets ; ouvrage, mémoire, thèse, rapport, revue ou journal en italique. Traduction ou réédition juste après le titre (« trad. X », « 2nde éd. »). Tout ce qui est entre l’année et le lieu est le titre : virgules et sous-titres compris (`camesTitleZone`).
+- **Zone Éditeur** : maison d’édition (ouvrage) ; nom et numéro/volume de la revue (article).
+- **Citation dans le texte** : « (S. Diakité, 1985, p. 105) » ou « M. Ascher (1998, p. 223) », toujours avec l’initiale du prénom. Contrôle : `verify().noInitial`, tâche « citations sans l’initiale du prénom » (norme CAMES seulement).
+- **Hors bibliographie** (non contrôlé à ce jour) : structure de l’article (Titre, Prénom et Nom, Institution, adresse électronique, Résumé, Mots clés, Abstract, Key words, Introduction, [Méthodologie, Résultats et Discussion,] Conclusion, Références bibliographiques) ; parties titrées et numérotées 1., 1.1., 2.2.1 (sauf introduction, conclusion, bibliographie) ; citations en romain entre guillemets, au-delà de trois lignes en retrait, interligne 1, police diminuée d’un point (Book Antiqua) ; sources historiques, références orales et notes explicatives numérotées en continu en bas de page. La typographie est fixée par chaque revue (profils `CAMES_PROFILES`).
+
 ## Conventions
 
 - **Interface en français, tutoiement**, phrases courtes. Typographie française : apostrophe typographique ’, guillemets « » avec espaces insécables (`NB`), espace insécable avant ; : ! ?

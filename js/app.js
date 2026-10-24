@@ -187,6 +187,11 @@ function computeTasks(){
     acts:[["Voir les fiches", () => dashTab("fiches")], ["Tout valider", () => { auto.forEach(s => { s._method = s._method || s.origin; s.origin = "Vérifiée"; s._validated = Date.now(); }); save(); renderAll(); toast("Références validées"); }]]});
   fileReports.forEach(({f, r}) => { if(r.unused.length && !ui.dismissed.has("u|" + f.name)) t.push({key:"u|" + f.name, info:true, title:`${r.unused.length} référence${r.unused.length > 1 ? "s" : ""} jamais citée${r.unused.length > 1 ? "s" : ""}`, sub:`Présentes dans la bibliographie de ${f.name}, absentes du texte. La norme demande en général de ne garder que ce qui est cité.`,
     acts:[["Voir lesquelles", () => dashTab("controle")], ["C’est voulu", () => dismiss("u|" + f.name)]]}); });
+  // NORCAMES : « (S. Diakité, 1985, p. 105) » ou « M. Ascher (1998, p. 223) », avec l’initiale du prénom
+  if(state.style === "cames") fileReports.forEach(({f, r}) => { const n = (r.noInitial || []); if(!n.length || ui.dismissed.has("i|" + f.name)) return;
+    const ex = n.slice(0, 3).map(x => `«${NB}${closeParen((x.c.rawNoInitial || x.c.raw).replace(/[(),\s]+$/,""))}${NB}»`).join(", ");
+    t.push({key:"i|" + f.name, info:true, title:`${n.length} citation${n.length > 1 ? "s" : ""} sans l’initiale du prénom`, sub:`NORCAMES demande l’initiale du prénom avant le nom, par exemple «${NB}(S. Diakité, 1985, p.${NB}105)${NB}». Dans ${f.name}${NB}: ${ex}.`,
+      acts:[["C’est voulu", () => dismiss("i|" + f.name)]]}); });
   return t;
 }
 function dismiss(k){ ui.dismissed.add(k); renderAll(); }

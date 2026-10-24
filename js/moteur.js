@@ -317,6 +317,28 @@ function splitAuthorsText(t){
   if(inv.test(chunks[0])) return chunks.map(c => { const m = c.match(inv); return m ? {family:m[1], given:m[2]} : parseAuthor(c); }).filter(Boolean);
   return t.split(/,\s|\s+(?:et|and|&)\s+/).map(parseAuthor).filter(Boolean);
 }
+/* NORCAMES : « NOM Prénom, Année, Zone titre, Lieu de publication, Zone Éditeur ».
+   Tout ce qui est entre l’année et le lieu est le titre, virgules et sous-titres compris
+   (« Qu’est-ce que le libéralisme ? Ethique, politique, société, Paris, Gallimard »).
+   L’édition (« 2nde éd. ») et le traducteur (« trad. X ») suivent le titre. */
+function camesTitleZone(rest){
+  const segs = rest.replace(/^[\s.,:;]+/,"").replace(/[.\s]+$/,"").split(/,\s+/);
+  if(segs.length < 3) return null;
+  let end = segs.findIndex((x, i) => i > 0 && /^(Th[èe]se|M[ée]moire|Rapport)\b/i.test(x));
+  if(end < 0){
+    const city = segs[segs.length - 2], pub = segs[segs.length - 1];
+    if(!/^[\p{Lu}][\p{L}'’ -]{1,30}$/u.test(city) || city.split(" ").length > 3 || /\d|https?:/.test(city + pub)) return null;
+    end = segs.length - 2;
+  }
+  const t = segs.slice(0, end); let edition = "", translator = "";
+  while(t.length > 1){
+    const last = t[t.length - 1];
+    if(/^(?:\d+\p{L}*|\p{L}+)\s+[ée]d(?:\.|ition)$|^[ée]d(?:\.|ition)\s/iu.test(last)){ edition = last; t.pop(); }
+    else if(/^trad(?:\.|uit)\s/i.test(last)){ translator = last.replace(/^trad(?:\.|uit(?: par)?)\s*/i, ""); t.pop(); }
+    else break;
+  }
+  return {title: t.join(", ").trim(), edition, translator, tail: ", " + segs.slice(end).join(", ") + "."};
+}
 const stripMarks = t => String(t||"").replace(/[⟦⟧]/g,"");
 function parseRefHeuristic(line){
   const italics = [...String(line).matchAll(/⟦([^⟧]+)⟧/g)].map(m => m[1].replace(/[\s.,]+$/,"").trim()).filter(x => x.length > 2);
@@ -349,7 +371,9 @@ function parseRefHeuristic(line){
     else s.title = rest.split(/\.\s/)[0];
   } else {
     const it0 = italics[0], at0 = it0 ? rest.indexOf(it0) : -1;
+    const z = at0 >= 0 && at0 < 6 ? null : camesTitleZone(rest);
     if(at0 >= 0 && at0 < 6){ s.title = it0; s.type = "book"; rest = rest.slice(at0 + it0.length); }
+    else if(z){ s.title = z.title; s.type = "book"; if(z.edition) s.edition = z.edition; if(z.translator) s.translator = z.translator; rest = z.tail; }
     else { const seg = rest.split(/\.\s|,\s/); s.title = (seg[0] || "").trim(); s.type = "book"; rest = rest.slice(s.title.length); }
   }
   // thèse en APA : « Titre [Thèse de doctorat, Université…] »
@@ -510,18 +534,25 @@ function toRis(list){
 const STOP = new Set(["Le","La","Les","Un","Une","En","Dans","Selon","Depuis","Avant","Après","Vers","Entre","The","In","Since","From","Au","Aux","Du","Des","De","Cf","Voir","See","Ibid","Op","Loi","Décret","Article","Art","Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"]);
 function findCitations(text){
   const found = [];
-  const add = (fam, yr, raw) => { fam = fam.replace(/[’']s$/,""); if(!fam || STOP.has(fam) || fam.length < 2) return; found.push({family:fam, year:yr, raw:raw.trim()}); };
+  // initial : la citation donne l’initiale du prénom, comme le demande NORCAMES (« S. Diakité, 1985 »)
+  const add = (fam, yr, raw, initial) => { fam = fam.replace(/[’']s$/,""); if(!fam || STOP.has(fam) || fam.length < 2) return; found.push({family:fam, year:yr, raw:raw.trim(), initial}); };
   const re1 = /\(([^()]{2,160}?)\)/g; let m;
   while((m = re1.exec(text))){
     m[1].split(/;/).forEach(part => {
-      const p = part.match(/(?:\p{Lu}\.[\s-]?)*\s*(?:(?:de|du|van|von|da|di|le|la)\s)?(\p{Lu}[\p{L}'’-]+)(?:\s+(?:et|and|&)\s+(?:\p{Lu}\.[\s-]?)*\s*\p{Lu}[\p{L}'’-]+)?(?:\s+et\s+al\.?)?,?\s+(1[5-9]\d{2}|20\d{2})([a-z]?)/u);
-      if(p) add(p[1], p[2] + p[3], part);
+      const p = part.match(/((?:\p{Lu}\.[\s-]?)*)\s*(?:(?:de|du|van|von|da|di|le|la)\s)?(\p{Lu}[\p{L}'’-]+)(?:\s+(?:et|and|&)\s+(?:\p{Lu}\.[\s-]?)*\s*\p{Lu}[\p{L}'’-]+)?(?:\s+et\s+al\.?)?,?\s+(1[5-9]\d{2}|20\d{2})([a-z]?)/u);
+      if(p) add(p[2], p[3] + p[4], part, !!p[1]);
     });
   }
-  const re2 = /(?:\p{Lu}\.[\s-]?)*\s*(\p{Lu}[\p{L}'’-]+)(?:\s+et\s+al\.?)?\s+\((1[5-9]\d{2}|20\d{2})([a-z]?)/gu;
-  while((m = re2.exec(text))) add(m[1], m[2] + m[3], m[0]);
-  const seen = new Set();
-  return found.filter(c => { const k = norm(c.family) + c.year; if(seen.has(k)) return false; seen.add(k); return true; });
+  const re2 = /((?:\p{Lu}\.[\s-]?)*)\s*(\p{Lu}[\p{L}'’-]+)(?:\s+et\s+al\.?)?\s+\((1[5-9]\d{2}|20\d{2})([a-z]?)/gu;
+  while((m = re2.exec(text))) add(m[2], m[3] + m[4], m[0], !!m[1]);
+  // une entrée par auteur et année ; on retient si l’une des occurrences oublie l’initiale du prénom
+  const seen = new Map();
+  return found.filter(c => {
+    const k = norm(c.family) + c.year, first = seen.get(k);
+    if(first){ if(!c.initial && first.initial){ first.initial = false; first.rawNoInitial = c.raw; } return false; }
+    if(!c.initial) c.rawNoInitial = c.raw;
+    seen.set(k, c); return true;
+  });
 }
 function verify(text, labeled){
   const cites = findCitations(text);
@@ -535,7 +566,9 @@ function verify(text, labeled){
     missing.push({c});
   });
   const unused = labeled.filter(s => !used.has(s.id));
-  return {ok, missing, yearOff, unused, total:cites.length};
+  // citations sans initiale du prénom, alors que l’auteur en a un (exigé par NORCAMES)
+  const noInitial = [...ok, ...yearOff].filter(x => !x.c.initial && x.s.authors.some(a => norm(a.family) === norm(x.c.family) && a.given));
+  return {ok, missing, yearOff, unused, noInitial, total:cites.length};
 }
 
 /* ---------- CrossRef ---------- */
