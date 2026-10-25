@@ -448,3 +448,33 @@ body:not(.talk) .welcome{display:flex}
   body.sideopen .composer{right:min(46vw,640px)}
   body.sideopen header.topbar .bar{margin-right:min(46vw,640px)}
 }
+
+/* ---------- compte et abonnement ---------- */
+.acct{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid var(--brass);background:var(--brass-soft);color:var(--ink);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.acct b{font-size:15px}
+.acct span{font-size:13px;color:var(--muted)}
+.acct.fini{border-color:var(--proof);background:var(--proof-soft)}
+.acct.paye{border-color:var(--ok);background:var(--ok-soft)}
+.acctline{margin:16px 0 0;font-size:14px}
+.gbtn{gap:10px;background:var(--surface);color:var(--ink);border:1px solid var(--line);font-weight:600;padding:11px 16px;border-radius:12px}
+.gbtn:hover{background:var(--sunk)}
+.acctdlg{display:block}
+.acctdlg h3{margin:4px 0 4px;font-size:18px}
+.acctdlg .gbtn{width:100%;margin:12px 0 4px}
+.acctstate{display:flex;flex-direction:column;gap:2px;border-radius:12px;padding:10px 12px;background:var(--brass-soft);margin:0 0 4px}
+.acctstate.paye{background:var(--ok-soft)}
+.acctstate.fini{background:var(--proof-soft)}
+.acctstate span{font-size:13px;color:var(--muted)}
+.plans{display:grid;gap:10px;margin:14px 0}
+.plan{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface)}
+.plan.best{border-color:var(--brass);box-shadow:0 0 0 1px var(--brass) inset}
+.plan .ph{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.plan .ph .tag{margin:0 0 0 4px}
+.plan .pt{color:var(--muted);font-size:13.5px}
+.plan .pp{margin:6px 0 2px;font-size:14px;color:var(--muted)}
+.plan .pp b{font-family:var(--serif);font-size:22px;color:var(--ink);font-weight:600}
+.plan ul{margin:6px 0 10px;padding-left:18px;font-size:13.5px}
+.plan li{margin:2px 0}
+.plan .btn{width:100%}
+#dlg:has(.plans){width:min(880px,calc(100vw - 24px))}
+@media (min-width:900px){.plans{grid-template-columns:repeat(3,1fr)}.plan{display:flex;flex-direction:column}.plan .btn{margin-top:auto}}

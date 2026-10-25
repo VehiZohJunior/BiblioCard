@@ -456,6 +456,8 @@ window.addEventListener("dragleave", () => { dragN = Math.max(0, dragN - 1); if(
 window.addEventListener("drop", e => { if(!e.dataTransfer || !e.dataTransfer.files.length) return; e.preventDefault(); dragN = 0; $("#dropVeil").classList.remove("on"); handleFiles([...e.dataTransfer.files]); });
 
 async function handleFiles(list){
+  // une copie de secours ou un dossier de relecture se rouvre toujours ; un nouveau document demande la formule 1
+  if(list.some(f => /\.(docx|pdf|txt|bib|ris)$/i.test(f.name)) && !exiger("biblio")) return;
   for(const file of list){
     const n = file.name.toLowerCase(); const ext = (n.split(".").pop() || "").toUpperCase();
     if(n.endsWith(".bib") || n.endsWith(".ris")){ post({role: "u", kind: "file", name: file.name, ext}); const l = (n.endsWith(".bib") ? parseBibtex : parseRis)(await file.text()); l.forEach(s => s.file = file.name); const before = new Set(state.sources.map(s => s.id)); const k = addSources(l); post({role: "a", kind: "added", ids: state.sources.filter(s => !before.has(s.id)).map(s => s.id), dup: l.length - k}); continue; }
@@ -693,6 +695,7 @@ $("#addBtn").onclick = async () => {
   if(!$("#smart").value.trim()){ setView("redac"); return; }
   const raw = $("#smart").value.trim(); const it = intent(raw);
   if(it){ $("#smart").value = ""; $("#smart").dispatchEvent(new Event("input")); await runIntent(it, raw); return; }
+  if(!exiger("biblio")) return;
   post({role: "u", kind: "text", text: raw.length > 600 ? raw.slice(0, 600) + "…" : raw});
   const before = new Set(state.sources.map(s => s.id));
   const d = detect($("#smart").value); const btn = $("#addBtn"); btn.disabled = true; btn.innerHTML = `<span class="busy"></span>`;
@@ -1082,13 +1085,131 @@ const sync = { session: null, busy: false,
 function renderSync(){
   const box = $("#syncBox"); if(!box) return;
   $("#syncBlk").hidden = !!dbH;
+  if(compte.payant && !sync.session){ box.innerHTML = `<p class="legend">Retrouve ta bibliothèque sur ton téléphone et ton ordinateur : connecte-toi avec le même compte Google sur chaque appareil.</p><button class="btn gbtn" id="syncG">${G_ICON}Continuer avec Google</button>`; $("#syncG").onclick = () => compte.connecter(); return; }
   if(!sync.on){ box.innerHTML = `<p class="legend">Sur ton propre site, la synchronisation utilise la même base gratuite que le catalogue partagé. Connecte d’abord le catalogue (Références et catalogue), puis reviens ici.</p>`; return; }
   if(sync.session){ box.innerHTML = `<p class="legend">Connecté avec <b data-notr="1">${esc(sync.session.email || "")}</b>. Ta bibliothèque se synchronise à chaque modification.</p><div class="row"><button class="btn small" id="syncNow">Synchroniser maintenant</button><button class="btn small" id="syncOut">Se déconnecter</button></div>`;
-    $("#syncNow").onclick = async () => { await sync.push(); toast("Synchronisé"); }; $("#syncOut").onclick = () => { sync.session = null; sync.keep(); renderSync(); toast("Déconnecté"); }; return; }
+    $("#syncNow").onclick = async () => { await sync.push(); toast("Synchronisé"); }; $("#syncOut").onclick = () => { compte.deconnecter(); toast("Déconnecté"); }; return; }
   box.innerHTML = `<p class="legend">Retrouve ta bibliothèque sur ton téléphone et ton ordinateur. Indique ton e-mail : tu recevras un lien de connexion, sans mot de passe.</p><div class="row"><input class="filter" id="syncMail" type="email" placeholder="ton.email@exemple.com" style="flex:1;margin:0"><button class="btn small primary" id="syncGo">Recevoir le lien</button></div>`;
   $("#syncGo").onclick = async () => { const m = $("#syncMail").value.trim(); if(!/^\S+@\S+\.\S+$/.test(m)){ toast("Adresse e-mail invalide"); return; } try{ const ok = await sync.signIn(m); toast(ok ? "Lien envoyé : ouvre ton e-mail sur cet appareil" : "L’envoi du lien a échoué"); }catch(e){ toast("Le service de synchronisation est injoignable"); } };
 }
 sync.load(); sync.fromHash();
+
+/* ================= COMPTE ET ABONNEMENT =================
+   Actif seulement quand js/config.js donne le projet Supabase de BiblioCard (version en ligne payante).
+   Sans configuration (tests, démonstration dans Claude, copie locale), toutes les fonctions restent ouvertes.
+   La connexion se fait avec Google ; l’essai, la formule et les dates viennent du serveur (fonction mon_acces).
+   Les documents de l’utilisateur ne quittent jamais l’appareil : seuls son e-mail et son abonnement sont en ligne. */
+const CFG = window.BIBLIOCARD_CONFIG || {};
+if(CFG.supabaseUrl && CFG.supabaseKey) state.catalogCfg = {url: CFG.supabaseUrl, key: CFG.supabaseKey};
+const LSA = "bibliocard.acces";
+const compte = { acces: null,
+  get payant(){ return !!(CFG.supabaseUrl && CFG.supabaseKey && CFG.payant !== false); },
+  formule(){ return !this.payant ? 3 : sync.session ? formuleEnVigueur(this.acces, Date.now()) : 0; },
+  init(){
+    // après la lecture des réglages enregistrés : le serveur officiel l’emporte sur une ancienne configuration
+    if(CFG.supabaseUrl && CFG.supabaseKey){ state.catalogCfg = {url: CFG.supabaseUrl, key: CFG.supabaseKey}; catalog.init(); }
+    try{ this.acces = sync.session ? JSON.parse(localStorage.getItem(LSA) || "null") : null; }catch(e){ this.acces = null; }
+    const retour = new URLSearchParams(location.search).get("paiement");
+    if(retour){ try{ history.replaceState(null, "", location.pathname + location.hash); }catch(e){} }
+    this.rafraichir().then(() => {
+      if(retour === "retour") this.attendrePaiement();
+      else if(retour === "annule") toast("Paiement annulé : rien n’a été débité");
+    });
+  },
+  // relit les droits sur le serveur ; hors connexion, on garde la dernière lecture
+  async rafraichir(){
+    if(this.payant && sync.session){
+      const tok = await sync.token();
+      if(tok) try{
+        const r = await fetch(sync.url("/rest/v1/rpc/mon_acces"), {method: "POST", headers: sync.head(tok), body: "{}"});
+        if(r.ok){ const a = await r.json(); if(a){ a.decalage = Date.parse(a.maintenant) - Date.now(); this.acces = a; try{ localStorage.setItem(LSA, JSON.stringify(a)); }catch(e){} } }
+      }catch(e){}
+    }
+    renderCompte();
+  },
+  connecter(){ location.href = sync.url("/auth/v1/authorize?provider=google&redirect_to=" + encodeURIComponent(location.origin + location.pathname)); },
+  deconnecter(){ sync.session = null; sync.keep(); this.acces = null; try{ localStorage.removeItem(LSA); }catch(e){} renderCompte(); renderSync(); },
+  async payer(n, btn){
+    const tok = await sync.token();
+    if(!tok){ this.deconnecter(); compteDialog("Ta session a expiré : reconnecte-toi."); return; }
+    if(btn){ btn.disabled = true; btn.innerHTML = `<span class="busy"></span>`; }
+    try{
+      const r = await fetch(sync.url("/functions/v1/payer-abonnement"), {method: "POST", headers: sync.head(tok), body: JSON.stringify({formule: n})});
+      const d = await r.json().catch(() => ({}));
+      if(d.ok && d.url){ location.href = d.url; return; }
+      toast(d.error || "Le paiement n’a pas pu démarrer");
+    }catch(e){ toast("Paiement injoignable : vérifie ta connexion"); }
+    compteDialog();
+  },
+  // retour de PayDunya : la confirmation arrive au serveur en quelques secondes
+  async attendrePaiement(){
+    const avant = this.acces && this.acces.fin;
+    for(let i = 0; i < 10; i++){
+      await this.rafraichir();
+      if(this.acces && this.acces.fin && this.acces.fin !== avant){ toast(`Paiement reçu : formule ${this.acces.formule_payee} active jusqu’au ${dateCourte(this.acces.fin)}`); return; }
+      await new Promise(r => setTimeout(r, 4000));
+    }
+    toast("Paiement en cours de confirmation : ton accès s’ouvrira dans quelques minutes");
+  },
+};
+const dateCourte = d => new Date(d).toLocaleDateString(state.uiLang === "en" ? "en-GB" : "fr-FR", {day: "numeric", month: "long", year: "numeric"});
+function etatCompte(){
+  const a = compte.acces, now = Date.now() + ((a && a.decalage) || 0);
+  if(!sync.session) return {cle: "aucun", texte: "Essai gratuit de 3 jours"};
+  if(!a) return {cle: "inconnu", texte: "Vérification de ton abonnement…"};
+  if(a.fin && Date.parse(a.fin) > now) return {cle: "paye", texte: `Formule ${a.formule_payee} active jusqu’au ${dateCourte(a.fin)}`};
+  if(a.essai_fin && Date.parse(a.essai_fin) > now){
+    const h = Math.max(1, Math.ceil((Date.parse(a.essai_fin) - now) / 3600000)), j = Math.floor(h / 24), r = h % 24;
+    return {cle: "essai", texte: `Essai gratuit : il te reste ${j ? `${j} jour${j > 1 ? "s" : ""}${r ? ` et ${r} h` : ""}` : `${h} h`}`};
+  }
+  return {cle: "fini", texte: a.fin ? `Ton abonnement a pris fin le ${dateCourte(a.fin)}` : "Ton essai gratuit est terminé"};
+}
+// Une fonction réservée : vrai si la formule en vigueur la couvre, sinon on explique et on propose la suite
+function exiger(fonction){
+  if(!compte.payant) return true;
+  const besoin = BESOIN[fonction] || 1;
+  if(compte.formule() >= besoin) return true;
+  const e = etatCompte();
+  compteDialog(e.cle === "aucun" ? "Connecte-toi pour commencer ton essai gratuit de 3 jours." :
+    e.cle === "fini" ? `${e.texte} : choisis une formule pour continuer.` :
+    e.cle === "inconnu" ? "Connecte-toi à Internet une fois pour vérifier ton abonnement." :
+    `Cette fonction fait partie de la formule ${besoin}.`);
+  return false;
+}
+const G_ICON = `<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>`;
+function compteDialog(message){
+  const dlg = $("#dlg"), e = etatCompte(), on = !!sync.session;
+  const payee = compte.acces && compte.acces.fin && e.cle === "paye" ? +compte.acces.formule_payee : 0;
+  dlg.innerHTML = `<div class="dhead"><h2>${on ? "Mon abonnement" : "Ton compte BiblioCard"}</h2><button class="iconbtn" id="xClose">Fermer</button></div>
+    <div class="dbody acctdlg">
+      ${message && !(on && message.startsWith(e.texte)) ? `<p class="note">${esc(message)}</p>` : ""}
+      ${on ? `<p class="acctstate ${e.cle}"><b>${esc(message && message.startsWith(e.texte) ? message : e.texte)}</b><span data-notr="1">${esc(sync.session.email || "")}</span></p>`
+        : `<h3>3 jours gratuits, toutes les fonctions</h3><p class="legend">Sans carte bancaire. Ensuite, tu choisis ta formule mensuelle, payable par Mobile Money ou par carte.</p>
+           <button class="btn gbtn" id="gLogin">${G_ICON}Continuer avec Google</button>`}
+      <div class="plans">${FORMULES.map(p => `<div class="plan${p.n === 3 ? " best" : ""}">
+        <div class="ph"><b>Formule ${p.n}</b>${p.n === 3 ? `<span class="tag brass">la plus complète</span>` : ""}${payee === p.n ? `<span class="tag ok">ta formule</span>` : ""}</div>
+        <div class="pt">${esc(p.titre)}</div>
+        <div class="pp"><b>${p.prix.toLocaleString("fr-FR").replace(/\s/g, NB)}${NB}F</b> par mois</div>
+        <ul>${p.inclus.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+        ${on ? `<button class="btn ${p.n === 3 ? "primary" : ""} small" data-pay="${p.n}">${payee === p.n ? "Prolonger de 30 jours" : `Choisir la formule ${p.n}`}</button>` : ""}
+      </div>`).join("")}</div>
+      <p class="legend">Paiement sécurisé par PayDunya : Orange Money, MTN, Moov, Wave ou carte bancaire. Chaque paiement ouvre 30 jours d’accès ; rien n’est prélevé automatiquement.</p>
+      <p class="legend">Tes documents restent sur ton appareil. Seuls ton adresse e-mail et ton abonnement sont enregistrés en ligne.</p>
+      ${on ? `<div class="row"><button class="btn small" id="acctOut">Se déconnecter</button></div>` : ""}
+    </div>`;
+  dlg.querySelector("#xClose").onclick = () => dlg.close();
+  const g = dlg.querySelector("#gLogin"); if(g) g.onclick = () => compte.connecter();
+  dlg.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => compte.payer(+b.dataset.pay, b));
+  const o = dlg.querySelector("#acctOut"); if(o) o.onclick = () => { compte.deconnecter(); dlg.close(); toast("Déconnecté"); };
+  if(!dlg.open) dlg.showModal();
+}
+function renderCompte(){
+  const btn = $("#acctBtn"), line = $("#acctLine");
+  if(!compte.payant){ if(btn) btn.hidden = true; if(line) line.hidden = true; return; }
+  const e = etatCompte();
+  if(btn){ btn.hidden = false; btn.className = "acct " + e.cle; btn.innerHTML = `<b>${sync.session ? esc(e.texte) : "Commencer l’essai gratuit"}</b><span>${sync.session ? "Voir les formules" : "3 jours, toutes les fonctions, sans carte bancaire"}</span>`; }
+  if(line){ line.hidden = false; line.innerHTML = sync.session ? `<button class="link" id="acctLink">${esc(e.texte)}</button>` : `<button class="btn gbtn" id="acctLink">${G_ICON}Commencer l’essai gratuit de 3 jours</button>`; line.querySelector("#acctLink").onclick = () => compteDialog(); }
+}
 
 /* ================= CATALOGUE PARTAGÉ ================= */
 const catKey = s => norm(s.title).slice(0, 120) + "|" + (s.year || "");
@@ -1514,7 +1635,7 @@ async function startWhisper(){
 }
 async function startDictation(){ red.listening = true; micUi(); const ok = red.engine === "live" ? startLive() : await startWhisper(); if(!ok){ red.listening = false; $("#micBtn").classList.remove("on"); $("#micTitle").textContent = "Touche le micro pour dicter"; } else micUi(); }
 function stopDictation(){ red.listening = false; if(red.rec){ try{ red.rec.stop(); }catch(_){} red.rec = null; } if(red.stopWhisper){ red.stopWhisper(); red.stopWhisper = null; } $("#interim").textContent = ""; micUi(); }
-$("#micBtn").onclick = () => red.listening ? stopDictation() : startDictation();
+$("#micBtn").onclick = () => red.listening ? stopDictation() : exiger("dictee") && startDictation();
 $("#undoSeg").onclick = undoLast;
 
 /* brouillon : enregistré avec le projet */
@@ -1564,7 +1685,7 @@ const IDB = { db: null,
   async putIn(store, doc){ try{ const db = await this.open(); await new Promise((res, rej) => { const t = db.transaction(store, "readwrite"); t.objectStore(store).put(doc); t.oncomplete = res; t.onerror = () => rej(t.error); }); return true; }catch(e){ return false; } },
   async del(store, key){ try{ const db = await this.open(); db.transaction(store, "readwrite").objectStore(store).delete(key); }catch(e){} },
 };
-$("#corpusBtn").onclick = () => $("#corpusIn").click();
+$("#corpusBtn").onclick = () => exiger("plagiat") && $("#corpusIn").click();
 $("#corpusIn").onchange = async e => {
   const files = [...e.target.files]; e.target.value = ""; let n = 0;
   for(const file of files){ try{ toast(`Lecture de ${file.name}…`); const t = stripMarks(await extract(file, {status:""})); if(t.trim()){ await IDB.put({name: file.name, text: t.slice(0, 3000000), at: Date.now()}); n++; } }catch(err){ toast(`${file.name} : ${err.message}`); } }
@@ -1619,7 +1740,7 @@ async function runSimilarity(){
     <p class="legend" style="margin-top:12px">Lian’Z compare ton texte à tes documents, à Wikipédia et aux résumés d’articles d’OpenAlex. Il ne remplace pas un logiciel institutionnel qui dispose des thèses déjà déposées : c’est un contrôle préalable, avant de rendre.</p>`;
   renderTasks();
 }
-$("#simBtn").onclick = runSimilarity;
+$("#simBtn").onclick = () => exiger("plagiat") && runSimilarity();
 
 /* ================= INTERFACE BILINGUE ================= */
 const I18N = window.I18N_EN || {exact: {}, re: [], frag: []};
@@ -1669,5 +1790,5 @@ document.querySelectorAll("#uiLangSeg button").forEach(b => b.onclick = () => { 
 try{ const langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""]); if(!localStorage.getItem(LS) && /^en/i.test(langs[0] || "") && !langs.some(l => /^fr/i.test(l))) state.uiLang = "en"; }catch(e){}
 
 /* ---------- démarrage ---------- */
-loadLocal(); refreshDraftUi(); renderAll(); applyLang(); setTimeout(() => sync.pull(), 400); setView((() => { try{ return localStorage.getItem("bibliocard.view") || "biblio"; }catch(e){ return "biblio"; } })()); micUi(); updateCount();
+loadLocal(); compte.init(); refreshDraftUi(); renderAll(); applyLang(); setTimeout(() => sync.pull(), 400); setView((() => { try{ return localStorage.getItem("bibliocard.view") || "biblio"; }catch(e){ return "biblio"; } })()); micUi(); updateCount();
 setStatus(state.sources.length ? "Enregistré sur cet appareil" : "Prêt");

@@ -452,6 +452,24 @@ function parseRefHeuristic(line){
 }
 function blank(){ return {id: "s" + Math.random().toString(36).slice(2,10), type:"article", authors:[], title:"", year:"", container:"", volume:"", issue:"", pages:"", city:"", publisher:"", edition:"", translator:"", editors:"", genre:"", url:"", doi:"", isbn:"", accessed:"", origin:"Saisie manuelle"}; }
 
+/* ---------- formules d’abonnement (les prix qui font foi sont ceux du serveur : supabase/functions/payer-abonnement) ---------- */
+const FORMULES = [
+  {n: 1, prix: 3000, titre: "Bibliographie", inclus: ["Bibliographie dans toutes les normes : NORCAMES, APA, ISO 690, Chicago, MLA, Vancouver, notes", "Lecture des mémoires Word et PDF, correction du fichier Word", "Contrôle des citations, de l’existence des références et de la structure NORCAMES"]},
+  {n: 2, prix: 5000, titre: "Bibliographie et dictée", inclus: ["Tout ce que contient la formule 1", "Dictée Lian’Z : tu rédiges en parlant, transcription fidèle, sans reformulation"]},
+  {n: 3, prix: 7000, titre: "Toutes les fonctions", inclus: ["Tout ce que contient la formule 2", "Contrôle des similitudes (anti-plagiat)", "Toutes les nouveautés de l’application"]},
+];
+// formule minimale de chaque fonction réservée
+const BESOIN = {biblio: 1, dictee: 2, plagiat: 3};
+// Formule en vigueur d’après les dates du serveur. decalage = heure du serveur − heure de l’appareil au moment
+// de la lecture : une horloge d’appareil avancée ou retardée ne change rien.
+function formuleEnVigueur(acces, maintenant){
+  if(!acces) return 0;
+  const t = maintenant + (acces.decalage || 0);
+  if(acces.fin && Date.parse(acces.fin) > t) return +acces.formule_payee || 0;
+  if(acces.essai_fin && Date.parse(acces.essai_fin) > t) return 3;
+  return 0;
+}
+
 /* ---------- lecture d’un document : section bibliographie + découpage ---------- */
 const YEAR_RE = /(1[5-9]\d{2}|20\d{2}|s\.\s?d\.|n\.\s?d\.)/;
 function findBibSection(text){
@@ -916,4 +934,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
