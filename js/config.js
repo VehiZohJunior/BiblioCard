@@ -5,8 +5,9 @@
 //               ici la clé secrète (« sb_secret_… » ou service_role).
 // payant      : true = connexion Google, essai de 3 jours puis formules PayDunya.
 // Laissés vides, l’application fonctionne sans compte (copie locale, tests, démonstration).
+// Projet partagé avec Lian’Z (offre gratuite) : les tables de BiblioCard ont des noms distincts.
 window.BIBLIOCARD_CONFIG = {
-  supabaseUrl: "",
-  supabaseKey: "",
+  supabaseUrl: "https://rvaplfpjwocayptkalzh.supabase.co",
+  supabaseKey: "sb_publishable_xFndMM-e4pWZBu9_zYFT2w_DoE9NDP8",
   payant: true,
 };
