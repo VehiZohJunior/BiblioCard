@@ -83,6 +83,7 @@ begin
   return 'ok';
 end $$;
 revoke all on function public.appliquer_paiement(text, integer) from public, anon, authenticated;
+grant execute on function public.appliquer_paiement(text, integer) to service_role;  -- la fonction paydunya-notification seulement
 
 -- ============ 3. Synchronisation entre appareils (chaque utilisateur ne voit que la sienne) ============
 create table if not exists bibliotheques (
