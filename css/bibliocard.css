@@ -932,3 +932,92 @@ dialog#dash .dtop h2{font-weight:600;letter-spacing:-.015em}
 .vic{background:var(--brass-soft);color:var(--brass)}
 .vfeat{border-top-color:var(--violet)}
 .vhero .veyebrow,.vassur svg{color:#8FE8F2}
+
+/* ===== v14 : SCIENTUS moderne, innovant, futuriste (2026-10-26) =====
+   Titres en Sora (géométrique), interface en Inter, références et texte rédigé en Fraunces (rendu « document »).
+   Fonds à halos cyan et violet et trame de points, surfaces en verre dépoli, actions en dégradé du logo.
+   Dégradé des boutons #0E7490 → #5B3BEE : texte blanc AA sur toute la longueur (5,4 à 6,4). */
+:root{
+  --serif:"Sora","Inter","Segoe UI",system-ui,sans-serif;  /* titres : l’ancien nom pointe vers la police d’affichage */
+  --doc:"Fraunces",Georgia,"Times New Roman",serif;       /* références et texte du chercheur */
+  --grad-action:linear-gradient(120deg,#0E7490 0%,#4F46E5 55%,#5B3BEE 100%);
+  --grad-texte:linear-gradient(100deg,#3B2CB0 0%,#5B3BEE 45%,#0A7A8A 100%);
+  --glow:0 10px 30px -10px rgba(91,59,238,.55),0 0 0 1px rgba(91,59,238,.12);
+  --verre:color-mix(in srgb,var(--surface) 72%,transparent);
+  --verre-bord:rgba(255,255,255,.65);
+  --halo-a:rgba(18,200,224,.16); --halo-b:rgba(91,59,238,.14); --points:rgba(20,26,58,.07);
+  --bg:#F5F7FC;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#090B18; --surface:#13162B; --sunk:#0F1224; --line:#232847; --line-strong:#323866; --page:#171B33;
+  --grad-texte:linear-gradient(100deg,#A99CFF 0%,#8E7DFF 40%,#5BE0EE 100%);
+  --glow:0 10px 34px -10px rgba(110,90,255,.7),0 0 0 1px rgba(142,125,255,.25);
+  --verre-bord:rgba(255,255,255,.07); --halo-a:rgba(18,200,224,.18); --halo-b:rgba(106,77,255,.22); --points:rgba(255,255,255,.05);
+} }
+:root[data-theme="dark"]{
+  --bg:#090B18; --surface:#13162B; --sunk:#0F1224; --line:#232847; --line-strong:#323866; --page:#171B33;
+  --grad-texte:linear-gradient(100deg,#A99CFF 0%,#8E7DFF 40%,#5BE0EE 100%);
+  --glow:0 10px 34px -10px rgba(110,90,255,.7),0 0 0 1px rgba(142,125,255,.25);
+  --verre-bord:rgba(255,255,255,.07); --halo-a:rgba(18,200,224,.18); --halo-b:rgba(106,77,255,.22); --points:rgba(255,255,255,.05);
+}
+/* fond : deux halos et une trame de points, fixes, sans image */
+body:not(.legal){background:
+  radial-gradient(900px 600px at -10% -10%,var(--halo-a),transparent 60%),
+  radial-gradient(800px 700px at 110% 110%,var(--halo-b),transparent 60%),
+  radial-gradient(circle,var(--points) 1px,transparent 1.2px) 0 0/22px 22px,
+  var(--bg);background-attachment:fixed}
+body{font-feature-settings:"cv11","ss01"}
+h1,h2,h3,.dz-t,.tbtitle{letter-spacing:-.02em}
+/* le texte du chercheur et les références gardent un rendu de document */
+.entry .ref,.prev li,.prop .ref,.lects .ref,.vref,.card h5,.it .c,.vtext,.pass,.rpara,.paper input,.paper textarea,.blank{font-family:var(--doc)}
+/* titres en dégradé, réservés aux grands titres */
+.welcome h1,.redac h1,.vsec h2,.vfinal h2{font-weight:600}
+.welcome h1,.redac h1{background:var(--grad-texte);-webkit-background-clip:text;background-clip:text;color:transparent}
+.vhero h1 .grad,.vfinal h2 .grad{background:linear-gradient(100deg,#A99CFF,#5BE0EE);-webkit-background-clip:text;background-clip:text;color:transparent}
+/* verre dépoli : barre du haut, navigation, barre de saisie, volet, fenêtres */
+header.topbar,.appnav,.cbox,.side,.stop,dialog,.vhead{background:var(--verre)!important;backdrop-filter:saturate(1.5) blur(18px);-webkit-backdrop-filter:saturate(1.5) blur(18px)}
+.cbox{border:1px solid var(--verre-bord);box-shadow:var(--shadow-lg),inset 0 1px 0 var(--verre-bord)}
+.appnav{border-color:var(--line)}
+/* actions : dégradé du logo, lumière au survol */
+.btn.primary,.chip.pri,.vbtn.or,.vitrine .vbtn.or,.appnav .an-new,.newproj,.npb[aria-pressed="true"],.go.send,.gbtn.or{background:var(--grad-action)!important;color:#fff!important;border-color:transparent!important;box-shadow:var(--glow)}
+.btn.primary,.chip.pri,.vbtn.or,.appnav .an-new,.newproj{border-radius:999px}
+.btn.primary:hover,.chip.pri:hover,.vbtn.or:hover,.appnav .an-new:hover,.newproj:hover{filter:brightness(1.08) saturate(1.1);transform:translateY(-1px)}
+.go{background:var(--grad-action)!important;color:#fff!important;box-shadow:var(--glow)}
+.micbtn:not(.on){background:var(--grad-action)!important;color:#fff!important;box-shadow:var(--glow)}
+.chip,.npb,.btn{border-radius:999px}
+.npb:hover,.chip:hover{border-color:color-mix(in srgb,var(--violet) 45%,var(--line))}
+/* zone de dépôt : bordure dégradée qui tourne lentement */
+@property --angle{syntax:"<angle>";inherits:false;initial-value:0deg}
+.dropzone{border:1.5px solid transparent!important;background:linear-gradient(var(--verre),var(--verre)) padding-box,conic-gradient(from var(--angle),#12C8E0,#5B3BEE,#A99CFF,#12C8E0) border-box!important;backdrop-filter:blur(14px);animation:tourne 8s linear infinite}
+.dropzone:hover{box-shadow:var(--glow),var(--shadow-lg)}
+@keyframes tourne{to{--angle:360deg}}
+.dz-ic{border-radius:20px}
+.dz-t{font-weight:600}
+/* cartes et panneaux : coins plus généreux, bord lumineux au survol */
+.prop,.prev,.synth,.panel2,.report,.file,.ppart,.planform,.mic,.vcard,.vfeat,.vqui,.vplan,.todo{border-radius:20px}
+.prop:hover,.ppart:hover,.vcard:hover,.vfeat:hover,.vplan:hover{border-color:color-mix(in srgb,var(--violet) 40%,var(--line));box-shadow:var(--glow)}
+.sheet,.paper{border-radius:14px}
+/* navigation : indicateur lumineux sur l’entrée active */
+@media (min-width:1000px){
+  .appnav button[aria-current="page"]{background:color-mix(in srgb,var(--violet) 12%,transparent);position:relative}
+  .appnav button[aria-current="page"]::before{content:"";position:absolute;left:-14px;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--grad-action)}
+}
+.appnav button[aria-current="page"] svg{color:var(--violet)}
+/* étiquettes : petite pastille dégradée */
+.eyebrow,.veyebrow{display:inline-flex;align-items:center;gap:8px}
+.eyebrow::before,.veyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--grad-action);box-shadow:0 0 10px rgba(91,59,238,.6)}
+/* page d’accueil publique : nuit étoilée, grille en perspective */
+.vhero{background:radial-gradient(700px 400px at 15% 0%,rgba(18,200,224,.25),transparent 60%),radial-gradient(800px 500px at 90% 100%,rgba(106,77,255,.35),transparent 60%),#070918!important}
+.vhero::before{content:"";position:absolute;inset:auto 0 0 0;height:55%;background-image:linear-gradient(rgba(142,125,255,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(142,125,255,.18) 1px,transparent 1px);background-size:44px 44px;transform:perspective(500px) rotateX(60deg);transform-origin:bottom;mask-image:linear-gradient(to top,#000,transparent);-webkit-mask-image:linear-gradient(to top,#000,transparent);pointer-events:none}
+.vhero::after{display:none}
+.vpaper{border:1px solid rgba(255,255,255,.5);box-shadow:0 30px 80px -24px rgba(91,59,238,.6),0 0 0 1px rgba(255,255,255,.08)}
+.vfinal{background:radial-gradient(600px 300px at 50% 0%,rgba(106,77,255,.35),transparent 70%),#070918!important}
+.vnormes{background:var(--verre);backdrop-filter:blur(12px)}
+.vnl{font-family:var(--serif);font-weight:600;letter-spacing:-.01em}
+.vmontant b{font-weight:700}
+.vbest{background:var(--grad-action)}
+.vplan.best{border:1px solid transparent;background:linear-gradient(var(--surface),var(--surface)) padding-box,var(--grad-action) border-box}
+.vsec-alt{background:color-mix(in srgb,var(--surface) 60%,transparent)}
+@media (prefers-reduced-motion:reduce){ .dropzone{animation:none} }
+.dropzone{background:linear-gradient(var(--surface),var(--surface)) padding-box,conic-gradient(from var(--angle),#12C8E0,#5B3BEE,#A99CFF,#12C8E0) border-box!important}
+.eyebrow::before{content:none}
