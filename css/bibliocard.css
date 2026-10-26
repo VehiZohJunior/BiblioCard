@@ -1,21 +1,20 @@
 /* BiblioCard : styles — généré depuis la version autonome, ne pas modifier à la main sans relancer les tests */
 
-/* ===== Système de design « Bibliothèque au crépuscule » (validé le 2026-10-26) =====
-   Encre #1E2A4A, or ambré #D4A24C, ivoire papier #FAF7F0, terracotta #C8643B, sauge #7A9E7E, ardoise #5B6474.
-   Contrastes WCAG AA mesurés : l’or, la sauge et la terracotta servent de fonds et de traits ; pour du texte,
-   on prend leur version foncée (--brass, --ok, --proof). Les anciens noms (--brass, --proof, --ok…) sont gardés :
-   ils pointent maintenant vers la nouvelle palette, donc tout l’écran suit sans toucher au code. */
+/* ===== Système de design SCIENTUS (palette du logo, 2026-10-26) =====
+   Violet #5B3BEE et cyan #12C8E0 repris du logo, encre #141A3A, fond blanc bleuté #F7F8FC.
+   Contrastes WCAG AA mesurés : le violet sert aux actions (texte blanc, 6,4) ; pour du texte coloré on prend
+   les versions foncées (--brass #4A2DD8, --data #0A7A8A, --ok, --proof). Le dégradé du logo (--grad) reste rare.
+   Les anciens noms (--or, --brass, --proof, --ok…) sont gardés : ils pointent vers cette palette. */
 :root{
-  /* couleurs de marque */
-  --encre:#1E2A4A; --indigo:#2E3A78; --or:#D4A24C; --on-or:#1E2A4A; --ivoire:#FAF7F0; --terra:#C8643B; --sauge:#7A9E7E; --ardoise:#5B6474;
-  /* rôles */
-  --bg:#FAF7F0; --surface:#FFFFFF; --sunk:#F3EEE3; --ink:#1E2A4A; --muted:#5B6474; --line:#E6DFD0; --line-strong:#D3C9B4;
-  --brass:#8A6418; --brass-soft:#F6ECD6; --proof:#A24A26; --proof-soft:#F8E7DE; --ok:#4A6E4F; --ok-soft:#E7EFE7;
-  --petrole:#1E2A4A; --turquoise:#2E3A78; --data:#2E3A78;
-  --page:#FFFFFF; --hero:linear-gradient(135deg,#1E2A4A 0%,#2E3A78 100%);
-  /* ombres teintées d’encre */
-  --shadow-sm:0 1px 2px rgba(30,42,74,.06); --shadow:0 1px 2px rgba(30,42,74,.06), 0 8px 24px -10px rgba(30,42,74,.18);
-  --shadow-lg:0 2px 4px rgba(30,42,74,.05), 0 24px 48px -16px rgba(30,42,74,.25);
+  /* couleurs de marque et rôles */
+  --encre:#141A3A; --indigo:#3B2CB0; --or:#5B3BEE; --on-or:#FFFFFF; --ivoire:#F7F8FC; --terra:#C8643B; --sauge:#3FA37A; --ardoise:#5A6275;
+  --cyan:#12C8E0; --violet:#5B3BEE; --grad:linear-gradient(135deg,#12C8E0 0%,#5B3BEE 100%);
+  --bg:#F7F8FC; --surface:#FFFFFF; --sunk:#EEF0F7; --ink:#141A3A; --muted:#5A6275; --line:#E1E4EE; --line-strong:#CBD0E0;
+  --brass:#4A2DD8; --brass-soft:#ECE9FE; --proof:#B4432A; --proof-soft:#FBE9E3; --ok:#2E7356; --ok-soft:#E3F2EA;
+  --petrole:#141A3A; --turquoise:#0A7A8A; --data:#0A7A8A;
+  --page:#FFFFFF; --hero:linear-gradient(135deg,#141A3A 0%,#2A2470 60%,#3B2CB0 100%);
+  --shadow-sm:0 1px 2px rgba(20,26,58,.06); --shadow:0 1px 2px rgba(20,26,58,.06), 0 8px 24px -10px rgba(20,26,58,.18);
+  --shadow-lg:0 2px 4px rgba(20,26,58,.05), 0 24px 48px -16px rgba(20,26,58,.25);
   /* typographie */
   --ui:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
   --serif:"Fraunces",Georgia,"Times New Roman",serif;
@@ -28,21 +27,21 @@
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --or:#E2B865; --on-or:#12161F; --terra:#E08A63; --sauge:#9DC3A1;
-    --bg:#12161F; --surface:#1A2030; --sunk:#151A26; --ink:#ECE6DA; --muted:#A4ACBA; --line:#2A3245; --line-strong:#3A4459;
-    --brass:#E2B865; --brass-soft:#3A2F17; --proof:#E08A63; --proof-soft:#3A231A; --ok:#9DC3A1; --ok-soft:#22352A;
-    --petrole:#ECE6DA; --turquoise:#B9C3F0; --data:#B9C3F0;
-    --page:#1D2436; --hero:linear-gradient(135deg,#1A2030 0%,#232C52 100%);
+    --or:#8E7DFF; --on-or:#0E1022; --terra:#F0907A; --sauge:#7FD1A8; --cyan:#5BE0EE; --violet:#8E7DFF; --grad:linear-gradient(135deg,#12C8E0 0%,#6A4DFF 100%);
+    --bg:#0E1022; --surface:#171A33; --sunk:#12152B; --ink:#E9EAF5; --muted:#A3A8C3; --line:#272B4A; --line-strong:#363B60;
+    --brass:#ADA2FF; --brass-soft:#26214D; --proof:#F0907A; --proof-soft:#3A2020; --ok:#7FD1A8; --ok-soft:#173326;
+    --petrole:#E9EAF5; --turquoise:#5BE0EE; --data:#5BE0EE;
+    --page:#1B1F3D; --hero:linear-gradient(135deg,#171A33 0%,#2A2470 100%);
     --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7); --shadow-lg:0 24px 60px -20px rgba(0,0,0,.8);
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --or:#E2B865; --on-or:#12161F; --terra:#E08A63; --sauge:#9DC3A1;
-  --bg:#12161F; --surface:#1A2030; --sunk:#151A26; --ink:#ECE6DA; --muted:#A4ACBA; --line:#2A3245; --line-strong:#3A4459;
-  --brass:#E2B865; --brass-soft:#3A2F17; --proof:#E08A63; --proof-soft:#3A231A; --ok:#9DC3A1; --ok-soft:#22352A;
-  --petrole:#ECE6DA; --turquoise:#B9C3F0; --data:#B9C3F0;
-  --page:#1D2436; --hero:linear-gradient(135deg,#1A2030 0%,#232C52 100%);
+  --or:#8E7DFF; --on-or:#0E1022; --terra:#F0907A; --sauge:#7FD1A8; --cyan:#5BE0EE; --violet:#8E7DFF; --grad:linear-gradient(135deg,#12C8E0 0%,#6A4DFF 100%);
+  --bg:#0E1022; --surface:#171A33; --sunk:#12152B; --ink:#E9EAF5; --muted:#A3A8C3; --line:#272B4A; --line-strong:#363B60;
+  --brass:#ADA2FF; --brass-soft:#26214D; --proof:#F0907A; --proof-soft:#3A2020; --ok:#7FD1A8; --ok-soft:#173326;
+  --petrole:#E9EAF5; --turquoise:#5BE0EE; --data:#5BE0EE;
+  --page:#1B1F3D; --hero:linear-gradient(135deg,#171A33 0%,#2A2470 100%);
   --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7); --shadow-lg:0 24px 60px -20px rgba(0,0,0,.8);
   color-scheme:dark;
 }
@@ -694,35 +693,35 @@ body.vitrine{background:var(--bg);font-size:16px;line-height:1.6}
 .vbtn:hover{transform:translateY(-1px)}
 .vitrine .vbtn.or{background:var(--or);color:var(--on-or)}
 .vbtn.or:hover{filter:brightness(1.05)}
-.vitrine .vbtn.ghost{border-color:rgba(250,247,240,.35);color:#FAF7F0}
-.vbtn.ghost:hover{background:rgba(250,247,240,.08)}
+.vitrine .vbtn.ghost{border-color:rgba(255,255,255,.35);color:#FFFFFF}
+.vbtn.ghost:hover{background:rgba(255,255,255,.08)}
 .vbtn.small{padding:9px 14px;font-size:14px}
 .veyebrow{margin:0 0 12px;font-size:12.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}
 
 /* héros : encre vers indigo, la bibliothèque au crépuscule */
-.vhero{position:relative;overflow:hidden;background:var(--hero);color:#FAF7F0;padding:56px 0 64px}
-.vhero::after{content:"";position:absolute;inset:auto -10% -40% auto;width:60%;aspect-ratio:1;border-radius:50%;background:radial-gradient(closest-side,rgba(212,162,76,.22),transparent);pointer-events:none}
+.vhero{position:relative;overflow:hidden;background:var(--hero);color:#FFFFFF;padding:56px 0 64px}
+.vhero::after{content:"";position:absolute;inset:auto -10% -40% auto;width:60%;aspect-ratio:1;border-radius:50%;background:radial-gradient(closest-side,rgba(18,200,224,.20),transparent);pointer-events:none}
 .vhero-in{position:relative;z-index:1;display:grid;gap:40px;align-items:center}
 @media (min-width:960px){ .vhero{padding:88px 0 96px} .vhero-in{grid-template-columns:1.1fr .9fr;gap:56px} }
-.vhero .veyebrow{color:#E2B865}
+.vhero .veyebrow{color:#8FE8F2}
 .vhero h1{font-family:var(--serif);font-weight:500;font-size:clamp(36px,6.2vw,62px);line-height:1.04;letter-spacing:-.03em;margin:0 0 18px;text-wrap:balance}
 .vlead{font-size:clamp(16px,2vw,18.5px);line-height:1.6;color:#D9DEEA;max-width:52ch;margin:0 0 28px}
-.vlead b{color:#FAF7F0;font-weight:600}
+.vlead b{color:#FFFFFF;font-weight:600}
 .vcta{display:flex;flex-wrap:wrap;gap:12px}
 .vassur{list-style:none;margin:22px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px;color:#C9D0E0}
 .vassur li{display:inline-flex;align-items:center;gap:7px}
-.vassur svg{color:#E2B865}
-.vpaper{margin:0;background:#FFFDF8;color:#1E2A4A;border-radius:var(--r-sm);padding:26px 24px 18px;box-shadow:0 30px 60px -24px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.15);transform:rotate(-1.2deg)}
+.vassur svg{color:#8FE8F2}
+.vpaper{margin:0;background:#FFFFFF;color:#141A3A;border-radius:var(--r-sm);padding:26px 24px 18px;box-shadow:0 30px 60px -24px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.15);transform:rotate(-1.2deg)}
 .vpaper-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .vpaper-t{font-family:var(--serif);font-weight:600;font-size:18px}
-.vtag{font-size:11.5px;font-weight:600;color:#8A6418;background:#F6ECD6;border-radius:99px;padding:3px 9px}
+.vtag{font-size:11.5px;font-weight:600;color:#4A2DD8;background:#ECE9FE;border-radius:99px;padding:3px 9px}
 .vpaper ol{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .vpaper li{display:grid;gap:5px}
 .vref{font-family:var(--serif);font-size:14.5px;line-height:1.55;padding-left:1.5em;text-indent:-1.5em}
 .vb{justify-self:start;margin-left:1.5em;font-size:11.5px;font-weight:500;border-radius:99px;padding:2px 9px}
 .vb.ok{background:#E7EFE7;color:#3C5C40}
-.vb.or{background:#F6ECD6;color:#7A5714}
-.vpaper figcaption{margin-top:14px;padding-top:10px;border-top:1px solid #EDE6D6;font-size:12.5px;color:#5B6474}
+.vb.or{background:#ECE9FE;color:#4A2DD8}
+.vpaper figcaption{margin-top:14px;padding-top:10px;border-top:1px solid #E1E4EE;font-size:12.5px;color:#5B6474}
 
 /* bandeau des normes */
 .vnormes{border-bottom:1px solid var(--line);background:var(--surface)}
@@ -774,7 +773,7 @@ body.vitrine{background:var(--bg);font-size:16px;line-height:1.6}
 .vfaq[open] summary::after{transform:rotate(45deg)}
 .vfaq p{margin:10px 0 0;color:var(--muted)}
 .vfaq a{color:var(--brass);font-weight:600}
-.vfinal{background:var(--hero);color:#FAF7F0;text-align:center;padding:80px 0}
+.vfinal{background:var(--hero);color:#FFFFFF;text-align:center;padding:80px 0}
 .vfinal h2{margin:0 auto 12px}
 .vfinal p{color:#D9DEEA;margin:0 0 28px;font-size:17px}
 .vfoot{padding:36px 0 calc(36px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
@@ -894,7 +893,7 @@ dialog#dash .dtop h2{font-weight:600;letter-spacing:-.015em}
 .ppart.n2{border-left-color:var(--or)}
 .ppart .pt2:focus{border-bottom-color:var(--or)}
 /* relecture par l’encadreur */
-.revban{background:var(--hero);color:#FAF7F0;border:0;border-radius:var(--r-xl);padding:22px 22px}
+.revban{background:var(--hero);color:#FFFFFF;border:0;border-radius:var(--r-xl);padding:22px 22px}
 .revban h1{font-weight:500;font-size:clamp(24px,4vw,32px);letter-spacing:-.02em}
 .revban p{color:#D9DEEA}
 .cmt{border-left-color:var(--or)}
@@ -927,3 +926,9 @@ dialog#dash .dtop h2{font-weight:600;letter-spacing:-.015em}
 .wordmark span{color:inherit}
 .wordmark > span[aria-hidden]{display:inline-flex;align-items:center}
 .welcome .brandmark .wm-c,.wordmark .wm-c{display:inline-block;width:1.3em;height:1.3em;border-radius:50%;box-shadow:0 0 0 .14em #fff,0 .2em .55em rgba(91,59,238,.28)}
+/* touches du dégradé du logo, avec parcimonie : icône de dépôt, numéros d’étapes, formule mise en avant */
+.dz-ic{background:var(--grad);color:#fff;box-shadow:0 8px 20px -10px rgba(91,59,238,.6)}
+.vnum{background:var(--grad);color:#fff}
+.vic{background:var(--brass-soft);color:var(--brass)}
+.vfeat{border-top-color:var(--violet)}
+.vhero .veyebrow,.vassur svg{color:#8FE8F2}
