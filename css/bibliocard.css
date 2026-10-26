@@ -917,3 +917,13 @@ dialog#dash .dtop h2{font-weight:600;letter-spacing:-.015em}
 .instal ol{margin:0 0 14px;padding-left:22px;display:grid;gap:10px;font-size:15px;line-height:1.5}
 .appnav .an-install{color:var(--brass)}
 .appnav .an-install svg{color:var(--brass)}
+/* signature du logo SCIENTUS : capitales sans empattement, très espacées, le C remplacé par le symbole */
+.wordmark{font-family:var(--ui)!important;font-weight:600;letter-spacing:.17em;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center}
+.wordmark::after{content:none!important}
+.wordmark .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.wm-c{display:inline-block;height:1.3em;width:1.3em;margin:0 .14em 0 .1em;border-radius:50%;vertical-align:middle;box-shadow:0 0 0 .14em #fff,0 .2em .55em rgba(91,59,238,.28)}
+.welcome .brandmark .wordmark{font-size:26px}
+.legal .lhead .wordmark{font-size:17px}
+.wordmark span{color:inherit}
+.wordmark > span[aria-hidden]{display:inline-flex;align-items:center}
+.welcome .brandmark .wm-c,.wordmark .wm-c{display:inline-block;width:1.3em;height:1.3em;border-radius:50%;box-shadow:0 0 0 .14em #fff,0 .2em .55em rgba(91,59,238,.28)}
