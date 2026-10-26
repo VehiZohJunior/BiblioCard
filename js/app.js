@@ -496,13 +496,15 @@ async function handleFiles(list){
       if(!stripMarks(text).trim()){ Object.assign(f, {busy:false, error:true, status:"Aucun texte trouvé. Un PDF scanné doit d’abord passer par une reconnaissance de caractères."}); renderFiles(); think(false); post({role: "a", kind: "error", text: f.status}); continue; }
       Object.assign(f, {text}, decide(text)); IDB.put({name: f.name, text: stripMarks(text).slice(0, 3000000), at: Date.now()});
       await runFile(f);
+      // le texte cite des œuvres absentes de la liste du document (ou il n’y a pas de liste) : on les cherche aussitôt
+      if(!f.error && (f.mode === "biblio" || f.mode === "texte") && f.body && apparierCitations(stripMarks(f.body), state.sources).missing.length) await construireBiblio(f.name, true);
     }catch(err){ Object.assign(f, {busy:false, error:true, status:`Lecture impossible : ${err.message || err}`}); renderFiles(); think(false); post({role: "a", kind: "error", text: f.status}); }
   }
 }
 
 async function runFile(f){ think(true); try{ await runFileCore(f); } finally { think(false); }
   if(f.error) post({role: "a", kind: "error", text: f.status});
-  else post({role: "a", kind: "import", mode: f.mode, file: f.name, ids: state.sources.filter(s => s.file === f.name).map(s => s.id), ocr: !!f.ocr, docx: !!f.buf, cites: f.mode === "texte" ? findCitations(stripMarks(f.body || "")).length : 0});
+  else post({role: "a", kind: "import", mode: f.mode, gen: f.gen || null, file: f.name, ids: state.sources.filter(s => s.file === f.name).map(s => s.id), ocr: !!f.ocr, docx: !!f.buf, cites: f.mode === "texte" ? findCitations(stripMarks(f.body || "")).length : 0});
 }
 async function runFileCore(f){
   state.sources = state.sources.filter(s => s.file !== f.name);
@@ -515,8 +517,24 @@ async function runFileCore(f){
     f.status = `${refs.length} référence${refs.length > 1 ? "s" : ""} trouvée${refs.length > 1 ? "s" : ""}, mise en forme…`; renderFiles();
     const list = await parseMany(refs, f);
     list.forEach(s => s.file = f.name);
-    const k = addSources(list);
-    f.busy = false; f.status = `${k} référence${k > 1 ? "s" : ""} ajoutée${k > 1 ? "s" : ""}${list.length - k ? `, ${list.length - k} déjà présente${list.length - k > 1 ? "s" : ""}` : ""}${f.ocr ? ". Document scanné : relis attentivement" : ""}`;
+    /* Générer la bibliographie, ce n’est pas recopier la liste du document : on part des citations du texte.
+       La liste du document ne sert que de source de données (auteur, année, titre, revue ou éditeur, volume,
+       numéro, pages), rédigées ensuite selon la norme choisie. Une référence jamais citée n’est pas reprise ;
+       une œuvre citée absente de la liste est cherchée en ligne (construireBiblio). */
+    const corps = stripMarks(f.body || "");
+    const v = corps.trim().length > 200 ? apparierCitations(corps, list) : null;
+    if(v && v.total){
+      const citees = new Set(v.pairs.map(x => x.s.id));
+      f.nonCitees = list.filter(s => !citees.has(s.id));
+      const k = addSources(list.filter(s => citees.has(s.id)));
+      const aChercher = new Set(v.missing.map(x => norm(x.c.family) + annee(x.c))).size;
+      f.gen = {citations: v.total, retenues: k, nonCitees: f.nonCitees.length, aChercher};
+      f.busy = false; f.status = `${k} source${k > 1 ? "s" : ""} citée${k > 1 ? "s" : ""} retrouvée${k > 1 ? "s" : ""} dans la liste du document${aChercher ? `, ${aChercher} à chercher en ligne` : ""}${f.ocr ? ". Document scanné : relis attentivement" : ""}`;
+    } else {
+      // une simple liste de références, sans texte rédigé : il n’y a pas de citations à suivre
+      const k = addSources(list); f.gen = null; f.nonCitees = [];
+      f.busy = false; f.status = `${k} référence${k > 1 ? "s" : ""} ajoutée${k > 1 ? "s" : ""}${list.length - k ? `, ${list.length - k} déjà présente${list.length - k > 1 ? "s" : ""}` : ""}${f.ocr ? ". Document scanné : relis attentivement" : ""}`;
+    }
     renderAll(); if(!net.blocked) runExistence(false); return;
   }
   f.status = "Identification de la source…"; renderFiles();
@@ -768,7 +786,7 @@ async function construireBiblio(nom, sansCommande){
   if(!sansCommande) post({role: "u", kind: "cmd", text: "Construire ma bibliographie"});
   if(!docs.length){ post({role: "a", kind: "error", text: "Dépose d’abord ton document (Word, PDF ou texte) avec le bouton + : je construis la bibliographie à partir des citations de son texte."}); return; }
   const L = labeled(), vus = new Set(), todo = [];
-  docs.forEach(f => { const body = stripMarks(f.body); verify(body, L).missing.forEach(x => { const k = norm(x.c.family) + annee(x.c); if(vus.has(k)) return; vus.add(k); todo.push({c: x.c, ctx: contexteCitation(body, x.c.raw), file: f.name, pos: body.indexOf(x.c.raw)}); }); });
+  docs.forEach(f => { const body = stripMarks(f.body); apparierCitations(body, state.sources).missing.forEach(x => { const k = norm(x.c.family) + annee(x.c); if(vus.has(k)) return; vus.add(k); todo.push({c: x.c, ctx: contexteCitation(body, x.c.raw), file: f.name, pos: body.indexOf(x.c.raw)}); }); });
   todo.sort((a, b) => a.file === b.file ? a.pos - b.pos : 0); // dans l’ordre du texte
   if(!todo.length){ post({role: "a", kind: "info", text: "Toutes les citations de ton texte ont déjà leur référence dans la bibliographie."}); return; }
   post({role: "a", kind: "info", text: `Je cherche ${todo.length > 1 ? `les ${todo.length} œuvres citées` : "l’œuvre citée"} dans OpenAlex et Open Library…`}); think(true);
@@ -1729,11 +1747,17 @@ function appBody(m){
   const status = () => { const c = conformity(state.sources, state.style); return `<p>Conformité ${esc(st.name)} : <b>${c.score}${NB}%</b>. ${urgent ? `${plur(urgent, "point urgent", "points urgents")} à corriger.` : "Rien d’urgent à régler."}</p>`; };
   switch(m.kind){
     case "import":
+      if(m.mode === "biblio" && m.gen){ const g = m.gen;
+        return `<p>J’ai lu <b>${plur(g.citations, "citation", "citations")}</b> dans le texte de ${esc(m.file)} et généré la bibliographie de <b>${plur(g.retenues, "source utilisée", "sources utilisées")}</b>, en ${esc(st.full)}. Pour chacune, seuls l’auteur, l’année, le titre, la revue ou l’éditeur, le volume, le numéro et les pages sont repris.${m.ocr ? " Le document était scanné : relis attentivement." : ""}</p>
+          ${g.aChercher ? `<p>${plur(g.aChercher, "œuvre citée manque", "œuvres citées manquent")} à la liste de ton document : je les cherche en ligne.</p>` : ""}
+          ${g.nonCitees ? `<p>${plur(g.nonCitees, "référence de ta liste n’est citée", "références de ta liste ne sont citées")} nulle part dans le texte : je ne l${g.nonCitees > 1 ? "es" : "’"}ai pas reprise${g.nonCitees > 1 ? "s" : ""}.</p>` : ""}
+          ${status()}${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${g.nonCitees ? chip("Ajouter quand même les non citées", {t:"noncitees", v:m.file}) : ""}${chip("Télécharger en Word", {t:"dl"})}</div>`;
+      }
       if(m.mode === "biblio"){ const f = ui.files.find(x => x.name === m.file), manque = f && f.body ? verify(stripMarks(f.body), labeled()).missing.length : 0;
         return `<p>J’ai trouvé <b>${plur(m.ids.length, "référence", "références")}</b> dans la bibliographie de ${esc(m.file)}, mises en forme en ${esc(st.full)}.${m.ocr ? " Le document était scanné : relis-les attentivement." : ""}</p>${status()}${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${manque ? chip(manque > 1 ? `Chercher les ${manque} références manquantes` : "Chercher la référence manquante", {t:"build", v:m.file}) : ""}${m.docx ? chip("Corriger mon document Word", {t:"fix", v:m.file}) : ""}${urgent ? chip("Voir ce qu’il reste à régler", {t:"side", v:"todo"}, "warn") : ""}${chip("Télécharger en Word", {t:"dl"})}</div>`;
       }
       if(m.mode === "source") return `<p>J’ai ajouté la source tirée de ${esc(m.file)}.</p>${previewIds(m.ids)}<div class="chips">${m.ids[0] ? chip("Vérifier la fiche", {t:"edit", v:m.ids[0]}) : ""}${chip("Voir la bibliographie", {t:"side", v:"biblio"})}</div>`;
-      return `<p>${esc(m.file)} ne contient pas encore de bibliographie : j’ai repéré ${plur(m.cites || 0, "citation", "citations")} dans le texte. Je peux chercher chaque œuvre citée en ligne et te proposer les références complètes.</p><div class="chips">${chip("Construire ma bibliographie", {t:"build", v:m.file}, "pri")}${chip("Voir le contrôle", {t:"side", v:"controle"})}</div>`;
+      return `<p>${esc(m.file)} ne contient pas de liste de références : j’ai repéré ${plur(m.cites || 0, "citation", "citations")} dans le texte. Je génère ta bibliographie à partir d’elles : chaque œuvre citée est cherchée en ligne, puis rédigée selon ta norme.</p><div class="chips">${chip("Construire ma bibliographie", {t:"build", v:m.file}, "pri")}${chip("Voir le contrôle", {t:"side", v:"controle"})}</div>`;
     case "propositions": {
       const n = v => m.items.filter(x => x.verdict === v).length, sures = m.items.filter(x => x.etat === "attente" && x.verdict === "sure" && x.choix.length).length;
       return `<p>${plur(m.items.length, "œuvre citée cherchée", "œuvres citées cherchées")}${NB}: <b>${n("sure")}</b> trouvée${n("sure") > 1 ? "s" : ""}, <b>${n("choisir")}</b> à confirmer, ${n("rien")} introuvable${n("rien") > 1 ? "s" : ""}. Vérifie chaque proposition${NB}: rien n’est ajouté sans ton accord.</p>
@@ -1768,6 +1792,7 @@ async function runAct(a){
   else if(a.t === "edit"){ const s = state.sources.find(x => x.id === a.v); if(s) openForm(s); }
   else if(a.t === "fix") await doFix(a.v);
   else if(a.t === "build") await construireBiblio(a.v);
+  else if(a.t === "noncitees"){ const f = ui.files.find(x => x.name === a.v); const L = (f && f.nonCitees) || []; const before = new Set(state.sources.map(s => s.id)); const k = addSources(L.map(s => ({...s}))); if(f) f.nonCitees = []; post({role: "a", kind: "added", ids: state.sources.filter(s => !before.has(s.id)).map(s => s.id), dup: L.length - k}); }
   else if(String(a.t).startsWith("prop-")) await actionProposition(a);
 }
 async function doFix(name){

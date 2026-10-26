@@ -16,7 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-<link rel="stylesheet" href="css/bibliocard.css?v=34">
+<link rel="stylesheet" href="css/bibliocard.css?v=36">
 
 </head>
 <body>
@@ -292,7 +292,7 @@
       <h3>Comment SCIENTUS travaille</h3>
       <ol class="method">
         <li><div><b>Lecture sur l’appareil</b><span>Le fichier Word ou PDF est lu dans le navigateur. Il n’est ni envoyé ni conservé : seules les références extraites sont gardées.</span></div></li>
-        <li><div><b>Repérage de la bibliographie</b><span>La dernière section intitulée « Bibliographie » ou « Références » est retenue, la table des matières et les annexes sont écartées. Les lignes coupées sont recollées.</span></div></li>
+        <li><div><b>Génération à partir des citations</b><span>La bibliographie n’est pas recopiée : elle est générée à partir des citations du texte, comme « Bourdieu (1982, p. 64) ». Seules les sources réellement citées sont retenues. Si le document contient déjà une liste de références, elle sert uniquement de réservoir d’informations ; ses entrées jamais citées sont signalées et écartées.</span></div></li>
         <li><div><b>Structuration de chaque référence</b><span>Auteurs, année, titre, revue ou éditeur, lieu et pages sont identifiés. L’italique de Word sert d’indice pour les titres d’ouvrages et de revues.<span class="claude-only"> Dans Claude, une analyse par IA affine ce découpage.</span></span></div></li>
         <li><div><b>Vérification d’existence</b><span>Chaque référence est recherchée dans trois bases ouvertes : OpenAlex, HAL et CrossRef. Un DOI inexistant ou qui renvoie à une autre publication est signalé comme suspect.</span></div></li>
         <li><div><b>Bibliographie construite à partir des citations</b><span>Quand le texte cite une œuvre absente de la bibliographie, SCIENTUS la cherche dans OpenAlex et Open Library à partir du nom de l’auteur et de l’année, puis choisit la plus probable d’après la phrase où elle est citée. L’éditeur et la ville viennent de l’édition de l’année citée. Chaque proposition est soumise au chercheur avant d’être ajoutée.</span></div></li>
@@ -349,10 +349,10 @@
 <dialog id="dlg"></dialog>
 <div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastAct" hidden data-notr="1"></button></div>
 
-<script src="js/config.js?v=34"></script>
-<script src="js/i18n-en.js?v=34"></script>
-<script src="js/moteur.js?v=34"></script>
-<script src="js/app.js?v=34"></script>
+<script src="js/config.js?v=36"></script>
+<script src="js/i18n-en.js?v=36"></script>
+<script src="js/moteur.js?v=36"></script>
+<script src="js/app.js?v=36"></script>
 
 <script>
 if("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

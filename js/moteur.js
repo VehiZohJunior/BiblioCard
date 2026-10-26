@@ -756,6 +756,38 @@ function verify(text, labeled){
   const noInitial = [...ok, ...yearOff].filter(x => !x.c.initial && x.s.authors.some(a => norm(a.family) === norm(x.c.family) && a.given));
   return {ok, missing, yearOff, unused, noInitial, total:cites.length};
 }
+/* Générer la bibliographie à partir du texte : chaque citation est rattachée à une entrée de la liste du
+   document, même quand le chercheur a écrit le nom un peu autrement (« Dragana » / « Dragna », « Spitzbardth »
+   / « Spitzbardt », « Henkemans » / « Snoeck Henkemans », prénom et nom inversés). L’année doit concorder.
+   verify() reste strict : c’est lui qui signale ces différences d’écriture dans le contrôle. */
+const PARTICULES = new Set(["van","von","der","den","del","della","de","du","des","la","le","al","el","ben","bin","ibn"]);
+function distance(a, b){
+  const d = Array.from({length: a.length + 1}, (_, i) => [i]);
+  for(let j = 1; j <= b.length; j++) d[0][j] = j;
+  for(let i = 1; i <= a.length; i++) for(let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+function nomsProches(x, y){
+  if(x === y) return true;
+  if(Math.min(x.length, y.length) < 4) return false;
+  return distance(x, y) <= (Math.max(x.length, y.length) >= 8 ? 2 : Math.min(x.length, y.length) >= 5 ? 1 : 0);
+}
+const morceauxNom = t => norm(t).split(/[\s-]+/).filter(w => w.length >= 3 && !PARTICULES.has(w));
+function apparierCitations(text, list){
+  const cites = findCitations(text), used = new Set(), pairs = [], missing = [];
+  const jetons = s => s.authors.flatMap(a => morceauxNom(`${a.family} ${a.given || ""}`));
+  cites.forEach(c => {
+    const an = String(c.year).replace(/[a-z]$/, ""), fam = morceauxNom(c.family);
+    let s = list.find(x => x.year === an && x.authors.some(a => norm(a.family) === norm(c.family)));
+    let approx = false;
+    if(!s){ s = list.find(x => x.year === an && jetons(x).some(t => fam.some(f => nomsProches(f, t)))); approx = !!s; }
+    // même auteur, autre année (réédition, coquille) : la source est bien utilisée ; l’écart d’année est signalé par le contrôle
+    let autreAnnee = false;
+    if(!s){ s = list.find(x => x.authors.some(a => norm(a.family) === norm(c.family))); autreAnnee = !!s; }
+    if(s){ used.add(s.id); pairs.push({c, s, approx, autreAnnee}); } else missing.push({c});
+  });
+  return {pairs, missing, unused: list.filter(s => !used.has(s.id)), total: cites.length};
+}
 
 /* ---------- CrossRef ---------- */
 function fromCrossref(it){
@@ -1190,4 +1222,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
