@@ -1,9 +1,12 @@
 /* BiblioCard : styles — généré depuis la version autonome, ne pas modifier à la main sans relancer les tests */
 
+/* Palette « Pétrole et or », mesurée sur le logo : bleu pétrole #0E3B5E → #0A97AC, or #CCA62E,
+   turquoise #20C6CA, bleu nuit #09233A. --brass reste le nom de l’accent (or) dans tout le code. */
 :root{
-  --bg:#E9ECEF; --surface:#FFFFFF; --sunk:#F3F5F7; --ink:#16202B; --muted:#5A6673; --line:#D3D9DF;
-  --brass:#6E5210; --brass-soft:#F2E7CC; --proof:#B3261E; --proof-soft:#FBE3E1; --ok:#2E6B4F; --ok-soft:#DDEFE5;
-  --page:#FFFFFF; --shadow:0 1px 0 rgba(22,32,43,.06), 0 8px 24px -12px rgba(22,32,43,.25);
+  --bg:#EEF2F5; --surface:#FFFFFF; --sunk:#F3F6F8; --ink:#0B2438; --muted:#4D6273; --line:#D3DDE4;
+  --brass:#7A5F0F; --brass-soft:#F6ECCB; --proof:#B3261E; --proof-soft:#FBE3E1; --ok:#0E6E6A; --ok-soft:#DCF0EE;
+  --petrole:#0E3B5E; --or:#CCA62E; --on-or:#0B2438; --turquoise:#0A7F91;
+  --page:#FFFFFF; --shadow:0 1px 0 rgba(11,36,56,.06), 0 8px 24px -12px rgba(11,36,56,.28);
   --ui:"Instrument Sans","Segoe UI",system-ui,-apple-system,sans-serif;
   --serif:"Literata",Georgia,"Times New Roman",serif;
   color-scheme:light; box-sizing:border-box;
@@ -11,15 +14,17 @@
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#0F151B; --surface:#18212A; --sunk:#121A21; --ink:#E6EBEF; --muted:#9AA6B2; --line:#2A3641;
-    --brass:#D6AE57; --brass-soft:#3A301A; --proof:#F2867F; --proof-soft:#3D1F1D; --ok:#7CC6A1; --ok-soft:#173327;
-    --page:#1D2731; --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7); color-scheme:dark;
+    --bg:#071521; --surface:#0E2131; --sunk:#0A1B29; --ink:#E5EDF3; --muted:#9BB0C0; --line:#1E3548;
+    --brass:#E2C25B; --brass-soft:#3A3216; --proof:#F2867F; --proof-soft:#3D1F1D; --ok:#5ED3C6; --ok-soft:#10302E;
+    --petrole:#123F63; --or:#D9B444; --on-or:#0B2438; --turquoise:#3FD0D3;
+    --page:#132A3C; --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7); color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0F151B; --surface:#18212A; --sunk:#121A21; --ink:#E6EBEF; --muted:#9AA6B2; --line:#2A3641;
-  --brass:#D6AE57; --brass-soft:#3A301A; --proof:#F2867F; --proof-soft:#3D1F1D; --ok:#7CC6A1; --ok-soft:#173327;
-  --page:#1D2731; --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7); color-scheme:dark;
+  --bg:#071521; --surface:#0E2131; --sunk:#0A1B29; --ink:#E5EDF3; --muted:#9BB0C0; --line:#1E3548;
+  --brass:#E2C25B; --brass-soft:#3A3216; --proof:#F2867F; --proof-soft:#3D1F1D; --ok:#5ED3C6; --ok-soft:#10302E;
+  --petrole:#123F63; --or:#D9B444; --on-or:#0B2438; --turquoise:#3FD0D3;
+  --page:#132A3C; --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7); color-scheme:dark;
 }
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
 *,*::before,*::after{box-sizing:border-box}
@@ -317,8 +322,6 @@ body:not([data-view="review"]) #viewReview{display:none}
 [hidden]{display:none!important}
 .skip{position:absolute;left:-999px;top:8px;z-index:100;background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:10px}
 .skip:focus{left:8px}
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#151515; --surface:#1F1F1F; --sunk:#262626; --line:#333333; --page:#1C1C1C; --ink:#ECECEC; --muted:#A3A3A3; } }
-:root[data-theme="dark"]{ --bg:#151515; --surface:#1F1F1F; --sunk:#262626; --line:#333333; --page:#1C1C1C; --ink:#ECECEC; --muted:#A3A3A3; }
 body::before{background:var(--bg)}
 header.topbar{background:var(--bg);border-bottom:0}
 header.topbar .bar{max-width:860px;padding:10px 12px;gap:6px}
@@ -356,7 +359,7 @@ body.has .welcome{display:none}
 .pill .lvl{color:var(--muted);font-weight:400;overflow:hidden;text-overflow:ellipsis}
 .go{width:48px;height:48px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);display:grid;place-items:center;flex:none}
 .go .ic-send{display:none}
-.go.send{background:var(--brass);color:#16202B}
+.go.send{background:var(--or);color:var(--on-or)}
 .go.send .ic-send{display:block}.go.send .ic-wave{display:none}
 body[data-view="redac"] .composer, body[data-view="review"] .composer{display:none}
 body[data-view="redac"] main.simple, body[data-view="review"] main.simple{padding-bottom:60px}
@@ -478,3 +481,11 @@ body:not(.talk) .welcome{display:flex}
 .plan .btn{width:100%}
 #dlg:has(.plans){width:min(880px,calc(100vw - 24px))}
 @media (min-width:900px){.plans{grid-template-columns:repeat(3,1fr)}.plan{display:flex;flex-direction:column}.plan .btn{margin-top:auto}}
+
+/* ---------- identité : logo et appels à l’action en or ---------- */
+.welcome .brandmark{display:flex;flex-direction:column;align-items:center;gap:8px;font-style:normal;margin-bottom:14px}
+.welcome .brandmark img{border-radius:16px;display:block;box-shadow:0 6px 18px -10px rgba(11,36,56,.55)}
+.welcome .brandmark .wordmark{font-family:var(--ui);font-weight:600;font-size:22px;letter-spacing:-.01em;color:var(--ink)}
+.btn.or,.gbtn.or{background:var(--or);color:var(--on-or);border-color:var(--or)}
+.btn.or:hover,.gbtn.or:hover{background:var(--or);filter:brightness(1.06)}
+.plan.best .btn.primary{background:var(--or);color:var(--on-or);border-color:var(--or)}

@@ -1208,7 +1208,7 @@ function renderCompte(){
   if(!compte.payant){ if(btn) btn.hidden = true; if(line) line.hidden = true; return; }
   const e = etatCompte();
   if(btn){ btn.hidden = false; btn.className = "acct " + e.cle; btn.innerHTML = `<b>${sync.session ? esc(e.texte) : "Commencer l’essai gratuit"}</b><span>${sync.session ? "Voir les formules" : "3 jours, toutes les fonctions, sans carte bancaire"}</span>`; }
-  if(line){ line.hidden = false; line.innerHTML = sync.session ? `<button class="link" id="acctLink">${esc(e.texte)}</button>` : `<button class="btn gbtn" id="acctLink">${G_ICON}Commencer l’essai gratuit de 3 jours</button>`; line.querySelector("#acctLink").onclick = () => compteDialog(); }
+  if(line){ line.hidden = false; line.innerHTML = sync.session ? `<button class="link" id="acctLink">${esc(e.texte)}</button>` : `<button class="btn gbtn or" id="acctLink">Commencer l’essai gratuit de 3 jours</button>`; line.querySelector("#acctLink").onclick = () => compteDialog(); }
 }
 
 /* ================= CATALOGUE PARTAGÉ ================= */

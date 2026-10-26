@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BiblioCard</title>
 <meta name="description" content="Ta bibliographie, tirée de tes documents, et Lian’Z pour rédiger en parlant : NORCAMES, APA, ISO 690, Chicago, MLA, Vancouver, notes ; contrôle, vérification d’existence, similitudes, relecture par l’encadreur.">
-<meta name="theme-color" content="#151515">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E2131" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -32,7 +33,7 @@
 <div id="viewBiblio">
   <div class="thread" id="thread" aria-live="polite"></div>
   <section class="welcome" id="welcome" aria-labelledby="h1">
-    <div class="mark"><svg width="58" height="58" viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="5" width="22" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="17" r="1.8" fill="var(--brass)"/><path d="M6 9h14M6 12h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+    <div class="mark brandmark"><img src="icon-192.png" width="64" height="64" alt=""><span class="wordmark" data-notr="1">BiblioCard</span></div>
     <h1 id="h1">Qu’est-ce qu’on cite aujourd’hui ?</h1>
     <p class="hello">Touche <b>+</b> pour déposer un Word ou un PDF, ou colle une référence en bas.</p>
     <p class="demo" id="demoLine"><button class="link" id="demoBtn">Essayer avec un mémoire d’exemple</button></p>
