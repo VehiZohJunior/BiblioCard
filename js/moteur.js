@@ -1,4 +1,4 @@
-/* BiblioCard : moteur (normes, analyse, contrôles) — sans dépendance au navigateur, testable avec Node — généré depuis la version autonome, ne pas modifier à la main sans relancer les tests */
+/* SCIENTUS : moteur (normes, analyse, contrôles) — sans dépendance au navigateur, testable avec Node — généré depuis la version autonome, ne pas modifier à la main sans relancer les tests */
 
 const NB = "\u00A0";
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));

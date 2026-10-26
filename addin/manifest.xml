@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Module BiblioCard pour Word, servi depuis https://vehizohjunior.github.io/BiblioCard/ (voir LISEZ-MOI). -->
+<!-- Module SCIENTUS pour Word, servi depuis https://vehizohjunior.github.io/BiblioCard/ (voir LISEZ-MOI). -->
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="TaskPaneApp">
   <Id>72111d39-50c9-47fa-8715-d78c1d67ffe1</Id>
   <Version>1.0.0.0</Version>
-  <ProviderName>BiblioCard</ProviderName>
+  <ProviderName>SCIENTUS</ProviderName>
   <DefaultLocale>fr-FR</DefaultLocale>
-  <DisplayName DefaultValue="BiblioCard"/>
+  <DisplayName DefaultValue="SCIENTUS"/>
   <Description DefaultValue="Insère tes citations et ta bibliographie (NORCAMES, APA, ISO 690, Chicago, MLA, Vancouver, notes) pendant que tu rédiges."/>
   <IconUrl DefaultValue="https://vehizohjunior.github.io/BiblioCard/addin/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://vehizohjunior.github.io/BiblioCard/addin/icon-64.png"/>

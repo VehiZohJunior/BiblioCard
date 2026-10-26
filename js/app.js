@@ -1,4 +1,4 @@
-/* BiblioCard : interface — généré depuis la version autonome, ne pas modifier à la main sans relancer les tests */
+/* SCIENTUS : interface — généré depuis la version autonome, ne pas modifier à la main sans relancer les tests */
 
 
 const $ = s => document.querySelector(s);
@@ -357,10 +357,10 @@ function openSide(name){
   if(name !== SGROUPS[g][0]){ const el = $("#dt-" + name); if(el && el.scrollIntoView) setTimeout(() => el.scrollIntoView({block: "start"}), 30); }
 }
 function closeSide(){ $("#side").hidden = true; document.body.classList.remove("sideopen"); marquerNav(); }
-const DTITLES = {home:"BiblioCard", todo:"À faire", norme:"Norme, profil et langue", fiches:"Références et catalogue", controle:"Contrôles et existence", analyse:"Analyse et fiabilité", export:"Export, encadreur et sauvegarde", methode:"Méthode et éthique"};
+const DTITLES = {home:"SCIENTUS", todo:"À faire", norme:"Norme, profil et langue", fiches:"Références et catalogue", controle:"Contrôles et existence", analyse:"Analyse et fiabilité", export:"Export, encadreur et sauvegarde", methode:"Méthode et éthique"};
 function dashTab(name){
   const g = Object.keys(DGROUPS).find(k => DGROUPS[k].includes(name)) || "home";
-  $("#dashTitle").textContent = DTITLES[g] || "BiblioCard"; $("#dashBack").hidden = g === "home";
+  $("#dashTitle").textContent = DTITLES[g] || "SCIENTUS"; $("#dashBack").hidden = g === "home";
   document.querySelectorAll("#dnav button").forEach(b => b.setAttribute("aria-pressed", b.dataset.dt === g ? "true" : "false"));
   document.querySelectorAll(".dsec").forEach(s => s.classList.toggle("on", DGROUPS[g].includes(s.id.slice(3))));
   $(".dscroll").scrollTop = 0;
@@ -486,7 +486,7 @@ async function handleFiles(list){
   for(const file of list){
     const n = file.name.toLowerCase(); const ext = (n.split(".").pop() || "").toUpperCase();
     if(n.endsWith(".bib") || n.endsWith(".ris")){ post({role: "u", kind: "file", name: file.name, ext}); const l = (n.endsWith(".bib") ? parseBibtex : parseRis)(await file.text()); l.forEach(s => s.file = file.name); const before = new Set(state.sources.map(s => s.id)); const k = addSources(l); post({role: "a", kind: "added", ids: state.sources.filter(s => !before.has(s.id)).map(s => s.id), dup: l.length - k}); continue; }
-    if(n.endsWith(".json") || n.endsWith(".bibliocard")){ try{ const d = JSON.parse(await file.text()); if(d.app === "BiblioCard-relecture"){ openReview(d); continue; } if(d.app === "BiblioCard-commentaires" && Array.isArray(d.comments)){ importComments(d); continue; } if(d.app === "BiblioCard-mesures" && Array.isArray(d.records)){ state.evalExtra = (state.evalExtra || []).concat(d.records.filter(r => r && r.fields)); save(); renderAll(); toast(`${d.records.length} mesures ajoutées au corpus`); continue; } if(d.projects && typeof d.projects === "object"){ syncCurrent(); Object.values(d.projects).forEach(p => { if(p && p.id) state.projects[p.id] = p; }); if(d.profiles) Object.assign(state.profiles, d.profiles); save(); renderAll(); toast(`Copie restaurée : ${Object.keys(d.projects).length} projet(s)`); continue; } if(Array.isArray(d.sources)){ state.sources = d.sources; save(); renderAll(); toast(`Copie restaurée : ${d.sources.length} fiches`); } else toast("Ce fichier n’est pas une copie BiblioCard"); }catch(err){ toast("Copie illisible"); } continue; }
+    if(n.endsWith(".json") || n.endsWith(".bibliocard")){ try{ const d = JSON.parse(await file.text()); if(d.app === "BiblioCard-relecture"){ openReview(d); continue; } if(d.app === "BiblioCard-commentaires" && Array.isArray(d.comments)){ importComments(d); continue; } if(d.app === "BiblioCard-mesures" && Array.isArray(d.records)){ state.evalExtra = (state.evalExtra || []).concat(d.records.filter(r => r && r.fields)); save(); renderAll(); toast(`${d.records.length} mesures ajoutées au corpus`); continue; } if(d.projects && typeof d.projects === "object"){ syncCurrent(); Object.values(d.projects).forEach(p => { if(p && p.id) state.projects[p.id] = p; }); if(d.profiles) Object.assign(state.profiles, d.profiles); save(); renderAll(); toast(`Copie restaurée : ${Object.keys(d.projects).length} projet(s)`); continue; } if(Array.isArray(d.sources)){ state.sources = d.sources; save(); renderAll(); toast(`Copie restaurée : ${d.sources.length} fiches`); } else toast("Ce fichier n’est pas une copie SCIENTUS"); }catch(err){ toast("Copie illisible"); } continue; }
     if(!/\.(docx|pdf|txt)$/.test(n)){ toast(`${file.name} : seuls les fichiers Word (.docx) et PDF sont lus. Un ancien .doc doit être réenregistré en .docx.`); continue; }
     const f = {id: "f" + Math.random().toString(36).slice(2,8), name: file.name, ext, status: "Lecture…", busy: true};
     ui.files.push(f); renderFiles(); post({role: "u", kind: "file", name: file.name, ext, fid: f.id}); think(true);
@@ -679,7 +679,7 @@ async function checkOne(s){
     if(cr.blocked) return {error:true};
   }
   const cat = await catalog.find(s);
-  if(cat && cat.ref) return {v: "found", stamp, best: {...cat.ref, src: `le catalogue BiblioCard (confirmée par ${cat.n})`, authors: (cat.ref.authors || []).map(a => a.family)}};
+  if(cat && cat.ref) return {v: "found", stamp, best: {...cat.ref, src: `le catalogue SCIENTUS (confirmée par ${cat.n})`, authors: (cat.ref.authors || []).map(a => a.family)}};
   // 1. appels gratuits : autocomplétion OpenAlex, puis HAL
   const oa = await searchOpenAlex(s);
   let j = oa.error ? {v: "none"} : judge(s, oa.cands), halErreur = false;
@@ -809,7 +809,7 @@ function propCarte(m, x, i){
 
 /* ================= PLAN ET LECTURES =================
    Un modèle de plan (moteur : MODELES_PLAN) que le chercheur réécrit avec ses propres intitulés, puis, pour
-   chaque partie, des lectures trouvées dans OpenAlex et HAL. BiblioCard ne rédige rien : il propose une
+   chaque partie, des lectures trouvées dans OpenAlex et HAL. SCIENTUS ne rédige rien : il propose une
    structure et des sources à lire. Seuls le sujet et les intitulés partent en ligne, jamais le texte. */
 const plan = () => state.plan || (state.plan = planVide());
 const docAvecPlan = () => ui.files.find(f => f.text && f.text.length > 300);
@@ -942,7 +942,7 @@ function renderExist(){
   const c = {found:0, close:0, none:0, suspect:0}; res.forEach(x => { if(x.e) c[x.e.v]++; });
   const pending = res.filter(x => !x.e).length;
   let head;
-  if(net.blocked) head = `<p class="note">La vérification interroge OpenAlex, CrossRef et HAL, trois bases ouvertes et gratuites. Cette page ne peut pas les joindre : la vérification fonctionne sur la version de BiblioCard installée sur ton propre site (GitHub Pages ou Cloudflare Pages, gratuits).</p>`;
+  if(net.blocked) head = `<p class="note">La vérification interroge OpenAlex, CrossRef et HAL, trois bases ouvertes et gratuites. Cette page ne peut pas les joindre : la vérification fonctionne sur la version de SCIENTUS installée sur ton propre site (GitHub Pages ou Cloudflare Pages, gratuits).</p>`;
   else if(net.running) head = `<p class="legend"><span class="busy"></span> Vérification en cours : ${net.done} sur ${net.total}…</p>`;
   else head = `<dl class="kv"><div><dt>Trouvées</dt><dd>${c.found}</dd></div><div><dt>Suspectes</dt><dd>${c.suspect}</dd></div><div><dt>Proches</dt><dd>${c.close}</dd></div><div><dt>Introuvables</dt><dd>${c.none}</dd></div></dl>`;
   box.innerHTML = head + (L.length ? `<div class="row" style="margin:10px 0 4px"><button class="btn small primary" id="existRun" ${net.running ? "disabled" : ""}>${pending ? `Vérifier ${pending} référence${pending > 1 ? "s" : ""}` : "Tout revérifier"}</button></div>` : `<p class="legend">Ajoute des références pour vérifier qu’elles existent.</p>`) +
@@ -1206,7 +1206,7 @@ function downloadReport(){
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Rapport de contrôle bibliographique</title></head>
   <body style="font-family:'Times New Roman',serif;font-size:12pt;line-height:1.4">
   <p style="font-size:18pt;font-weight:bold;margin:0">Rapport de contrôle bibliographique</p>
-  <p style="color:#555;margin:2pt 0 14pt">Établi le ${date} avec BiblioCard, norme ${esc(st.full)}</p>
+  <p style="color:#555;margin:2pt 0 14pt">Établi le ${date} avec SCIENTUS, norme ${esc(st.full)}</p>
   ${h("1. Synthèse")}
   <table style="border-collapse:collapse" cellpadding="6"><tr><td style="border:1px solid #999">Indicateur de conformité</td><td style="border:1px solid #999"><b>${c.score} %</b></td></tr>
   <tr><td style="border:1px solid #999">Références</td><td style="border:1px solid #999">${a.n} (dont ${c.complete} entièrement conformes)</td></tr>
@@ -1227,8 +1227,29 @@ $("#dReport").onclick = downloadReport;
 
 /* ---------- installation et hors connexion ---------- */
 let installEvt = null;
-window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; $("#installBtn").hidden = false; });
-$("#installBtn").onclick = async () => { if(!installEvt) return; installEvt.prompt(); const r = await installEvt.userChoice; installEvt = null; $("#installBtn").hidden = true; if(r && r.outcome === "accepted") toast("BiblioCard est installée"); };
+/* installation sur le téléphone ou le PC (application web installable) : le navigateur propose lui-même
+   l’installation quand il le peut (Chrome, Edge, Android) ; sinon on explique les gestes, iPhone compris */
+const estInstallee = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+function boutonsInstaller(){ ["#installBtn", "#anInstall", "#welInstall"].forEach(s => { const b = $(s); if(b) b.hidden = estInstallee(); }); }
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; boutonsInstaller(); });
+window.addEventListener("appinstalled", () => { installEvt = null; boutonsInstaller(); toast("SCIENTUS est installée"); });
+async function installer(){
+  if(installEvt){ installEvt.prompt(); const r = await installEvt.userChoice; installEvt = null; if(r && r.outcome === "accepted") toast("SCIENTUS est installée"); boutonsInstaller(); return; }
+  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1), android = /Android/i.test(ua);
+  const etapes = ios ? ["Ouvre cette page dans <b>Safari</b>.", "Touche le bouton <b>Partager</b> (le carré avec une flèche vers le haut).", "Choisis <b>Sur l’écran d’accueil</b>, puis <b>Ajouter</b>."]
+    : android ? ["Ouvre cette page dans <b>Chrome</b>.", "Touche le menu <b>⋮</b> en haut à droite.", "Choisis <b>Installer l’application</b> (ou <b>Ajouter à l’écran d’accueil</b>)."]
+    : ["Ouvre cette page dans <b>Chrome</b> ou <b>Edge</b>.", "Clique sur l’icône d’installation à droite de la barre d’adresse, ou ouvre le menu <b>⋮</b> › <b>Installer SCIENTUS</b>.", "SCIENTUS s’ouvre alors dans sa propre fenêtre, avec son icône sur le bureau."];
+  const d = $("#dlg"); d.innerHTML = `<div class="dhead"><h2>Installer SCIENTUS</h2><button class="iconbtn" id="xClose">Fermer</button></div>
+    <div class="instal"><p class="legend" style="margin:0 0 12px">${ios ? "Sur iPhone et iPad" : android ? "Sur téléphone Android" : "Sur ordinateur"}, l’installation est gratuite, ne passe par aucune boutique et ne prend que quelques secondes.</p>
+    <ol>${etapes.map(e => `<li>${e}</li>`).join("")}</ol>
+    <p class="legend">Une fois installée, SCIENTUS s’ouvre comme une application et fonctionne même sans connexion pour la mise en forme.</p></div>`;
+  d.querySelector("#xClose").onclick = () => d.close(); d.showModal();
+}
+$("#installBtn").onclick = installer;
+$("#anInstall").onclick = installer;
+$("#welInstall").onclick = installer;
+boutonsInstaller();
+if(location.hash === "#installer") setTimeout(installer, 600);
 window.addEventListener("offline", () => { setStatus("Hors connexion : tout fonctionne sauf la vérification en ligne"); });
 window.addEventListener("online", () => { setStatus("De nouveau en ligne"); if(net.blocked){ net.blocked = false; } });
 
@@ -1281,7 +1302,7 @@ async function saveWord(base, html){
   z.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`);
   z.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`);
   z.file("word/_rels/document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
-  z.file("docProps/core.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xesc(base)}</dc:title><dc:creator>BiblioCard</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0,19)}Z</dcterms:created></cp:coreProperties>`);
+  z.file("docProps/core.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xesc(base)}</dc:title><dc:creator>SCIENTUS</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0,19)}Z</dcterms:created></cp:coreProperties>`);
   z.file("word/styles.xml", DOCX_STYLES);
   z.file("word/document.xml", docxXml(htmlToBlocks(html)));
   const MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -1388,7 +1409,7 @@ function renderSync(){
 sync.load(); sync.fromHash();
 
 /* ================= COMPTE ET ABONNEMENT =================
-   Actif seulement quand js/config.js donne le projet Supabase de BiblioCard (version en ligne payante).
+   Actif seulement quand js/config.js donne le projet Supabase de SCIENTUS (version en ligne payante).
    Sans configuration (tests, démonstration dans Claude, copie locale), toutes les fonctions restent ouvertes.
    La connexion se fait avec Google ; l’essai, la formule et les dates viennent du serveur (fonction mon_acces).
    Les documents de l’utilisateur ne quittent jamais l’appareil : seuls son e-mail et son abonnement sont en ligne. */
@@ -1475,7 +1496,7 @@ const G_ICON = `<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="tru
 function compteDialog(message){
   const dlg = $("#dlg"), e = etatCompte(), on = !!sync.session;
   const payee = compte.acces && compte.acces.fin && e.cle === "paye" ? +compte.acces.formule_payee : 0;
-  dlg.innerHTML = `<div class="dhead"><h2>${on ? "Mon abonnement" : "Ton compte BiblioCard"}</h2><button class="iconbtn" id="xClose">Fermer</button></div>
+  dlg.innerHTML = `<div class="dhead"><h2>${on ? "Mon abonnement" : "Ton compte SCIENTUS"}</h2><button class="iconbtn" id="xClose">Fermer</button></div>
     <div class="dbody acctdlg">
       ${message && !(on && message.startsWith(e.texte)) ? `<p class="note">${esc(message)}</p>` : ""}
       ${on ? `<p class="acctstate ${e.cle}"><b>${esc(message && message.startsWith(e.texte) ? message : e.texte)}</b><span data-notr="1">${esc(sync.session.email || "")}</span></p>`
@@ -1513,7 +1534,7 @@ const catKey = s => norm(s.title).slice(0, 120) + "|" + (s.year || "");
 const catHash = k => { let h = 5381; for(let i = 0; i < k.length; i++) h = ((h << 5) + h + k.charCodeAt(i)) >>> 0; return "r" + h.toString(36) + k.length.toString(36); };
 const CAT_FIELDS = ["type","title","year","container","volume","issue","pages","city","publisher","editors","genre","doi","isbn","url"];
 const catRef = s => { const r = {authors: s.authors.map(a => ({family: a.family, given: a.given}))}; CAT_FIELDS.forEach(k => { if(s[k]) r[k] = s[k]; }); return r; };
-const shareable = s => !isAuto(s) && s.title && s.year && s.authors.length && !/^Exemple/.test(s.origin || "") && !/^Exemple/.test(s.file || "") && s.origin !== "Catalogue BiblioCard" && !(existFor(s) && existFor(s).v === "suspect");
+const shareable = s => !isAuto(s) && s.title && s.year && s.authors.length && !/^Exemple/.test(s.origin || "") && !/^Exemple/.test(s.file || "") && s.origin !== "Catalogue SCIENTUS" && !(existFor(s) && existFor(s).v === "suspect");
 // une entrée est masquée quand au moins deux personnes la signalent et qu’elle a autant de signalements que de confirmations
 const catHidden = x => x.flags >= 2 && x.flags >= x.n;
 const catalog = { owner: false, kind: null, db: null, uid: null, recent: [], status: "", busy: false,
@@ -1568,7 +1589,7 @@ function renderCatalog(){
   const box = $("#catBox"); if(!box) return;
   const mine = state.sources.filter(shareable);
   if(!catalog.kind && (window.BIBLIOCARD_CONFIG || {}).serveur === false){
-    box.innerHTML = `<p class="note">Le catalogue partagé ouvrira avec les comptes BiblioCard. En attendant, tes références restent dans ta bibliothèque, sur ton appareil.</p>`;
+    box.innerHTML = `<p class="note">Le catalogue partagé ouvrira avec les comptes SCIENTUS. En attendant, tes références restent dans ta bibliothèque, sur ton appareil.</p>`;
     return;
   }
   if(!catalog.kind){
@@ -1593,7 +1614,7 @@ function renderCatalog(){
   const cf = $("#catFilter"); if(cf) cf.oninput = () => { ui.catFilter = cf.value; const pos = cf.selectionStart; renderCatalog(); const n = $("#catFilter"); n.focus(); n.setSelectionRange(pos, pos); };
   box.querySelectorAll("[data-catflag]").forEach(b => b.onclick = async () => { const ok = await catalog.flag(list[+b.dataset.catflag]); toast(ok ? "Merci : l’entrée est signalée. Elle sera masquée si d’autres utilisateurs confirment l’erreur." : "Le signalement n’a pas pu être envoyé"); await catalog.loadRecent(); renderCatalog(); });
   box.querySelectorAll("[data-catdel]").forEach(b => b.onclick = async () => { if(b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Confirmer"; b.style.color = "var(--proof)"; return; } const ok = await catalog.remove(list[+b.dataset.catdel]); toast(ok ? "Entrée supprimée du catalogue" : "Suppression impossible"); await catalog.loadRecent(); renderCatalog(); });
-  box.querySelectorAll("[data-catadd]").forEach(b => b.onclick = () => { const x = list[+b.dataset.catadd]; const src = Object.assign(blank(), x.ref, {authors: (x.ref.authors || []).map(a => ({...a})), origin: "Catalogue BiblioCard"}); addSources([src]) ? toast("Référence ajoutée à ton projet") : toast("Déjà dans ton projet"); });
+  box.querySelectorAll("[data-catadd]").forEach(b => b.onclick = () => { const x = list[+b.dataset.catadd]; const src = Object.assign(blank(), x.ref, {authors: (x.ref.authors || []).map(a => ({...a})), origin: "Catalogue SCIENTUS"}); addSources([src]) ? toast("Référence ajoutée à ton projet") : toast("Déjà dans ton projet"); });
 }
 async function shareVerified(quiet){
   const list = state.sources.filter(shareable); if(!list.length || !catalog.kind) return;
@@ -1612,7 +1633,7 @@ function sendToSupervisor(){
   dlg.innerHTML = `<form method="dialog" id="rvForm"><div class="dhead"><h2>Envoyer à mon encadreur</h2><button class="iconbtn" value="cancel" formnovalidate>Fermer</button></div>
     <div class="dbody"><label class="f full"><span>Ton nom</span><input name="who" value="${esc(state.studentName)}" placeholder="ex. VEHI Zoh Junior" required></label>
     <label class="f full" style="flex-direction:row;gap:8px;align-items:center"><input type="checkbox" name="text" ${p.draft && p.draft.text ? "checked" : "disabled"}> Joindre le texte rédigé dans Lian’Z${p.draft && p.draft.text ? ` (${wordsOf(p.draft.text).length} mots)` : " (aucun texte pour l’instant)"}</label>
-    <p class="legend full" style="grid-column:1/-1">Tu obtiens un fichier « .bibliocard ». Envoie-le par WhatsApp ou e-mail : ton encadreur l’ouvre avec le bouton « Choisir des fichiers » de BiblioCard, sans compte ni installation.</p></div>
+    <p class="legend full" style="grid-column:1/-1">Tu obtiens un fichier « .bibliocard ». Envoie-le par WhatsApp ou e-mail : ton encadreur l’ouvre avec le bouton « Choisir des fichiers » de SCIENTUS, sans compte ni installation.</p></div>
     <div class="dfoot"><button class="btn" value="cancel" formnovalidate>Annuler</button><button class="btn primary" value="ok">Créer le dossier</button></div></form>`;
   dlg.onclose = () => {
     if(dlg.returnValue !== "ok") return;
@@ -1825,7 +1846,7 @@ async function exportVoix(){
   const z = new JSZip(); const rows = [["path","sentence","language","client_id","age","duration","date"]];
   for(const x of all){ const ext = /ogg/.test(x.blob.type) ? "ogg" : /mp4|aac/.test(x.blob.type) ? "m4a" : "webm"; const path = `clips/${x.id}.${ext}`; z.file(path, x.blob); rows.push([path, x.sentence.replace(/\t|\n/g, " "), x.lang, x.speaker, x.age || "", x.duree.toFixed(1), new Date(x.at).toISOString().slice(0, 10)]); }
   z.file("validated.tsv", rows.map(r => r.join("\t")).join("\n"));
-  z.file("LISEZ-MOI.txt", `Corpus de parole collecté avec BiblioCard (Lian’Z).\nChaque enregistrement a été fait avec le consentement explicite du locuteur, de façon anonyme (identifiant ${"client_id"}).\nFormat inspiré de Mozilla Common Voice : validated.tsv (chemin, phrase, langue, locuteur, âge, durée, date) et dossier clips/.\nLangues : ${[...new Set(all.map(x => x.lang))].join(", ")}. Enregistrements : ${all.length}.\n`);
+  z.file("LISEZ-MOI.txt", `Corpus de parole collecté avec SCIENTUS (Lian’Z).\nChaque enregistrement a été fait avec le consentement explicite du locuteur, de façon anonyme (identifiant ${"client_id"}).\nFormat inspiré de Mozilla Common Voice : validated.tsv (chemin, phrase, langue, locuteur, âge, durée, date) et dossier clips/.\nLangues : ${[...new Set(all.map(x => x.lang))].join(", ")}. Enregistrements : ${all.length}.\n`);
   const blob = new Blob([await z.generateAsync({type: "uint8array"})], {type: "application/zip"});
   download(`corpus-voix-${new Date().toISOString().slice(0, 10)}.zip`, blob, "application/zip");
 }
@@ -2094,7 +2115,7 @@ function trNode(n){
 }
 function applyLang(){
   document.documentElement.lang = state.uiLang === "en" ? "en" : "fr";
-  document.title = state.uiLang === "en" ? "BiblioCard — your bibliography, from your documents" : "BiblioCard";
+  document.title = state.uiLang === "en" ? "SCIENTUS — your bibliography, from your documents" : "SCIENTUS";
   document.querySelectorAll("#uiLangSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.l === state.uiLang ? "true" : "false"));
   trNode(document.body);
 }

@@ -910,3 +910,10 @@ dialog#dash .dtop h2{font-weight:600;letter-spacing:-.015em}
 .legal a{color:var(--brass)}
 .legal th{background:var(--sunk)}
 .lects .ref{font-family:var(--serif);line-height:1.55;padding-left:1.5em;text-indent:-1.5em}
+/* signature SCIENTUS : capitales espacées et point d’or */
+.wordmark{letter-spacing:.07em}
+.wordmark::after{content:"";display:inline-block;width:.2em;height:.2em;border-radius:50%;background:var(--or);margin-left:.12em;vertical-align:baseline}
+.instal{padding:16px 20px 20px}
+.instal ol{margin:0 0 14px;padding-left:22px;display:grid;gap:10px;font-size:15px;line-height:1.5}
+.appnav .an-install{color:var(--brass)}
+.appnav .an-install svg{color:var(--brass)}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>BiblioCard</title>
+<title>SCIENTUS</title>
 <meta name="description" content="Ta bibliographie, tirée de tes documents, et Lian’Z pour rédiger en parlant : NORCAMES, APA, ISO 690, Chicago, MLA, Vancouver, notes ; contrôle, vérification d’existence, similitudes, relecture par l’encadreur.">
 <meta name="theme-color" content="#FAF7F0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#12161F" media="(prefers-color-scheme: dark)">
@@ -30,7 +30,7 @@
 </header>
 <!-- navigation évolutive : barre latérale sur ordinateur, barre du bas sur téléphone. Un futur module = un bouton data-nav de plus. -->
 <nav class="appnav" id="appNav" aria-label="Modules">
-  <a class="an-brand" href="accueil.html" aria-label="Découvrir BiblioCard"><img src="icon-192.png" width="30" height="30" alt=""><span class="wordmark" data-notr="1">Biblio<span>Card</span></span></a>
+  <a class="an-brand" href="accueil.html" aria-label="Découvrir SCIENTUS"><img src="icon-192.png" width="30" height="30" alt=""><span class="wordmark" data-notr="1">SCIENTUS</span></a>
   <button class="an-new" id="anNew" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Nouveau projet</button>
   <p class="an-h">Modules</p>
   <button type="button" data-nav="biblio"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg><span class="l">Bibliographie</span><span class="s" aria-hidden="true">Biblio</span></button>
@@ -44,6 +44,7 @@
   <button type="button" data-dash="fiches" class="an-tool"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg><span class="l">Références et catalogue</span></button>
   <button type="button" data-dash="export" class="an-tool"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span class="l">Export et encadreur</span></button>
   <button type="button" data-dash="methode" class="an-tool"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><span class="l">Méthode et éthique</span></button>
+  <button type="button" class="an-tool an-install" id="anInstall"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg><span class="l">Installer l’application</span></button>
   <button type="button" data-dash="home" class="an-plus"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span class="l">Projets et compte</span><span class="s" aria-hidden="true">Plus</span></button>
 </nav>
 <div class="dropveil" id="dropVeil" aria-hidden="true"><div><svg width="44" height="44" viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="5" width="22" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="17" r="1.8" fill="var(--brass)"/><path d="M6 9h14M6 12h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><b>Lâche tes fichiers ici</b><span>Word, PDF, BibTeX ou RIS</span></div></div>
@@ -51,10 +52,10 @@
 <div id="viewBiblio">
   <div class="thread" id="thread" aria-live="polite"></div>
   <section class="welcome" id="welcome" aria-labelledby="h1">
-    <div class="brandmark"><img src="icon-192.png" width="40" height="40" alt=""><span class="wordmark" data-notr="1">Biblio<span>Card</span></span></div>
+    <div class="brandmark"><img src="icon-192.png" width="40" height="40" alt=""><span class="wordmark" data-notr="1">SCIENTUS</span></div>
     <p class="eyebrow">Mémoires · thèses · articles · rapports</p>
     <h1 id="h1">Ta bibliographie, tirée de ton texte</h1>
-    <p class="hello">Dépose ton document : BiblioCard retrouve chaque œuvre que tu cites et la met en forme selon ta norme.</p>
+    <p class="hello">Dépose ton document : SCIENTUS retrouve chaque œuvre que tu cites et la met en forme selon ta norme.</p>
     <button class="dropzone" id="dropZone" type="button" aria-describedby="dzSub">
       <span class="dz-ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 12v6"/><path d="m15 15-3-3-3 3"/></svg></span>
       <b class="dz-t">Dépose ton mémoire ici</b>
@@ -68,6 +69,7 @@
       <li><span class="pnum">3</span><span>Télécharge ta bibliographie</span></li>
     </ol>
     <p class="demo" id="demoLine"><button class="link" id="demoBtn">Essayer avec un mémoire d’exemple</button></p>
+    <p class="demo"><button class="link" id="welInstall">Installer SCIENTUS sur cet appareil</button></p>
     <p class="acctline" id="acctLine" hidden></p>
   </section>
 </div>
@@ -114,7 +116,7 @@
 <div id="viewPlan" class="redac plantrav">
   <button class="back2" id="planBack">← Bibliographie</button>
   <h1>Plan et lectures</h1>
-  <p class="lead">Choisis un modèle de plan, remplace ses intitulés par les tiens, puis demande des lectures pour chaque partie. BiblioCard n’écrit rien à ta place : il propose une structure et des sources à lire.</p>
+  <p class="lead">Choisis un modèle de plan, remplace ses intitulés par les tiens, puis demande des lectures pour chaque partie. SCIENTUS n’écrit rien à ta place : il propose une structure et des sources à lire.</p>
   <div class="panel2 planform">
     <label class="f full"><span>Sujet de ton travail</span><textarea id="planSujet" rows="2" placeholder="Le discours de la presse ivoirienne pendant les élections de 2020"></textarea></label>
     <label class="f full"><span>Modèle de plan</span><select id="planModele"></select></label>
@@ -181,7 +183,7 @@
     </section>
 <section class="dsec" id="dt-existence">
       <h3>Les références existent-elles ?</h3>
-      <p class="legend">Chaque référence est recherchée dans OpenAlex, HAL et CrossRef. BiblioCard repère les DOI inexistants, les DOI qui renvoient à une autre publication et les titres introuvables, signes fréquents de références inventées par une IA ou mal recopiées.</p>
+      <p class="legend">Chaque référence est recherchée dans OpenAlex, HAL et CrossRef. SCIENTUS repère les DOI inexistants, les DOI qui renvoient à une autre publication et les titres introuvables, signes fréquents de références inventées par une IA ou mal recopiées.</p>
       <div id="existBox"></div>
     </section>
 <section class="dsec" id="dt-analyse">
@@ -193,7 +195,7 @@
       <h3>Lian’Z : dictée et similitudes</h3>
         <p>Deux moteurs de dictée : la reconnaissance du navigateur, en direct, et Whisper, un modèle libre qui tourne sur l’appareil et gère de nombreuses langues et accents. La transcription est fidèle : seules les commandes vocales deviennent ponctuation. Le contrôle des similitudes compare des séquences de huit mots avec les documents de l’utilisateur, Wikipédia et les résumés d’articles d’OpenAlex, et signale les passages repris sans guillemets ni citation.</p>
         <h3>Mesure de fiabilité</h3>
-      <p class="legend">Chaque fiche importée garde la trace de ce que l’analyse automatique avait trouvé. Quand tu la relis et la corriges, ta version sert de référence : BiblioCard calcule ce qui était juste, champ par champ. Avec assez de documents, tu obtiens un taux mesuré à présenter.</p>
+      <p class="legend">Chaque fiche importée garde la trace de ce que l’analyse automatique avait trouvé. Quand tu la relis et la corriges, ta version sert de référence : SCIENTUS calcule ce qui était juste, champ par champ. Avec assez de documents, tu obtiens un taux mesuré à présenter.</p>
       <div id="evalBox"></div>
     </section>
   </div>
@@ -220,7 +222,7 @@
 
 <dialog id="dash" aria-labelledby="dashTitle">
   <div class="dtop">
-    <div class="r"><button class="tb" id="dashBack" aria-label="Retour au menu" hidden><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><img class="dlogo" src="icon-192.png" width="26" height="26" alt=""><h2 id="dashTitle">BiblioCard</h2><button class="tb" id="dashClose" aria-label="Fermer le menu"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
+    <div class="r"><button class="tb" id="dashBack" aria-label="Retour au menu" hidden><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><img class="dlogo" src="icon-192.png" width="26" height="26" alt=""><h2 id="dashTitle">SCIENTUS</h2><button class="tb" id="dashClose" aria-label="Fermer le menu"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
   </div>
   <div class="dscroll">
     <section class="dsec" id="dt-home">
@@ -237,8 +239,8 @@
       </nav>
       <h4 class="mhead">Projets récents</h4>
       <div id="projList"></div>
-      <div class="dfooter"><div class="status" id="status"><span class="dot"></span><span id="statusText">Prêt</span></div><button class="iconbtn" id="installBtn" hidden>Installer l’appli</button></div>
-      <nav class="dlegal" aria-label="Informations légales"><a href="accueil.html">Découvrir BiblioCard</a><a href="confidentialite.html">Confidentialité</a><a href="cgu.html">Conditions d’utilisation</a><a href="cgv.html">Conditions de vente</a></nav>
+      <div class="dfooter"><div class="status" id="status"><span class="dot"></span><span id="statusText">Prêt</span></div><button class="iconbtn" id="installBtn">Installer l’application</button></div>
+      <nav class="dlegal" aria-label="Informations légales"><a href="accueil.html">Découvrir SCIENTUS</a><a href="confidentialite.html">Confidentialité</a><a href="cgu.html">Conditions d’utilisation</a><a href="cgv.html">Conditions de vente</a></nav>
     </section>
     
 
@@ -287,24 +289,24 @@
     
 
     <section class="dsec" id="dt-methode">
-      <h3>Comment BiblioCard travaille</h3>
+      <h3>Comment SCIENTUS travaille</h3>
       <ol class="method">
         <li><div><b>Lecture sur l’appareil</b><span>Le fichier Word ou PDF est lu dans le navigateur. Il n’est ni envoyé ni conservé : seules les références extraites sont gardées.</span></div></li>
         <li><div><b>Repérage de la bibliographie</b><span>La dernière section intitulée « Bibliographie » ou « Références » est retenue, la table des matières et les annexes sont écartées. Les lignes coupées sont recollées.</span></div></li>
         <li><div><b>Structuration de chaque référence</b><span>Auteurs, année, titre, revue ou éditeur, lieu et pages sont identifiés. L’italique de Word sert d’indice pour les titres d’ouvrages et de revues.<span class="claude-only"> Dans Claude, une analyse par IA affine ce découpage.</span></span></div></li>
         <li><div><b>Vérification d’existence</b><span>Chaque référence est recherchée dans trois bases ouvertes : OpenAlex, HAL et CrossRef. Un DOI inexistant ou qui renvoie à une autre publication est signalé comme suspect.</span></div></li>
-        <li><div><b>Bibliographie construite à partir des citations</b><span>Quand le texte cite une œuvre absente de la bibliographie, BiblioCard la cherche dans OpenAlex et Open Library à partir du nom de l’auteur et de l’année, puis choisit la plus probable d’après la phrase où elle est citée. L’éditeur et la ville viennent de l’édition de l’année citée. Chaque proposition est soumise au chercheur avant d’être ajoutée.</span></div></li>
+        <li><div><b>Bibliographie construite à partir des citations</b><span>Quand le texte cite une œuvre absente de la bibliographie, SCIENTUS la cherche dans OpenAlex et Open Library à partir du nom de l’auteur et de l’année, puis choisit la plus probable d’après la phrase où elle est citée. L’éditeur et la ville viennent de l’édition de l’année citée. Chaque proposition est soumise au chercheur avant d’être ajoutée.</span></div></li>
         <li><div><b>Plan et lectures</b><span>Les modèles de plan suivent NORCAMES/LSH pour les articles et l’usage courant des universités pour les mémoires et les thèses. Chaque partie porte une consigne, jamais de texte rédigé. Les lectures viennent d’OpenAlex et de HAL, cherchées avec les mots de l’intitulé et du sujet, puis classées selon les mots retrouvés dans le titre et le nombre de citations.</span></div></li>
         <li><div><b>Mise en forme et contrôle</b><span>Chaque référence est rédigée selon la norme choisie, les informations manquantes sont signalées, et les citations du texte sont comparées à la bibliographie. Pour un article de revue, la structure est contrôlée selon NORCAMES : parties obligatoires, numérotation, citations longues.</span></div></li>
       </ol>
       <div class="blk prose">
         <h3>Confidentialité</h3>
         <p>Les documents sont lus sur l’appareil et ne sont jamais envoyés ni conservés en ligne. Seules les références extraites sont enregistrées, sur l’appareil et, si l’utilisateur est connecté, dans son espace personnel.</p>
-        <p>Quand une vérification en ligne est lancée, BiblioCard transmet uniquement le strict nécessaire : le titre et le DOI d’une référence à OpenAlex, HAL et CrossRef, et des extraits de dix mots à Wikipédia et OpenAlex pour le contrôle des similitudes. La dictée « Direct » passe par le service de reconnaissance du navigateur (Google ou Apple) ; la dictée Whisper, elle, reste entièrement sur l’appareil. L’outil est conçu dans l’esprit de la loi ivoirienne de 2013 sur la protection des données à caractère personnel.</p>
-        <p>Pour l’abonnement, BiblioCard enregistre en ligne l’adresse e-mail du compte Google, les dates de l’essai et de l’abonnement, et la trace des paiements (formule, montant, date). Le paiement lui-même est traité par PayDunya : BiblioCard ne voit ni le numéro Mobile Money ni la carte bancaire.</p>
+        <p>Quand une vérification en ligne est lancée, SCIENTUS transmet uniquement le strict nécessaire : le titre et le DOI d’une référence à OpenAlex, HAL et CrossRef, et des extraits de dix mots à Wikipédia et OpenAlex pour le contrôle des similitudes. La dictée « Direct » passe par le service de reconnaissance du navigateur (Google ou Apple) ; la dictée Whisper, elle, reste entièrement sur l’appareil. L’outil est conçu dans l’esprit de la loi ivoirienne de 2013 sur la protection des données à caractère personnel.</p>
+        <p>Pour l’abonnement, SCIENTUS enregistre en ligne l’adresse e-mail du compte Google, les dates de l’essai et de l’abonnement, et la trace des paiements (formule, montant, date). Le paiement lui-même est traité par PayDunya : SCIENTUS ne voit ni le numéro Mobile Money ni la carte bancaire.</p>
         <p>Pour aller plus loin : <a href="confidentialite.html">Politique de confidentialité</a> · <a href="cgu.html">Conditions d’utilisation</a> · <a href="cgv.html">Conditions de vente</a></p>
         <h3>Éthique et intégrité scientifique</h3>
-        <p>BiblioCard et Lian’Z n’écrivent jamais à la place de l’étudiant. La dictée transcrit fidèlement sa voix ; l’outil met en forme, vérifie et signale, mais ne génère aucun contenu. Il renforce l’intégrité : détection des références introuvables ou inventées, des passages repris sans guillemets, des incohérences entre texte et bibliographie.</p>
+        <p>SCIENTUS et Lian’Z n’écrivent jamais à la place de l’étudiant. La dictée transcrit fidèlement sa voix ; l’outil met en forme, vérifie et signale, mais ne génère aucun contenu. Il renforce l’intégrité : détection des références introuvables ou inventées, des passages repris sans guillemets, des incohérences entre texte et bibliographie.</p>
         <h3>Accessibilité</h3>
         <p>La dictée ouvre la rédaction académique aux étudiants en situation de handicap moteur ou visuel, à ceux qui écrivent difficilement au clavier, et à ceux qui travaillent sur téléphone. L’application fonctionne hors connexion une fois installée, ce qui compte là où la connexion est rare ou chère.</p>
         <h3>Normes prises en charge</h3>
@@ -324,7 +326,7 @@
         <button id="dReport"><b>Rapport de contrôle (.doc)</b><span>Indicateur de conformité, profil, problèmes repérés et bibliographie : à joindre au dépôt ou à transmettre à l’encadreur.</span></button>
         <button id="dDoc"><b>Word (.docx)</b><span>La bibliographie mise en forme, prête à coller dans ton mémoire.</span></button>
         <button id="dCopy"><b>Copier</b><span>Avec l’italique, à coller directement dans Word ou Google Docs.</span></button>
-        <button id="dReview"><b>Envoyer à mon encadreur</b><span>Un dossier de relecture (bibliographie, contrôle et texte) à transmettre par WhatsApp ou e-mail. Il l’ouvre dans BiblioCard, commente, et te renvoie ses commentaires.</span></button>
+        <button id="dReview"><b>Envoyer à mon encadreur</b><span>Un dossier de relecture (bibliographie, contrôle et texte) à transmettre par WhatsApp ou e-mail. Il l’ouvre dans SCIENTUS, commente, et te renvoie ses commentaires.</span></button>
         <button id="bibBtn"><b>BibTeX (.bib)</b><span>Pour LaTeX et Overleaf.</span></button>
         <button id="risBtn"><b>RIS (.ris)</b><span>Pour Zotero, Mendeley ou EndNote.</span></button>
       </div>
