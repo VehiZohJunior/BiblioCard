@@ -1007,6 +1007,22 @@ function fromHal(d){
   s.origin = "Recherche en ligne"; s._src = "HAL";
   return villeEditeur(s);
 }
+// CrossRef en recherche (repli quand OpenAlex a épuisé son budget du jour)
+function fromCrossrefRecherche(it){
+  const s = fromCrossref(it);
+  s.origin = "Recherche en ligne"; s._src = "CrossRef"; s._notoriete = it["is-referenced-by-count"] || 0;
+  return villeEditeur(s);
+}
+// Autocomplétion OpenAlex (gratuite) : titre, premier auteur, citations, DOI, sans l’année ni la revue.
+// Fiche provisoire pour le classement ; la fiche complète vient ensuite de /works/{id}, gratuit aussi.
+function fromOAAutocomplete(r){
+  const s = blank();
+  s.title = stripHtml(r.display_name || "").trim();
+  const a = r.hint && parseAuthor(String(r.hint).replace(/ı/g, "i")); s.authors = a ? [a] : [];
+  s.doi = String(r.external_id || "").replace(/^https?:\/\/doi\.org\//i, "");
+  s.origin = "Recherche en ligne"; s._notoriete = r.cited_by_count || 0; s._src = "OpenAlex"; s._oaId = String(r.short_id || r.id || "").replace(/^.*\//, "");
+  return s;
+}
 /* ---------- indicateurs : conformité et profil de la bibliographie ---------- */
 const REQ = {article:["authors","title","year","container","pages"], book:["authors","title","year","publisher","city"], chapter:["authors","title","year","container","publisher","pages"], thesis:["authors","title","year","publisher"], report:["authors","title","year","publisher"], webpage:["title","url","accessed"]};
 function conformity(list, styleKey){
@@ -1170,4 +1186,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};

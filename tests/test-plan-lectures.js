@@ -31,10 +31,14 @@ egal(`${these.type} | ${these.genre} | ${these.publisher}`, "thesis | Thèse de 
     w.fetch = async url => {
       url = String(url); appels.push(url);
       const rep = corps => ({ok: true, status: 200, json: async () => corps});
-      if (/api\.openalex\.org/.test(url)) return rep({results: [
-        {display_name: "La presse ivoirienne et la crise politique", publication_year: 2014, type: "article", cited_by_count: 12, authorships: [{author: {display_name: "Aimé Kouakou"}}],
-         primary_location: {source: {display_name: "Communication en question"}}, biblio: {volume: "3", first_page: "45", last_page: "67"}, doi: "https://doi.org/10.1/abc", open_access: {oa_url: "https://exemple.org/pdf"}},
-        {display_name: "References", publication_year: 2014, type: "article", cited_by_count: 0, authorships: [{author: {display_name: "Jean Dupont"}}], primary_location: {source: null}, biblio: {}}]});
+      // autocomplétion (gratuite) puis fiche complète de chaque œuvre retenue (gratuite)
+      if (/api\.openalex\.org\/autocomplete\/works/.test(url)) return rep({results: [
+        {id: "https://openalex.org/W1", short_id: "works/W1", display_name: "La titrologie et la presse ivoirienne", hint: "Aimé Kouakou", cited_by_count: 12, entity_type: "work", external_id: "https://doi.org/10.1/abc"},
+        {id: "https://openalex.org/W2", short_id: "works/W2", display_name: "References", hint: "Jean Dupont", cited_by_count: 0, entity_type: "work"}]});
+      if (/api\.openalex\.org\/works\/W1\?/.test(url)) return rep(
+        {display_name: "La titrologie et la presse ivoirienne", publication_year: 2014, type: "article", cited_by_count: 12, authorships: [{author: {display_name: "Aimé Kouakou"}}],
+         primary_location: {source: {display_name: "Communication en question"}}, biblio: {volume: "3", first_page: "45", last_page: "67"}, doi: "https://doi.org/10.1/abc", open_access: {oa_url: "https://exemple.org/pdf"}});
+      if (/api\.openalex\.org\/works\?/.test(url)) return {ok: false, status: 429, json: async () => ({retryAfter: 30000})}; // recherche payante : jamais utilisée ici
       if (/api\.archives-ouvertes\.fr/.test(url)) return rep({response: {docs: [
         {docType_s: "ART", title_s: ["Discours de presse et élections en Côte d’Ivoire"], authFullName_s: ["Awa Traoré"], producedDateY_i: 2021, journalTitle_s: "Revue ivoirienne de communication", volume_s: "8", page_s: "11-30", uri_s: "https://hal.science/hal-1"}]}});
       throw new TypeError("hors ligne");
@@ -67,7 +71,9 @@ egal(`${these.type} | ${these.genre} | ${these.publisher}`, "thesis | Thèse de 
   const t = parties()[1].querySelector(".pt2"); t.value = "1. La titrologie, un genre journalistique ivoirien"; t.dispatchEvent(new w.Event("change", {bubbles: true}));
   egal(w.eval("state.plan.items[1].t"), "1. La titrologie, un genre journalistique ivoirien", "intitulé enregistré");
   parties()[1].querySelector('[data-pa="lect"]').click(); await wait(80);
-  egal(appels.some(u => /openalex.*search=titrologie/.test(u)) && appels.some(u => /archives-ouvertes.*q=titrologie/.test(u)), true, "OpenAlex et HAL interrogés avec l’intitulé");
+  egal(appels.some(u => /openalex\.org\/autocomplete\/works\?q=titrologie/.test(u)) && appels.some(u => /archives-ouvertes.*q=titrologie/.test(u)), true, "OpenAlex et HAL interrogés avec l’intitulé");
+  egal(appels.some(u => /openalex\.org\/works\?/.test(u)), false, "aucune recherche OpenAlex payante");
+  egal(/2014/.test(parties()[1].querySelector(".lects").textContent) && /Communication en question/.test(parties()[1].textContent), true, "fiche complétée (année, revue)");
   egal(appels.every(u => !/discours de la presse ivoirienne pendant/i.test(decodeURIComponent(u))), true, "jamais la phrase entière");
   const lects = parties()[1].querySelectorAll(".lects li");
   egal(lects.length, 2, "2 lectures (le faux titre « References » écarté)");

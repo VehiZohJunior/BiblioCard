@@ -8,11 +8,13 @@ const dom = new JSDOM(html, {runScripts:"dangerously", pretendToBeVisual:true, u
     const ok = d => ({ok:true, status:200, json: async () => d});
     if(url.includes("api.crossref.org/works/")) return url.includes("10.9999") ? {ok:false, status:404} : {ok:false, status:404};
     if(url.includes("openalex")){
-      const q = decodeURIComponent(url.split("search=")[1]);
-      if(/Governing the commons/i.test(q)) return ok({results:[{display_name:"Governing the Commons: The Evolution of Institutions for Collective Action", publication_year:1990, doi:"https://doi.org/10.1017/cbo9780511807763", authorships:[{author:{display_name:"Elinor Ostrom"}}], primary_location:{source:{display_name:"Cambridge University Press"}}, biblio:{}}]});
-      if(/Islam et philosophie/i.test(q)) return ok({results:[{display_name:"Islam et philosophie : leçons d'une rencontre", publication_year:2002, doi:"https://doi.org/10.3917/dio.202.0145", authorships:[{author:{display_name:"Souleymane Bachir Diagne"}}], primary_location:{source:{display_name:"Diogène"}}, biblio:{volume:"", issue:"202", first_page:"145", last_page:"151"}}]});
-      if(/Homme moderne/i.test(q)) return ok({results:[{display_name:"L'homme moderne et son éducation", publication_year:1962, authorships:[{author:{display_name:"Gaston Berger"}}], biblio:{}}]});
-      return ok({results:[]});
+      // autocomplétion gratuite (titre, premier auteur, identifiant), puis fiche complète par identifiant
+      const W = {W1: {display_name:"Governing the Commons: The Evolution of Institutions for Collective Action", publication_year:1990, doi:"https://doi.org/10.1017/cbo9780511807763", authorships:[{author:{display_name:"Elinor Ostrom"}}], primary_location:{source:{display_name:"Cambridge University Press"}}, biblio:{}}, W2: {display_name:"Islam et philosophie : leçons d'une rencontre", publication_year:2002, doi:"https://doi.org/10.3917/dio.202.0145", authorships:[{author:{display_name:"Souleymane Bachir Diagne"}}], primary_location:{source:{display_name:"Diogène"}}, biblio:{volume:"", issue:"202", first_page:"145", last_page:"151"}}, W3: {display_name:"L'homme moderne et son éducation", publication_year:1962, authorships:[{author:{display_name:"Gaston Berger"}}], biblio:{}}};
+      const id = (url.match(/\/works\/(W\d)/) || [])[1];
+      if(id) return ok(W[id]);
+      const q = decodeURIComponent((url.split("q=")[1] || "").split("&")[0]);
+      const k = /Governing the commons/i.test(q) ? "W1" : /Islam et philosophie/i.test(q) ? "W2" : /Homme moderne/i.test(q) ? "W3" : null;
+      return ok({results: k ? [{id: "https://openalex.org/" + k, short_id: "works/" + k, display_name: W[k].display_name, hint: W[k].authorships[0].author.display_name, entity_type: "work"}] : []});
     }
     if(url.includes("archives-ouvertes")) return ok({response:{docs:[]}});
     return {ok:false, status:404};

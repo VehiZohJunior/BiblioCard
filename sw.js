@@ -1,5 +1,5 @@
 // BiblioCard : fonctionnement hors connexion
-const CACHE = "bibliocard-v24";
+const CACHE = "bibliocard-v25";
 const CORE = ["./", "./index.html", "./confidentialite.html", "./cgu.html", "./cgv.html", "./css/bibliocard.css", "./js/config.js", "./js/i18n-en.js", "./js/moteur.js", "./js/app.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 const LIBS = [
   "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js",

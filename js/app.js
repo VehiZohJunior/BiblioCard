@@ -574,18 +574,71 @@ async function getJSON(url, ms = 10000){
   try{ const r = await fetch(url, {signal: ctl.signal}); if(!r.ok) return {status: r.status}; return {data: await r.json()}; }
   catch(e){ return {error: true}; } finally { clearTimeout(t); }
 }
+/* ---------- OpenAlex : budget gratuit limité ----------
+   Sans clé, chaque adresse IP dispose de 0,10 $ par jour (remis à zéro à minuit UTC). Une recherche par mots
+   coûte 0,001 $, un filtre 0,0001 $ ; l’autocomplétion et la lecture d’une œuvre par son identifiant sont gratuites.
+   On privilégie donc les appels gratuits, on garde les réponses 30 jours sur l’appareil, et quand le budget
+   est épuisé on n’appelle plus OpenAlex jusqu’à la remise à zéro (CrossRef et HAL prennent le relais). */
+const OA_MEMO = "bibliocard.oa:", OA_INDEX = "bibliocard.oa.index", OA_BLOQUE = "bibliocard.oa.bloque";
+const oaBloque = () => { try{ return Date.now() < +(localStorage.getItem(OA_BLOQUE) || 0); }catch(e){ return false; } };
+function oaMemoLire(url){
+  try{ const c = JSON.parse(localStorage.getItem(OA_MEMO + url) || "null"); return c && Date.now() - c.at < 30 * 86400000 ? c.data : null; }catch(e){ return null; }
+}
+function oaMemoEcrire(url, data){
+  try{
+    const idx = JSON.parse(localStorage.getItem(OA_INDEX) || "[]").filter(u => u !== url); idx.push(url);
+    while(idx.length > 150) localStorage.removeItem(OA_MEMO + idx.shift());
+    try{ localStorage.setItem(OA_MEMO + url, JSON.stringify({at: Date.now(), data})); }
+    catch(e){ idx.splice(0, idx.length >> 1).forEach(u => localStorage.removeItem(OA_MEMO + u)); } // mémoire pleine : on oublie la moitié la plus ancienne
+    localStorage.setItem(OA_INDEX, JSON.stringify(idx));
+  }catch(e){}
+}
+// payant : l’appel est décompté du budget du jour (les appels gratuits passent même quand il est épuisé)
+async function oaJSON(url, payant, ms = 10000){
+  const m = oaMemoLire(url); if(m) return {data: m};
+  if(payant && oaBloque()) return {status: 429, bloque: true};
+  for(let essai = 0; essai < 2; essai++){
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+    try{
+      const r = await fetch(url, {signal: ctl.signal});
+      if(r.status === 429){
+        let attente = 0; try{ attente = +((await r.json()).retryAfter) || 0; }catch(e){}
+        if(payant && attente > 60){ try{ localStorage.setItem(OA_BLOQUE, String(Date.now() + attente * 1000)); }catch(e){} return {status: 429, bloque: true}; }
+        await new Promise(res => setTimeout(res, 1200)); continue; // limite par seconde : on réessaie une fois
+      }
+      if(!r.ok) return {status: r.status};
+      const data = await r.json(); oaMemoEcrire(url, data); return {data};
+    }catch(e){ return {error: true}; } finally { clearTimeout(t); }
+  }
+  return {status: 429};
+}
+const OA_CHAMPS = "display_name,title,publication_year,authorships,type,cited_by_count,primary_location,biblio,doi,open_access";
+// autocomplétion (gratuite) puis fiches complètes des meilleures (gratuites aussi, une par œuvre)
+async function oaAutocomplete(q, filtre){
+  const r = await oaJSON(`https://api.openalex.org/autocomplete/works?q=${encodeURIComponent(q)}${filtre ? "&filter=" + filtre : ""}`);
+  return r.data ? {L: (r.data.results || []).filter(x => x.entity_type === "work").map(fromOAAutocomplete)} : r;
+}
+async function oaOeuvre(id){ const r = await oaJSON(`https://api.openalex.org/works/${id}?select=${OA_CHAMPS}`); return r.data || null; }
+const oaCand = w => ({
+  title: w.display_name || w.title || "", year: w.publication_year, src: "OpenAlex",
+  authors: (w.authorships || []).map(a => (a.author && a.author.display_name) || "").filter(Boolean),
+  doi: String(w.doi || "").replace(/^https?:\/\/doi\.org\//i, ""), url: w.doi || w.id,
+  container: (w.primary_location && w.primary_location.source && w.primary_location.source.display_name) || "",
+  volume: (w.biblio && w.biblio.volume) || "", issue: (w.biblio && w.biblio.issue) || "",
+  pages: w.biblio && w.biblio.first_page ? w.biblio.first_page + (w.biblio.last_page ? "-" + w.biblio.last_page : "") : "",
+});
+const titreRequete = s => s.title.replace(/[^\p{L}\p{N}\s'’-]/gu, " ").replace(/\s+/g, " ").trim();
+// gratuit : autocomplétion sur le titre, puis les 3 fiches les plus proches
 async function searchOpenAlex(s){
-  const q = encodeURIComponent(s.title.replace(/[^\p{L}\p{N}\s'’-]/gu, " ").slice(0, 200));
-  const r = await getJSON(`https://api.openalex.org/works?search=${q}&per-page=6`);
-  if(r.error) return {error:true};
-  return {cands: ((r.data && r.data.results) || []).map(w => ({
-    title: w.display_name || w.title || "", year: w.publication_year, src: "OpenAlex",
-    authors: (w.authorships || []).map(a => (a.author && a.author.display_name) || "").filter(Boolean),
-    doi: String(w.doi || "").replace(/^https?:\/\/doi\.org\//i, ""), url: w.doi || w.id,
-    container: (w.primary_location && w.primary_location.source && w.primary_location.source.display_name) || "",
-    volume: (w.biblio && w.biblio.volume) || "", issue: (w.biblio && w.biblio.issue) || "",
-    pages: w.biblio && w.biblio.first_page ? w.biblio.first_page + (w.biblio.last_page ? "-" + w.biblio.last_page : "") : "",
-  }))};
+  const ac = await oaAutocomplete(titreRequete(s).slice(0, 120));
+  if(!ac.L) return {error: true};
+  const top = ac.L.sort((a, b) => simTitle(s.title, b.title) - simTitle(s.title, a.title)).slice(0, 3);
+  return {cands: (await Promise.all(top.map(x => oaOeuvre(x._oaId)))).filter(Boolean).map(oaCand)};
+}
+// payant (0,001 $) : la recherche complète, plus tolérante, seulement quand rien d’autre n’a confirmé la référence
+async function searchOpenAlexComplet(s){
+  const r = await oaJSON(`https://api.openalex.org/works?search=${encodeURIComponent(titreRequete(s).slice(0, 200))}&per-page=6&select=${OA_CHAMPS}`, true);
+  return r.data ? {cands: (r.data.results || []).map(oaCand)} : {error: true};
 }
 async function searchHal(s){
   const words = norm(s.title).split(" ").filter(w => w.length > 2).slice(0, 12).join(" ");
@@ -611,10 +664,17 @@ async function checkOne(s){
   }
   const cat = await catalog.find(s);
   if(cat && cat.ref) return {v: "found", stamp, best: {...cat.ref, src: `le catalogue BiblioCard (confirmée par ${cat.n})`, authors: (cat.ref.authors || []).map(a => a.family)}};
+  // 1. appels gratuits : autocomplétion OpenAlex, puis HAL
   const oa = await searchOpenAlex(s);
-  if(oa.error) return {error:true};
-  let j = judge(s, oa.cands);
-  if(j.v !== "found"){ const hal = await searchHal(s); if(!hal.error){ const j2 = judge(s, hal.cands); if(j2.v === "found" || (j2.v === "close" && j.v === "none")) j = j2; } }
+  let j = oa.error ? {v: "none"} : judge(s, oa.cands), halErreur = false;
+  if(j.v !== "found"){ const hal = await searchHal(s); halErreur = !!hal.error; if(!hal.error){ const j2 = judge(s, hal.cands); if(j2.v === "found" || (j2.v === "close" && j.v === "none")) j = j2; } }
+  if(j.v === "found") return {...j, stamp};
+  // 2. rien de confirmé : la recherche complète d’OpenAlex avant de conclure. Si elle est refusée (budget du
+  //    jour épuisé), on ne conclut pas : une référence n’est jamais déclarée introuvable faute de budget.
+  const oa2 = await searchOpenAlexComplet(s);
+  if(oa2.error) return oa.error && halErreur ? {error: true} : {plusTard: true};
+  const j3 = judge(s, oa2.cands);
+  if(j3.v === "found" || j.v === "none") j = j3;
   return {...j, stamp};
 }
 function existFor(s){ const e = state.exist[s.id]; return e && e.stamp === norm(s.title) + "|" + s.year + "|" + norm(s.doi) ? e : null; }
@@ -622,13 +682,14 @@ async function runExistence(manual){
   if(net.running) return;
   const todo = state.sources.filter(s => s.title && !existFor(s));
   if(!todo.length){ if(manual) toast("Toutes les références ont déjà été vérifiées"); renderAll(); return; }
-  net.running = true; net.done = 0; net.total = todo.length; renderExist();
+  net.running = true; net.done = 0; net.total = todo.length; net.plusTard = 0; renderExist();
   let i = 0;
   const worker = async () => {
     while(i < todo.length && !net.blocked){
       const s = todo[i++];
       const r = await checkOne(s);
       if(r.error){ net.blocked = true; break; }
+      if(r.plusTard){ net.plusTard++; net.done++; continue; }
       state.exist[s.id] = {...r, at: Date.now()}; net.done++;
       if(net.done % 3 === 0) renderExist();
     }
@@ -638,6 +699,7 @@ async function runExistence(manual){
   if(!net.blocked){ const ex = labeled().map(s => ({s, e: existFor(s)})).filter(x => x.e); const c = v => ex.filter(x => x.e.v === v); post({role: "a", kind: "exist", found: c("found").length, suspect: c("suspect").length, close: c("close").length, none: c("none").length, sus: c("suspect").map(x => x.s.id)}); }
   else if(manual) post({role: "a", kind: "error", text: "Je ne peux pas joindre OpenAlex, HAL ni CrossRef depuis cette page. La vérification fonctionne sur la version installée sur ton site."});
   else if(!net.blocked){ const sus = Object.values(state.exist).filter(e => e.v === "suspect").length; toast(sus ? `${sus} référence${sus > 1 ? "s" : ""} suspecte${sus > 1 ? "s" : ""} : regarde la liste À faire` : "Vérification terminée"); }
+  if(net.plusTard && !net.blocked) post({role: "a", kind: "info", text: `${net.plusTard} référence${net.plusTard > 1 ? "s n’ont" : " n’a"} pas pu être vérifiée${net.plusTard > 1 ? "s" : ""} aujourd’hui : OpenAlex a atteint sa limite gratuite du jour pour ta connexion Internet. Relance la vérification demain.`});
 }
 
 /* ================= CONSTRUIRE LA BIBLIOGRAPHIE À PARTIR DES CITATIONS =================
@@ -659,15 +721,25 @@ async function completerEdition(s, an){
   if(e.data) appliquerEdition(s, e.data.entries, an);
   return s;
 }
+// CrossRef (accès public) refuse les appels simultanés : une seule recherche à la fois
+let crTour = Promise.resolve();
+function crFile(url){ const r = crTour.then(() => getJSON(url, 15000)); crTour = r.catch(() => {}); return r; }
 async function chercherCitation(c, ctx){
   const an = annee(c), fam = encodeURIComponent(c.family);
-  const [oa, ol] = await Promise.all([
-    getJSON(`https://api.openalex.org/works?filter=publication_year:${+an - 1}-${+an + 1},raw_author_name.search:${fam}&sort=cited_by_count:desc&per-page=15&select=display_name,title,publication_year,authorships,type,cited_by_count,primary_location,biblio,doi`),
+  // Open Library deux fois : les œuvres de l’auteur autour de l’année citée, et ses œuvres les plus éditées
+  // (les 25 plus connues de Bourdieu ne comptent pas « Ce que parler veut dire », 1982)
+  const [oa, ol, olAn] = await Promise.all([
+    oaJSON(`https://api.openalex.org/works?filter=publication_year:${+an - 1}-${+an + 1},raw_author_name.search:${fam}&sort=cited_by_count:desc&per-page=15&select=display_name,title,publication_year,authorships,type,cited_by_count,primary_location,biblio,doi`, true),
     getJSON(`https://openlibrary.org/search.json?author=${fam}&limit=25&fields=key,title,subtitle,author_name,first_publish_year,edition_count`, 15000),
+    getJSON(`https://openlibrary.org/search.json?q=${encodeURIComponent(`author:${c.family} first_publish_year:[${+an - 1} TO ${+an + 1}]`)}&limit=15&fields=key,title,subtitle,author_name,first_publish_year,edition_count`, 15000),
   ]);
-  if(oa.error && ol.error) return {erreur: true};
+  const olDocs = [...(((olAn.data || {}).docs) || []), ...(((ol.data || {}).docs) || [])].filter((d, i, T) => T.findIndex(x => x.key === d.key) === i);
+  // OpenAlex refuse (budget du jour épuisé) : CrossRef, gratuit et sans plafond quotidien, prend le relais
+  const cr = oa.data ? {} : await crFile(`https://api.crossref.org/works?query.author=${fam}&filter=from-pub-date:${+an - 1},until-pub-date:${+an + 1}&sort=is-referenced-by-count&order=desc&rows=20&select=DOI,title,author,issued,type,container-title,publisher,publisher-location,volume,issue,page,ISBN,editor,is-referenced-by-count`, 15000);
+  if(!oa.data && !ol.data && !olAn.data && !cr.data) return {erreur: true};
   const cands = [...(((oa.data || {}).results) || []).map(fromOpenAlex),
-    ...(((ol.data || {}).docs) || []).filter(d => !d.first_publish_year || d.first_publish_year <= +an + 1).map(fromOpenLibrary)];
+    ...((((cr.data || {}).message || {}).items) || []).map(fromCrossrefRecherche),
+    ...olDocs.filter(d => !d.first_publish_year || d.first_publish_year <= +an + 1).map(fromOpenLibrary)];
   const {verdict, L} = classerCandidats(c, ctx, cands);
   const top = L.slice(0, 3).map(x => ({...x.s, _score: Math.round(x.score * 100) / 100}));
   // un livre est cité dans une édition précise : son année, son éditeur, sa ville
@@ -731,18 +803,23 @@ const getMemo = url => { if(!memoLectures.has(url)) memoLectures.set(url, getJSO
 async function chercherLectures(sujet, titre){
   const {mots, requetes} = requetesLectures(sujet, titre);
   if(!requetes.length) return {etat: "vague", L: [], requetes};
-  // OpenAlex sans clé : petit budget quotidien par adresse IP, et une recherche plein texte coûte cher.
-  // Une seule requête OpenAlex par partie (la plus courte, la plus large) ; HAL, sans limite, reçoit toutes les requêtes.
-  const courte = requetes.reduce((a, q) => q.split(" ").length < a.split(" ").length ? q : a);
-  const [oa, ...hal] = await Promise.all([
-    getMemo(`https://api.openalex.org/works?search=${encodeURIComponent(courte)}&per-page=15&select=display_name,title,publication_year,authorships,type,cited_by_count,primary_location,biblio,doi,open_access`),
-    ...requetes.map(q => getMemo(`https://api.archives-ouvertes.fr/search/?q=${encodeURIComponent(q)}&rows=8&fl=title_s,authFullName_s,producedDateY_i,docType_s,uri_s,journalTitle_s,bookTitle_s,publisher_s,volume_s,issue_s,page_s,doiId_s,authorityInstitution_s&wt=json`)),
-  ]);
-  if(!oa.data && hal.every(r => !r.data)) return {etat: "erreur"};
-  const cands = [];
-  ((oa.data || {}).results || []).forEach(w => { const s = fromOpenAlex(w); s._lien = (w.open_access && w.open_access.oa_url) || (s.doi ? "https://doi.org/" + s.doi : ""); cands.push(s); });
+  // OpenAlex par l’autocomplétion, gratuite (fiches provisoires, complétées plus bas) ; HAL, sans limite
+  const R = await Promise.all([...requetes.map(q => oaAutocomplete(q)),
+    ...requetes.map(q => getMemo(`https://api.archives-ouvertes.fr/search/?q=${encodeURIComponent(q)}&rows=8&fl=title_s,authFullName_s,producedDateY_i,docType_s,uri_s,journalTitle_s,bookTitle_s,publisher_s,volume_s,issue_s,page_s,doiId_s,authorityInstitution_s&wt=json`))]);
+  const oa = R.slice(0, requetes.length), hal = R.slice(requetes.length);
+  if(oa.every(r => !r.L) && hal.every(r => !r.data)) return {etat: "erreur"};
+  const cands = oa.flatMap(r => r.L || []);
   hal.forEach(r => (((r.data || {}).response || {}).docs || []).forEach(d => { const s = fromHal(d); s._lien = s.url; s.url = ""; cands.push(s); }));
   return {etat: "ok", L: classerLectures(mots, cands), requetes};
+}
+// fiches OpenAlex provisoires → fiches complètes (année, revue, pages), une lecture gratuite par œuvre
+async function completerLectures(L){
+  const W = await Promise.all(L.map(s => s._oaId ? oaOeuvre(s._oaId) : null));
+  return L.map((s, i) => {
+    if(!s._oaId) return s;
+    const w = W[i]; if(!w) return null;
+    const f = fromOpenAlex(w); f._lien = (w.open_access && w.open_access.oa_url) || (f.doi ? "https://doi.org/" + f.doi : ""); return f;
+  }).filter(Boolean);
 }
 async function lecturesPour(items){
   if(!exiger("plan")) return;
@@ -757,14 +834,15 @@ async function lecturesPour(items){
   items.forEach((it, i) => {
     const r = R[i];
     if(r.L){ const cle = r.requetes.join("|"), d = rang[cle] || 0; rang[cle] = d + 6; r.L = r.L.slice(d, d + 6); if(d && !r.L.length) r.etat = "memes"; }
-    it.lect = r;
   });
+  for(const r of R) if(r.L) r.L = await completerLectures(r.L); // partie par partie : OpenAlex limite à 10 appels par seconde
+  items.forEach((it, i) => it.lect = R[i]);
   save(); renderPlan();
   if(items.every(it => it.lect.etat === "erreur")) toast("Je n’arrive pas à joindre OpenAlex ni HAL. Vérifie ta connexion Internet.");
 }
 function ajouterLecture(it, j){
   const s = {...it.lect.L[j], id: "s" + Math.random().toString(36).slice(2, 10), file: ""};
-  ["_lien", "_src", "_notoriete", "_olKey", "_score"].forEach(k => delete s[k]);
+  ["_lien", "_src", "_notoriete", "_olKey", "_score", "_oaId"].forEach(k => delete s[k]);
   addSources([s]); renderPlan(); toast("Ajoutée à ta bibliographie, à relire");
 }
 function remplacerPlan(items, msg){
@@ -1923,7 +2001,7 @@ async function runSimilarity(){
   const results = [];
   const corpus = await IDB.all(); ui.files.forEach(f => { if(f.text && !corpus.some(c => c.name === f.name)) corpus.push({name: f.name, text: stripMarks(f.text)}); });
   corpus.forEach(c => { const r = compareTexts(text, c.text, c.name); if(r.covered) results.push({...r, kind: "Tes documents"}); });
-  let online = true; const seen = new Set();
+  let online = true, oaLimite = false; const seen = new Set();
   const probes = pickProbes(text, 10);
   for(let i = 0; i < probes.length && online; i++){
     box.innerHTML = `<p class="legend"><span class="busy"></span> Recherche en ligne : ${i + 1} sur ${probes.length}…</p>`;
@@ -1932,8 +2010,10 @@ async function runSimilarity(){
       for(const t of w.titles){ const key = lang + ":" + t; if(seen.has(key)) continue; seen.add(key); const body = await wikiText(t, lang); const r = compareTexts(text, body, `Wikipédia (${lang}) : ${t}`); if(r.covered) results.push({...r, kind: "Wikipédia", url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(t)}`}); }
     }
     if(!online) break;
-    const oa = await getJSON(`https://api.openalex.org/works?search=${encodeURIComponent(probes[i])}&per-page=3&select=id,display_name,abstract_inverted_index,doi`);
+    // recherche dans les résumés : payante pour OpenAlex, sautée quand le budget du jour est épuisé
+    const oa = oaLimite ? {} : await oaJSON(`https://api.openalex.org/works?search=${encodeURIComponent(probes[i])}&per-page=3&select=id,display_name,abstract_inverted_index,doi`, true);
     if(oa.error){ online = false; break; }
+    if(oa.bloque) oaLimite = true;
     ((oa.data || {}).results || []).forEach(wk => { if(seen.has(wk.id)) return; seen.add(wk.id); const ab = abstractFromIndex(wk.abstract_inverted_index); if(!ab) return; const r = compareTexts(text, ab, `Résumé d’article : ${wk.display_name}`); if(r.covered) results.push({...r, kind: "Articles scientifiques", url: wk.doi || wk.id}); });
   }
   const reps = internalRepeats(text), freq = frequentWords(text);
@@ -1952,6 +2032,7 @@ async function runSimilarity(){
     ${reps.length ? `<div class="blk"><h3>Répétitions dans ton propre texte</h3>${reps.slice(0, 8).map(p => `<div class="pass rep">${esc(p.text.length > 240 ? p.text.slice(0, 240) + "…" : p.text)}<small>Passage de ${p.words} mots écrit deux fois.</small></div>`).join("")}</div>` : ""}
     ${freq.length ? `<div class="blk"><h3>Mots très répétés</h3><p class="legend">${freq.map(f => `« ${esc(f.word)} » ${f.n} fois (paragraphe ${f.para})`).join(", ")}.</p></div>` : ""}
     <p class="legend" style="margin-top:12px">Lian’Z compare ton texte à tes documents, à Wikipédia et aux résumés d’articles d’OpenAlex. Il ne remplace pas un logiciel institutionnel qui dispose des thèses déjà déposées : c’est un contrôle préalable, avant de rendre.</p>`;
+  if(oaLimite) box.insertAdjacentHTML("beforeend", `<p class="note">Les résumés d’articles d’OpenAlex n’ont pas été comparés : la limite gratuite du jour est atteinte pour ta connexion Internet. Relance le contrôle demain pour les inclure.</p>`);
   renderTasks();
 }
 $("#simBtn").onclick = () => exiger("plagiat") && runSimilarity();

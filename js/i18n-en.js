@@ -271,6 +271,8 @@ const STRUCT_EN = x => x
   .replace(/^citation en italique, à mettre en romain entre guillemets : (.+)$/, "italic quotation, to set in roman between quotation marks: $1");
 const re = [
  [/^(\d+) fiches?$/, (m, n) => `${n} ${P(n, "record", "records")}`],
+ [/^(\d+) références? n’(?:a|ont) pas pu être vérifiées? aujourd’hui : OpenAlex a atteint sa limite gratuite du jour pour ta connexion Internet\. Relance la vérification demain\.$/, (m, n) => `${n} ${P(n, "reference", "references")} could not be checked today: OpenAlex has reached its free daily limit for your Internet connection. Run the check again tomorrow.`],
+ [/^Les résumés d’articles d’OpenAlex n’ont pas été comparés : la limite gratuite du jour est atteinte pour ta connexion Internet\. Relance le contrôle demain pour les inclure\.$/, () => "OpenAlex article abstracts were not compared: the free daily limit has been reached for your Internet connection. Run the check again tomorrow to include them."],
  [/^Citée (\d+) fois$/, (m, n) => `Cited ${n} ${P(n, "time", "times")}`],
  [/^Modèle établi d’après : (.+)\. Remplace les intitulés entre crochets par les tiens\.$/, (m, a) => `Template based on: ${a.replace("Usage courant des universités", "common university practice").replace("Usage courant des écoles doctorales", "common doctoral school practice")}. Replace the headings in square brackets with yours.`],
  [/^Plan repris de « (.+) »$/, (m, a) => `Outline taken from “${a}”`],
