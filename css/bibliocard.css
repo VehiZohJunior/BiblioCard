@@ -536,3 +536,14 @@ body.legal{background:var(--bg)}
 .dlegal a,.acctdlg .legend a{color:var(--muted)}
 .legal main{display:block}
 .legal main p{margin:0 0 12px}
+
+/* ---------- propositions de références (construire la bibliographie) ---------- */
+.props{display:grid;gap:10px;margin:10px 0}
+.prop{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px}
+.prop .pcite{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}
+.prop .pcite b{color:var(--ink);font-weight:500}
+.prop .pcite .tag{margin:0;flex:none}
+.prop .ref{margin:8px 0 2px;font-family:var(--serif);font-size:14px;line-height:1.5}
+.prop .chips{margin-top:8px}
+.prop.ajoutee{border-color:var(--ok)}
+.prop.ecartee,.prop.main{background:var(--sunk)}

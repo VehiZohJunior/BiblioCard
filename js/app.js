@@ -100,7 +100,7 @@ const labeled = () => { const st = STYLES[state.style]; return st.numeric ? numb
 const verifyAny = (text, L) => STYLES[state.style].numeric ? verifyNumeric(text, L) : verify(text, L);
 const curProfile = () => CAMES_PROFILES[state.profile] || state.profiles[state.profile] || CAMES_PROFILES.norcames;
 const bibFor = s => state.style === "cames" ? STYLES.cames.bib(s, curProfile()) : STYLES[state.style].bib(s);
-const isAuto = s => s.origin === "Analyse automatique" || s.origin === "Analyse par l’IA";
+const isAuto = s => s.origin === "Analyse automatique" || s.origin === "Analyse par l’IA" || s.origin === "Recherche en ligne";
 
 function renderNorm(){
   $("#styleSeg").innerHTML = Object.entries(STYLES).map(([k,v]) => `<button aria-pressed="${k === state.style}" data-style="${k}">${esc(v.name)}</button>`).join("");
@@ -161,7 +161,7 @@ function computeTasks(){
   fileReports.forEach(({f, r}) => {
     r.missing.forEach(x => { const k = "m|" + norm(x.c.family) + x.c.year; if(ui.dismissed.has(k)) return;
       t.push({key:k, title:`Référence manquante : ${citeVue(x.c)}`, sub:`Citée dans ${f.name}, mais absente de la bibliographie.`,
-        acts:[["Ajouter sa référence", () => { const s = blank(); s.authors = [{family:x.c.family, given:""}]; s.year = x.c.year.replace(/[a-z]$/,""); openForm(s, "title"); }], ["Ignorer", () => dismiss(k)]]}); });
+        acts:[["Chercher en ligne", () => { closeSide(); construireBiblio(f.name); }], ["Saisir à la main", () => { const s = blank(); s.authors = [{family:x.c.family, given:""}]; s.year = x.c.year.replace(/[a-z]$/,""); openForm(s, "title"); }], ["Ignorer", () => dismiss(k)]]}); });
     r.yearOff.forEach(x => { const k = "y|" + x.s.id + x.c.year; if(ui.dismissed.has(k)) return;
       const y = x.c.year.replace(/[a-z]$/,"");
       t.push({key:k, title:`Année à vérifier : ${x.s.authors[0].family}`, sub:`Le texte de ${f.name} cite ${x.c.year}, la bibliographie indique ${x.s._label}.`,
@@ -567,8 +567,8 @@ Texte :
 }
 /* ---------- vérification d’existence ---------- */
 const net = { blocked: false, running: false, done: 0, total: 0 };
-async function getJSON(url){
-  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 10000);
+async function getJSON(url, ms = 10000){
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
   try{ const r = await fetch(url, {signal: ctl.signal}); if(!r.ok) return {status: r.status}; return {data: await r.json()}; }
   catch(e){ return {error: true}; } finally { clearTimeout(t); }
 }
@@ -636,6 +636,85 @@ async function runExistence(manual){
   if(!net.blocked){ const ex = labeled().map(s => ({s, e: existFor(s)})).filter(x => x.e); const c = v => ex.filter(x => x.e.v === v); post({role: "a", kind: "exist", found: c("found").length, suspect: c("suspect").length, close: c("close").length, none: c("none").length, sus: c("suspect").map(x => x.s.id)}); }
   else if(manual) post({role: "a", kind: "error", text: "Je ne peux pas joindre OpenAlex, HAL ni CrossRef depuis cette page. La vérification fonctionne sur la version installée sur ton site."});
   else if(!net.blocked){ const sus = Object.values(state.exist).filter(e => e.v === "suspect").length; toast(sus ? `${sus} référence${sus > 1 ? "s" : ""} suspecte${sus > 1 ? "s" : ""} : regarde la liste À faire` : "Vérification terminée"); }
+}
+
+/* ================= CONSTRUIRE LA BIBLIOGRAPHIE À PARTIR DES CITATIONS =================
+   Le chercheur a cité « P. Bourdieu (1982, p. 64) » dans son texte : on cherche l’œuvre dans OpenAlex et
+   Open Library, on la classe d’après la phrase où elle est citée (moteur : classerCandidats), on complète
+   éditeur et ville avec l’édition de l’année citée, puis on lui propose la référence. Rien n’est ajouté sans
+   son accord, et ce qui est ajouté porte la mention « À relire ». Seuls le nom et l’année partent en ligne. */
+const annee = c => String(c.year).replace(/[a-z]$/, "");
+async function completerEdition(s, an){
+  let key = s._olKey;
+  if(!key){
+    // le titre principal seul : Open Library ne trouve pas « Ce que parler veut dire : l’économie des… »
+    const principal = s.title.split(/\s*[:.]\s+|\s+[–—]\s+/)[0].slice(0, 80);
+    const r = await getJSON(`https://openlibrary.org/search.json?author=${encodeURIComponent((s.authors[0] || {}).family || "")}&title=${encodeURIComponent(principal)}&limit=1&fields=key`, 15000);
+    key = r.data && r.data.docs && r.data.docs[0] && r.data.docs[0].key;
+  }
+  if(!key) return s;
+  const e = await getJSON(`https://openlibrary.org${key}/editions.json?limit=80`, 15000);
+  if(e.data) appliquerEdition(s, e.data.entries, an);
+  return s;
+}
+async function chercherCitation(c, ctx){
+  const an = annee(c), fam = encodeURIComponent(c.family);
+  const [oa, ol] = await Promise.all([
+    getJSON(`https://api.openalex.org/works?filter=publication_year:${+an - 1}-${+an + 1},raw_author_name.search:${fam}&sort=cited_by_count:desc&per-page=15&select=display_name,title,publication_year,authorships,type,cited_by_count,primary_location,biblio,doi`),
+    getJSON(`https://openlibrary.org/search.json?author=${fam}&limit=25&fields=key,title,subtitle,author_name,first_publish_year,edition_count`, 15000),
+  ]);
+  if(oa.error && ol.error) return {erreur: true};
+  const cands = [...(((oa.data || {}).results) || []).map(fromOpenAlex),
+    ...(((ol.data || {}).docs) || []).filter(d => !d.first_publish_year || d.first_publish_year <= +an + 1).map(fromOpenLibrary)];
+  const {verdict, L} = classerCandidats(c, ctx, cands);
+  const top = L.slice(0, 3).map(x => ({...x.s, _score: Math.round(x.score * 100) / 100}));
+  // un livre est cité dans une édition précise : son année, son éditeur, sa ville
+  if(top[0] && top[0].type === "book"){ top[0].year = an; await completerEdition(top[0], an); }
+  return {verdict, top};
+}
+async function construireBiblio(nom, sansCommande){
+  if(!exiger("biblio")) return;
+  const docs = ui.files.filter(f => f.body && (f.mode === "texte" || f.mode === "biblio") && (!nom || f.name === nom));
+  if(!sansCommande) post({role: "u", kind: "cmd", text: "Construire ma bibliographie"});
+  if(!docs.length){ post({role: "a", kind: "error", text: "Dépose d’abord ton document (Word, PDF ou texte) avec le bouton + : je construis la bibliographie à partir des citations de son texte."}); return; }
+  const L = labeled(), vus = new Set(), todo = [];
+  docs.forEach(f => { const body = stripMarks(f.body); verify(body, L).missing.forEach(x => { const k = norm(x.c.family) + annee(x.c); if(vus.has(k)) return; vus.add(k); todo.push({c: x.c, ctx: contexteCitation(body, x.c.raw), file: f.name, pos: body.indexOf(x.c.raw)}); }); });
+  todo.sort((a, b) => a.file === b.file ? a.pos - b.pos : 0); // dans l’ordre du texte
+  if(!todo.length){ post({role: "a", kind: "info", text: "Toutes les citations de ton texte ont déjà leur référence dans la bibliographie."}); return; }
+  post({role: "a", kind: "info", text: `Je cherche ${todo.length > 1 ? `les ${todo.length} œuvres citées` : "l’œuvre citée"} dans OpenAlex et Open Library…`}); think(true);
+  const items = new Array(todo.length); let i = 0, horsLigne = 0;
+  const travail = async () => { while(i < todo.length){ const k = i++, t = todo[k]; const r = await chercherCitation(t.c, t.ctx); if(r.erreur) horsLigne++;
+    items[k] = {cite: {family: t.c.family, year: t.c.year, raw: citeVue(t.c)}, file: t.file, verdict: r.erreur ? "rien" : r.verdict, choix: (r.top || []).map(s => ({...s, _notoriete: undefined})), pick: 0, etat: "attente"}; } };
+  await Promise.all([travail(), travail(), travail()]);
+  think(false);
+  if(horsLigne === todo.length){ post({role: "a", kind: "error", text: "Je n’arrive pas à joindre les bases en ligne. Vérifie ta connexion Internet, puis réessaie."}); return; }
+  post({role: "a", kind: "propositions", items});
+}
+async function actionProposition(a){
+  const m = (state.thread || []).find(x => x.id === a.m); if(!m) return;
+  const ajouter = async x => {
+    const s = {...x.choix[x.pick], id: "s" + Math.random().toString(36).slice(2, 10), file: x.file};
+    if(s.type === "book"){ s.year = annee(x.cite); if(!s.city || !s.publisher) await completerEdition(s, s.year); }
+    delete s._olKey; delete s._src; delete s._notoriete; delete s._score;
+    addSources([s]); x.etat = "ajoutee"; x.id = (state.sources.find(o => sameRef(o, s)) || s).id;
+  };
+  if(a.t === "prop-ok") await ajouter(m.items[a.i]);
+  else if(a.t === "prop-all"){ for(const x of m.items) if(x.etat === "attente" && x.verdict === "sure" && x.choix.length) await ajouter(x); }
+  else if(a.t === "prop-next"){ const x = m.items[a.i]; x.pick = (x.pick + 1) % x.choix.length; }
+  else if(a.t === "prop-no") m.items[a.i].etat = "ecartee";
+  else if(a.t === "prop-man"){ const x = m.items[a.i]; const s = blank(); s.authors = [{family: x.cite.family, given: ""}]; s.year = annee(x.cite); s.file = x.file; x.etat = "main"; openForm(s, "title"); }
+  save(); renderAll(); renderThread(false);
+}
+function propCarte(m, x, i){
+  const s = x.choix[x.pick];
+  const tag = x.etat === "ajoutee" ? `<span class="tag ok">Ajoutée</span>` : x.etat === "ecartee" ? `<span class="tag">Écartée</span>` : x.etat === "main" ? `<span class="tag">Saisie à la main</span>`
+    : x.verdict === "sure" ? `<span class="tag ok">Trouvée</span>` : x.verdict === "choisir" ? `<span class="tag brass">À confirmer</span>` : `<span class="tag proof">Introuvable</span>`;
+  const act = (label, t, cls) => chip(label, {t, m: m.id, i}, cls);
+  return `<div class="prop ${x.etat}"><div class="pcite"><span>Citée${NB}: <b data-notr="1">${esc(x.cite.raw)}</b></span>${tag}</div>
+    ${s && x.etat !== "ecartee" && x.etat !== "main" ? `<div class="ref">${bibFor(s)}</div>` : ""}
+    ${x.etat === "attente" ? (s ? `<div class="chips">${act("Ajouter", "prop-ok", "pri")}${x.choix.length > 1 ? act(`Autre œuvre (${x.pick + 1}/${x.choix.length})`, "prop-next") : ""}${act("Saisir à la main", "prop-man")}${act("Écarter", "prop-no")}</div>`
+      : `<p class="legend">Aucune œuvre de cet auteur pour cette année dans les bases ouvertes. C’est fréquent pour les ouvrages publiés en Afrique.</p><div class="chips">${act("Saisir à la main", "prop-man", "pri")}${act("Écarter", "prop-no")}</div>`) : ""}
+  </div>`;
 }
 function enrich(id){
   const s = state.sources.find(x => x.id === id), e = existFor(s); if(!e || !e.best) return;
@@ -1416,9 +1495,17 @@ function appBody(m){
   const status = () => { const c = conformity(state.sources, state.style); return `<p>Conformité ${esc(st.name)} : <b>${c.score}${NB}%</b>. ${urgent ? `${plur(urgent, "point urgent", "points urgents")} à corriger.` : "Rien d’urgent à régler."}</p>`; };
   switch(m.kind){
     case "import":
-      if(m.mode === "biblio") return `<p>J’ai trouvé <b>${plur(m.ids.length, "référence", "références")}</b> dans la bibliographie de ${esc(m.file)}, mises en forme en ${esc(st.full)}.${m.ocr ? " Le document était scanné : relis-les attentivement." : ""}</p>${status()}${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${m.docx ? chip("Corriger mon document Word", {t:"fix", v:m.file}) : ""}${urgent ? chip("Voir ce qu’il reste à régler", {t:"side", v:"todo"}, "warn") : ""}${chip("Télécharger en Word", {t:"dl"})}</div>`;
+      if(m.mode === "biblio"){ const f = ui.files.find(x => x.name === m.file), manque = f && f.body ? verify(stripMarks(f.body), labeled()).missing.length : 0;
+        return `<p>J’ai trouvé <b>${plur(m.ids.length, "référence", "références")}</b> dans la bibliographie de ${esc(m.file)}, mises en forme en ${esc(st.full)}.${m.ocr ? " Le document était scanné : relis-les attentivement." : ""}</p>${status()}${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${manque ? chip(manque > 1 ? `Chercher les ${manque} références manquantes` : "Chercher la référence manquante", {t:"build", v:m.file}) : ""}${m.docx ? chip("Corriger mon document Word", {t:"fix", v:m.file}) : ""}${urgent ? chip("Voir ce qu’il reste à régler", {t:"side", v:"todo"}, "warn") : ""}${chip("Télécharger en Word", {t:"dl"})}</div>`;
+      }
       if(m.mode === "source") return `<p>J’ai ajouté la source tirée de ${esc(m.file)}.</p>${previewIds(m.ids)}<div class="chips">${m.ids[0] ? chip("Vérifier la fiche", {t:"edit", v:m.ids[0]}) : ""}${chip("Voir la bibliographie", {t:"side", v:"biblio"})}</div>`;
-      return `<p>${esc(m.file)} ne contient pas de bibliographie : j’ai repéré ${plur(m.cites || 0, "citation", "citations")} dans le texte et je les compare à ta bibliographie.</p><div class="chips">${chip("Voir le contrôle", {t:"side", v:"controle"}, "pri")}</div>`;
+      return `<p>${esc(m.file)} ne contient pas encore de bibliographie : j’ai repéré ${plur(m.cites || 0, "citation", "citations")} dans le texte. Je peux chercher chaque œuvre citée en ligne et te proposer les références complètes.</p><div class="chips">${chip("Construire ma bibliographie", {t:"build", v:m.file}, "pri")}${chip("Voir le contrôle", {t:"side", v:"controle"})}</div>`;
+    case "propositions": {
+      const n = v => m.items.filter(x => x.verdict === v).length, sures = m.items.filter(x => x.etat === "attente" && x.verdict === "sure" && x.choix.length).length;
+      return `<p>${plur(m.items.length, "œuvre citée cherchée", "œuvres citées cherchées")}${NB}: <b>${n("sure")}</b> trouvée${n("sure") > 1 ? "s" : ""}, <b>${n("choisir")}</b> à confirmer, ${n("rien")} introuvable${n("rien") > 1 ? "s" : ""}. Vérifie chaque proposition${NB}: rien n’est ajouté sans ton accord.</p>
+        <div class="props">${m.items.map((x, i) => propCarte(m, x, i)).join("")}</div>
+        ${sures ? `<div class="chips">${chip(sures > 1 ? `Ajouter les ${sures} références trouvées` : "Ajouter la référence trouvée", {t:"prop-all", m:m.id}, "pri")}</div>` : `<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}</div>`}`;
+    }
     case "added": return `<p>${m.ids.length ? `J’ai ajouté ${plur(m.ids.length, "référence", "références")}${m.dup ? `, ${plur(m.dup, "doublon écarté", "doublons écartés")}` : ""}.` : "Ces références sont déjà dans ta bibliographie."}</p>${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}</div>`;
     case "restyle": return `<p>C’est fait : toute la bibliographie est en <b>${esc((STYLES[m.style] || st).full)}</b>.</p>${previewIds(labeled().map(s => s.id), 3)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}${chip("Télécharger en Word", {t:"dl"})}</div>`;
     case "exist": return `<p>Vérification d’existence terminée : <b>${m.found}</b> trouvée${m.found > 1 ? "s" : ""}, <b>${m.suspect}</b> suspecte${m.suspect > 1 ? "s" : ""}, ${m.close || 0} proche${m.close > 1 ? "s" : ""}, ${m.none} introuvable${m.none > 1 ? "s" : ""}.</p>${m.suspect ? previewIds(m.sus || []) : ""}<div class="chips">${chip("Voir le détail", {t:"side", v:"existence"}, m.suspect ? "warn" : "")}</div>`;
@@ -1446,6 +1533,8 @@ async function runAct(a){
   else if(a.t === "dl") downloadWord();
   else if(a.t === "edit"){ const s = state.sources.find(x => x.id === a.v); if(s) openForm(s); }
   else if(a.t === "fix") await doFix(a.v);
+  else if(a.t === "build") await construireBiblio(a.v);
+  else if(String(a.t).startsWith("prop-")) await actionProposition(a);
 }
 async function doFix(name){
   const f = ui.files.find(x => x.name === name && x.buf) || ui.files.filter(x => x.buf).slice(-1)[0];
@@ -1459,6 +1548,7 @@ function intent(t){
   const x = norm(t); if(x.length > 90 || /\b(1[5-9]\d{2}|20\d{2})\b/.test(t) || /10\.\d{4,9}\//.test(t)) return null;
   const map = [["vancouver","vancouver"],["note de bas","notes"],["notes","notes"],["apa","apa"],["mla","mla"],["chicago","chicago"],["iso","iso"],["norcames","cames"],["cames","cames"]];
   if(/\b(norme|style|format|mets|met|passe|convertis|convertir|change|en)\b/.test(x)) for(const [k, v] of map) if(new RegExp("\\b" + k + "\\b").test(x)) return {t: "style", v};
+  if(/(construi|genere|fabrique|cree|fais|faire|etabli|dresse|complete).*(biblio|references)/.test(x)) return {t: "build"};
   if(/(corrig|remplac|repare).*(document|memoire|these|fichier|word)/.test(x)) return {t: "fix"};
   if(/(verifi|existe|inventee|fausses?|suspect)/.test(x)) return {t: "exist"};
   if(/(telecharg|exporte|export)/.test(x)) return {t: "dl"};
@@ -1470,6 +1560,7 @@ async function runIntent(it, raw){
   post({role: "u", kind: "cmd", text: raw});
   if(it.t === "style"){ state.style = it.v; save(); renderAll(); post({role: "a", kind: "restyle", style: it.v}); }
   else if(it.t === "fix") await doFix(null);
+  else if(it.t === "build") await construireBiblio(null, true);
   else if(it.t === "exist"){ if(!state.sources.length){ post({role: "a", kind: "info", text: "Ta bibliographie est vide : dépose d’abord un document avec le bouton +."}); return; } Object.keys(state.exist).forEach(k => delete state.exist[k]); net.blocked = false; await runExistence(true); }
   else if(it.t === "dl"){ if(state.sources.length){ downloadWord(); post({role: "a", kind: "info", text: `Je télécharge ta bibliographie en Word, norme ${STYLES[state.style].full}.`}); } else post({role: "a", kind: "info", text: "Il n’y a encore rien à télécharger : dépose d’abord un document."}); }
   else post({role: "a", kind: it.t});

@@ -24,7 +24,7 @@ w.HTMLDialogElement.prototype.close = function(){ this.open = false; this.dispat
   yr.click();
   console.log("\nAprès correction année → Koné:", [...d.querySelectorAll(".entry .ref")].map(e=>e.textContent).find(t=>t.startsWith("KONÉ")));
   // ajouter la référence manquante d'Ascher
-  [...d.querySelectorAll(".task button")].find(b => b.textContent === "Ajouter sa référence").click();
+  [...d.querySelectorAll(".task button")].find(b => b.textContent === "Saisir à la main").click();
   const f = d.querySelector("#srcForm");
   console.log("formulaire prérempli:", f.querySelector("[name=authors]").value, f.querySelector("[name=year]").value);
   const sel = f.querySelector("[name=type]"); sel.value = "book"; sel.dispatchEvent(new w.Event("change"));

@@ -4,7 +4,8 @@ const NB = "\u00A0";
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const I = s => s ? `<i>${esc(s)}</i>` : "";
 const stripHtml = h => String(h).replace(/<[^>]+>/g,"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&amp;/g,"&");
-const norm = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+// (\u0131 sans point, \u0142, \u00f8\u2026 : \u00ab Bourd\u0131eu \u00bb dans OpenAlex doit valoir \u00ab Bourdieu \u00bb)
+const norm = s => String(s||"").replace(/\u0131/g, "i").replace(/\u0142/g, "l").replace(/\u00f8/g, "o").replace(/[\u00e6]/g, "ae").replace(/\u0153/g, "oe").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
 const J = (parts, sep) => parts.filter(p => p && stripHtml(p).trim()).join(sep);
 const dash = p => String(p||"").replace(/\s*[-–—]+\s*/,"–");
 const hy = p => String(p||"").replace(/\s*[-–—]+\s*/,"-");
@@ -718,11 +719,12 @@ function findCitations(text){
   const re1 = /\(([^()]{2,160}?)\)/g; let m;
   while((m = re1.exec(text))){
     m[1].split(/;/).forEach(part => {
-      const p = part.match(/((?:\p{Lu}\.[\s-]?)*)\s*(?:(?:de|du|van|von|da|di|le|la)\s)?(\p{Lu}[\p{L}'’-]+)(?:\s+(?:et|and|&)\s+(?:\p{Lu}\.[\s-]?)*\s*\p{Lu}[\p{L}'’-]+)?(?:\s+et\s+al\.?)?,?\s+(1[5-9]\d{2}|20\d{2})([a-z]?)/u);
+      const p = part.match(/((?:\p{Lu}\.[\s-]?)*)\s*(?:(?:de|du|da|di|le|la)\s)?((?:v[ao]n\s+)?\p{Lu}[\p{L}'’-]+)(?:\s+(?:et|and|&)\s+(?:\p{Lu}\.[\s-]?)*\s*\p{Lu}[\p{L}'’-]+)?(?:\s+et\s+al\.?)?,?\s+(1[5-9]\d{2}|20\d{2})([a-z]?)/u);
       if(p) add(p[2], p[3] + p[4], part, !!p[1]);
     });
   }
-  const re2 = /((?:\p{Lu}\.[\s-]?)*)\s*(\p{Lu}[\p{L}'’-]+)(?:\s+et\s+al\.?)?\s+\((1[5-9]\d{2}|20\d{2})([a-z]?)/gu;
+  // « T. A. van Dijk (2008) » : la particule van / von fait partie du nom (pas « de », trop fréquent dans la phrase)
+  const re2 = /((?:\p{Lu}\.[\s-]?)*)\s*((?:v[ao]n\s+)?\p{Lu}[\p{L}'’-]+)(?:\s+et\s+al\.?)?\s+\((1[5-9]\d{2}|20\d{2})([a-z]?)/gu;
   while((m = re2.exec(text))){
     // « DIOP, Cheikh Anta (1954). Nations… » : ligne d’une liste de références, pas une citation
     const famAt = m.index + m[0].lastIndexOf(m[2], m[0].indexOf("("));
@@ -769,6 +771,125 @@ function fromCrossref(it){
   s.doi = it.DOI || ""; s.isbn = (it.ISBN || [""])[0];
   s.editors = (it.editor || []).map(e => [e.given, e.family].filter(Boolean).join(" ")).join(", ");
   s.origin = "CrossRef";
+  return s;
+}
+
+/* ---------- construire la bibliographie à partir des citations du texte ----------
+   Pour chaque citation (nom + année), les bases ouvertes (OpenAlex, Open Library) renvoient des candidats.
+   On les classe avec le nom, l’année, les mots de la phrase où l’œuvre est citée et sa notoriété.
+   L’éditeur et la ville viennent de l’édition de l’année citée (Open Library). Rien n’est ajouté sans l’accord
+   de l’utilisateur : la meilleure proposition et deux autres lui sont présentées. */
+const MOTS_VIDES = new Set(("les des une pour par sur dans avec sans cette ces qui que dont son ses leur leurs sont ont été être comme plus pas elle ils elles nous vous aussi entre "
+  + "the and for with from that this these those its are was were has have their into").split(" "));
+// mots porteurs de sens, réduits à leurs 5 premières lettres (discours ≈ discourse, médiatiques ≈ media…),
+// plus l’équivalent anglais des mots français fréquents en sciences humaines (pouvoir ≈ power)
+const FR_EN = {pouvo: "power", gouve: "gover", langa: "langu", langu: "langu", lingu: "langu", commu: "commo", savoi: "knowl", conna: "knowl", ecrit: "writi", ecrir: "writi", parol: "speec",
+  guerr: "war", paix: "peace", femme: "women", genre: "gende", ville: "urban", terre: "land", droit: "law", etat: "state", eglis: "churc", croya: "belie", recit: "narra",
+  ensei: "teach", appre: "learn", trava: "work", sante: "healt", envir: "envir", resea: "netwo", jeune: "youth", enfan: "child", famil: "famil", relig: "relig"};
+const motsCles = t => { const s = new Set(); norm(stripMarks(t)).split(" ").filter(w => w.length > 3 && !MOTS_VIDES.has(w)).forEach(w => { const p = w.slice(0, 5); s.add(p); if(FR_EN[p]) s.add(FR_EN[p]); }); return s; };
+// initiales du prénom données par la citation : « E. Ostrom (1990 » → ["e"]
+const initialesCitation = cite => { const m = String(cite.raw || "").match(/((?:\p{Lu}\.[\s-]?)+)\s*(?:v[ao]n\s+)?\p{Lu}[\p{L}'’-]+/u); return m ? m[1].match(/\p{Lu}/gu).map(x => x.toLowerCase()) : []; };
+// la phrase où l’œuvre est citée, et ses voisines : c’est d’elle qu’on déduit le sujet de l’œuvre
+function contexteCitation(text, raw){
+  const t = stripMarks(text), i = t.indexOf(String(raw).trim().slice(0, 40));
+  if(i < 0) return "";
+  const debut = Math.max(0, t.lastIndexOf(".", Math.max(0, t.lastIndexOf(".", i) - 1)) + 1);
+  return t.slice(debut, Math.min(t.length, i + 260));
+}
+const OA_TYPES = {"book":"book", "monograph":"book", "book-chapter":"chapter", "article":"article", "dissertation":"thesis", "report":"report", "review":"article", "preprint":"article"};
+function fromOpenAlex(w){
+  const s = blank();
+  s.type = OA_TYPES[w.type] || "article";
+  // noms tels qu’OpenAlex les écrit parfois : « Pierre Bourdıeu » (ı sans point), « Elinor Ostrom B » (lettre parasite)
+  const propre = n => n.replace(/ı/g, "i").replace(/^(\S+(?:\s+\S+)+?)\s+\p{Lu}\.?$/u, "$1");
+  s.authors = (w.authorships || []).map(a => parseAuthor(propre((a.author && a.author.display_name) || a.raw_author_name || ""))).filter(Boolean);
+  s.title = stripHtml(w.display_name || w.title || "").trim();
+  s.year = w.publication_year ? String(w.publication_year) : "";
+  const src = (w.primary_location && w.primary_location.source) || {};
+  if(s.type === "book") s.publisher = src.host_organization_name || "";
+  else s.container = src.display_name || "";
+  const b = w.biblio || {};
+  s.volume = b.volume || ""; s.issue = b.issue || "";
+  s.pages = b.first_page ? b.first_page + (b.last_page && b.last_page !== b.first_page ? "-" + b.last_page : "") : "";
+  s.doi = String(w.doi || "").replace(/^https?:\/\/doi\.org\//i, "");
+  // OpenAlex range parfois un livre parmi les « articles » : sans revue, sans volume ni pages, c’en est un
+  if(s.type === "article" && !s.container && !s.volume && !s.pages) s.type = "book";
+  s.origin = "Recherche en ligne"; s._notoriete = w.cited_by_count || 0; s._src = "OpenAlex";
+  return villeEditeur(s);
+}
+// ville des éditeurs les plus cités dans les mémoires (NORCAMES exige le lieu d’édition)
+const VILLES_EDITEURS = [
+  [/l[’']?harmattan/i, "Paris"], [/gallimard|seuil|puf|presses universitaires de france|armand colin|hachette|fayard|karthala|la d[ée]couverte|nathan|payot|minuit|flammarion|albin michel|pr[ée]sence africaine|dunod|belin|cnrs [ée]ditions|odile jacob|klincksieck|honor[ée] champion|ophrys|larousse|robert laffont/i, "Paris"],
+  [/educi|ceda|nei[\s-]|nouvelles [ée]ditions ivoiriennes|frat[\s-]mat|puci|presses universitaires de c[ôo]te d/i, "Abidjan"], [/codesria|nea[\s-]|nouvelles [ée]ditions africaines/i, "Dakar"],
+  [/presses universitaires de lyon/i, "Lyon"], [/presses universitaires de rennes/i, "Rennes"], [/presses universitaires du septentrion/i, "Villeneuve-d’Ascq"], [/pulim/i, "Limoges"],
+  [/de boeck/i, "Bruxelles"], [/presses de l[’']universit[ée] laval/i, "Québec"], [/presses de l[’']universit[ée] de montr[ée]al/i, "Montréal"], [/droz/i, "Genève"],
+  [/cambridge university press|polity/i, "Cambridge"], [/oxford university press|blackwell/i, "Oxford"], [/routledge|longman|edward arnold|e\.? arnold|penguin|verso|bloomsbury/i, "London"],
+  [/mit press|harvard university press/i, "Cambridge (MA)"], [/princeton university press/i, "Princeton"], [/yale university press/i, "New Haven"], [/university of chicago press/i, "Chicago"],
+  [/john benjamins/i, "Amsterdam"], [/de gruyter|mouton/i, "Berlin"], [/peter lang/i, "Berne"], [/\bsage\b/i, "London"], [/palgrave/i, "London"], [/springer/i, "Cham"],
+];
+function villeEditeur(s){
+  if(!s.city && s.publisher){ const v = VILLES_EDITEURS.find(([re]) => re.test(s.publisher)); if(v) s.city = v[1]; }
+  return s;
+}
+function fromOpenLibrary(d){
+  const s = blank();
+  s.type = "book";
+  s.authors = [...new Set(d.author_name || [])].map(parseAuthor).filter(Boolean);
+  s.title = d.title + (d.subtitle ? `. ${d.subtitle.charAt(0).toLocaleUpperCase("fr")}${d.subtitle.slice(1)}` : "");
+  s.year = d.first_publish_year ? String(d.first_publish_year) : "";
+  s.origin = "Recherche en ligne"; s._notoriete = (d.edition_count || 1) * 10; s._src = "Open Library"; s._olKey = d.key || "";
+  return s;
+}
+// éditeur, ville et ISBN de l’édition de l’année citée ; à défaut, de l’édition la plus proche avant
+function appliquerEdition(s, editions, annee){
+  const eds = (editions || []).map(e => ({an: +((String(e.publish_date || "").match(/\d{4}/) || [0])[0]), e})).filter(x => x.an);
+  const choix = eds.filter(x => x.an === +annee)[0] || eds.filter(x => x.an <= +annee).sort((a, b) => b.an - a.an)[0];
+  if(!choix) return s;
+  const e = choix.e;
+  if(!s.publisher && e.publishers && e.publishers[0]) s.publisher = e.publishers[0];
+  if(!s.city && e.publish_places && e.publish_places[0]) s.city = String(e.publish_places[0]).replace(/[\[\]]/g, "").replace(/\s*[,;:]$/, "");
+  if(!s.isbn) s.isbn = (e.isbn_13 || e.isbn_10 || [""])[0];
+  return villeEditeur(s);
+}
+function memeAuteur(cite, s){
+  const fam = norm(cite.family).split(" ").pop();
+  return fam && s.authors.some(a => { const f = norm(a.family); return f === fam || f.split(" ").pop() === fam || f.endsWith(" " + fam); });
+}
+function scoreCandidat(cite, ctx, s){
+  if(!memeAuteur(cite, s) || !s.title) return -1;
+  // l’initiale du prénom écarte les homonymes : « E. Ostrom » n’est pas Charles W. Ostrom
+  const fam = norm(cite.family).split(" ").pop(), ini = initialesCitation(cite);
+  const lui = s.authors.find(a => norm(a.family).split(" ").pop() === fam || norm(a.family).endsWith(" " + fam));
+  if(ini.length && lui && lui.given && norm(lui.given).charAt(0) !== ini[0]) return -1;
+  // l’œuvre citée sous ce nom en a été le premier auteur (sinon : compte rendu, ouvrage d’un autre…)
+  const premier = s.authors[0] && (norm(s.authors[0].family).split(" ").pop() === fam);
+  const an = String(cite.year).replace(/[a-z]$/, "");
+  const y = s.year === an ? 1 : Math.abs(+s.year - +an) <= 1 ? .4 : 0;
+  const T = motsCles(s.title), C = motsCles(ctx);
+  let inter = 0; T.forEach(w => { if(C.has(w)) inter++; });
+  const sujet = T.size ? inter / Math.min(T.size, 4) : 0;
+  return 1 + y + 2 * Math.min(1, sujet) + Math.min(.5, Math.log10(1 + (s._notoriete || 0)) / 8) - (premier ? 0 : 1)
+    - (/(compte rendu|review of|erratum|corrigendum|^index$|^table des)/i.test(s.title) ? 1.5 : 0);
+}
+// candidats classés ; « sure » quand l’auteur, l’année et le sujet concordent nettement
+function classerCandidats(cite, ctx, cands){
+  const vus = new Map();
+  (cands || []).forEach(s => {
+    const k = norm(s.title).slice(0, 60); const sc = scoreCandidat(cite, ctx, s);
+    if(sc < 0) return;
+    const deja = vus.get(k);
+    if(!deja || sc > deja.score) vus.set(k, {s: deja ? fusionFiches(s, deja.s) : s, score: sc});
+    else deja.s = fusionFiches(deja.s, s);
+  });
+  const L = [...vus.values()].sort((a, b) => b.score - a.score);
+  const verdict = !L.length ? "rien" : L[0].score >= 2.4 && (!L[1] || L[0].score - L[1].score >= .45) ? "sure" : "choisir";
+  return {verdict, L};
+}
+// une même œuvre trouvée dans deux bases : on garde les champs les plus complets
+function fusionFiches(a, b){
+  const s = {...a};
+  ["publisher", "city", "isbn", "doi", "container", "volume", "issue", "pages", "_olKey"].forEach(k => { if(!s[k] && b[k]) s[k] = b[k]; });
+  s._notoriete = Math.max(a._notoriete || 0, b._notoriete || 0);
   return s;
 }
 /* ---------- indicateurs : conformité et profil de la bibliographie ---------- */
@@ -934,4 +1055,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
