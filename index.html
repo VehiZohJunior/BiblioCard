@@ -98,7 +98,7 @@
 <aside class="side" id="side" aria-label="Résultats" hidden>
   <div class="stop">
     <div class="stabs" role="group" aria-label="Résultats" id="stabs">
-      <button data-st="biblio">Bibliographie</button><button data-st="todo">À faire<span class="badge" id="sideBadge" hidden></span></button><button data-st="controle">Contrôles</button><button data-st="analyse">Analyse</button>
+      <button data-st="biblio" aria-label="Bibliographie"><span class="tl">Bibliographie</span><span class="ts" aria-hidden="true">Biblio</span></button><button data-st="todo">À faire<span class="badge" id="sideBadge" hidden></span></button><button data-st="controle">Contrôles</button><button data-st="analyse">Analyse</button>
     </div>
     <button class="tb" id="sideClose" aria-label="Fermer le volet"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
   </div>
@@ -175,7 +175,7 @@
 
 <dialog id="dash" aria-labelledby="dashTitle">
   <div class="dtop">
-    <div class="r"><button class="tb" id="dashBack" aria-label="Retour au menu" hidden><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h2 id="dashTitle">BiblioCard</h2><button class="tb" id="dashClose" aria-label="Fermer le menu"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
+    <div class="r"><button class="tb" id="dashBack" aria-label="Retour au menu" hidden><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button><img class="dlogo" src="icon-192.png" width="26" height="26" alt=""><h2 id="dashTitle">BiblioCard</h2><button class="tb" id="dashClose" aria-label="Fermer le menu"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
   </div>
   <div class="dscroll">
     <section class="dsec" id="dt-home">
@@ -244,9 +244,9 @@
       <ol class="method">
         <li><div><b>Lecture sur l’appareil</b><span>Le fichier Word ou PDF est lu dans le navigateur. Il n’est ni envoyé ni conservé : seules les références extraites sont gardées.</span></div></li>
         <li><div><b>Repérage de la bibliographie</b><span>La dernière section intitulée « Bibliographie » ou « Références » est retenue, la table des matières et les annexes sont écartées. Les lignes coupées sont recollées.</span></div></li>
-        <li><div><b>Structuration de chaque référence</b><span>Auteurs, année, titre, revue ou éditeur, lieu et pages sont identifiés. L’italique de Word sert d’indice pour les titres d’ouvrages et de revues. Dans Claude, une analyse par IA affine ce découpage.</span></div></li>
+        <li><div><b>Structuration de chaque référence</b><span>Auteurs, année, titre, revue ou éditeur, lieu et pages sont identifiés. L’italique de Word sert d’indice pour les titres d’ouvrages et de revues.<span class="claude-only"> Dans Claude, une analyse par IA affine ce découpage.</span></span></div></li>
         <li><div><b>Vérification d’existence</b><span>Chaque référence est recherchée dans trois bases ouvertes : OpenAlex, HAL et CrossRef. Un DOI inexistant ou qui renvoie à une autre publication est signalé comme suspect.</span></div></li>
-        <li><div><b>Mise en forme et contrôle</b><span>Chaque référence est rédigée selon la norme choisie, les informations manquantes sont signalées, et les citations du texte sont comparées à la bibliographie.</span></div></li>
+        <li><div><b>Mise en forme et contrôle</b><span>Chaque référence est rédigée selon la norme choisie, les informations manquantes sont signalées, et les citations du texte sont comparées à la bibliographie. Pour un article de revue, la structure est contrôlée selon NORCAMES : parties obligatoires, numérotation, citations longues.</span></div></li>
       </ol>
       <div class="blk prose">
         <h3>Confidentialité</h3>

@@ -489,3 +489,25 @@ body:not(.talk) .welcome{display:flex}
 .btn.or,.gbtn.or{background:var(--or);color:var(--on-or);border-color:var(--or)}
 .btn.or:hover,.gbtn.or:hover{background:var(--or);filter:brightness(1.06)}
 .plan.best .btn.primary{background:var(--or);color:var(--on-or);border-color:var(--or)}
+
+/* ---------- revue téléphone ---------- */
+.facts dd .sus{display:block;font-family:var(--ui);font-size:12.5px;font-weight:500;color:var(--proof);margin-top:2px}
+@media (max-width:420px){
+  .stabs button{padding:10px 5px 12px;font-size:13px}
+  .stabs .badge{margin-left:2px}
+}
+/* données en bleu pétrole (l’or reste réservé aux appels à l’action et aux accents) */
+:root{--data:#0E3B5E}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --data:#3FD0D3 } }
+:root[data-theme="dark"]{ --data:#3FD0D3 }
+.bars .t i{background:var(--data)}
+.dlogo{border-radius:7px;flex:none;margin-right:8px}
+#dashBack:not([hidden]) ~ .dlogo{display:none}
+.claude-only{display:none}
+body.in-claude .claude-only{display:inline}
+.stabs .ts{display:none}
+@media (max-width:360px){
+  .stabs .tl{display:none}
+  .stabs .ts{display:inline}
+  .stabs button{font-size:12.5px;padding:10px 4px 12px}
+}

@@ -149,14 +149,18 @@ function renderSheet(){
 
 /* ---------- liste « À faire » : tout ce qu’il reste à régler, au même endroit ---------- */
 let TASKS = [];
+// titre raccourci au mot entier : « La question africaine… » et non « La question africai »
+const court = (t, n) => (t = String(t || "")).length > n ? t.slice(0, n).replace(/[\s,;:.]+\S*$/, "") + "…" : t;
 // « M. Ascher (1998 » → « M. Ascher (1998) » : la citation relevée s’arrête avant la page
 const closeParen = r => (r.match(/\(/g) || []).length > (r.match(/\)/g) || []).length ? r + ")" : r;
+// une citation relevée, telle qu’affichée
+const citeVue = c => closeParen(String(c.raw).replace(/[(),;\s]+$/, ""));
 function computeTasks(){
   const L = labeled(); const t = [];
   const fileReports = ui.files.filter(f => f.body && f.body.trim().length > 200 && (f.mode === "biblio" || f.mode === "texte")).map(f => ({f, r: verifyAny(stripMarks(f.body), L)}));
   fileReports.forEach(({f, r}) => {
     r.missing.forEach(x => { const k = "m|" + norm(x.c.family) + x.c.year; if(ui.dismissed.has(k)) return;
-      t.push({key:k, title:`Référence manquante : ${closeParen(x.c.raw.replace(/[(),\s]+$/,""))}`, sub:`Citée dans ${f.name}, mais absente de la bibliographie.`,
+      t.push({key:k, title:`Référence manquante : ${citeVue(x.c)}`, sub:`Citée dans ${f.name}, mais absente de la bibliographie.`,
         acts:[["Ajouter sa référence", () => { const s = blank(); s.authors = [{family:x.c.family, given:""}]; s.year = x.c.year.replace(/[a-z]$/,""); openForm(s, "title"); }], ["Ignorer", () => dismiss(k)]]}); });
     r.yearOff.forEach(x => { const k = "y|" + x.s.id + x.c.year; if(ui.dismissed.has(k)) return;
       const y = x.c.year.replace(/[a-z]$/,"");
@@ -164,12 +168,12 @@ function computeTasks(){
         acts:[[`Mettre ${y} dans la bibliographie`, () => { const s = state.sources.find(o => o.id === x.s.id); s.year = y; save(); renderAll(); toast("Année corrigée"); }], ["La bibliographie a raison", () => dismiss(k)]]}); });
   });
   L.forEach(s => { const m = checks(s, state.style, state.sources); if(!m.length) return;
-    t.push({key:"c|" + s.id, title:`À compléter : ${(s.authors[0] ? s.authors[0].family + ", " : "") + (s.title || "sans titre").slice(0, 60)}`, sub: m.map(x => x.t).join(", ") + ".",
+    t.push({key:"c|" + s.id, title:`À compléter : ${(s.authors[0] ? s.authors[0].family + ", " : "") + court(s.title || "sans titre", 60)}`, sub: m.map(x => x.t).join(", ") + ".",
       acts:[["Compléter", () => openForm(state.sources.find(o => o.id === s.id), m[0].f)]]}); });
   L.forEach(s => { const e = existFor(s); if(!e) return;
-    if(e.v === "suspect") t.unshift({key:"s|" + s.id, title:`Référence suspecte : ${(s.authors[0] ? s.authors[0].family + ", " : "") + s.title.slice(0, 60)}`, sub: e.reason + " Elle a peut-être été inventée ou mal recopiée.",
+    if(e.v === "suspect") t.unshift({key:"s|" + s.id, title:`Référence suspecte : ${(s.authors[0] ? s.authors[0].family + ", " : "") + court(s.title, 60)}`, sub: e.reason + " Elle a peut-être été inventée ou mal recopiée.",
       acts:[["Corriger la fiche", () => openForm(state.sources.find(o => o.id === s.id), "doi")], ["Retirer", () => removeSource(s.id)]]});
-    else if(e.v === "close" && !ui.dismissed.has("p|" + s.id)) t.push({key:"p|" + s.id, info:true, title:`Titre ou année à vérifier : ${s.authors[0] ? s.authors[0].family : s.title.slice(0, 40)}`, sub: existHint(s, e),
+    else if(e.v === "close" && !ui.dismissed.has("p|" + s.id)) t.push({key:"p|" + s.id, info:true, title:`Titre ou année à vérifier : ${s.authors[0] ? s.authors[0].family : court(s.title, 40)}`, sub: existHint(s, e),
       acts:[["Corriger la fiche", () => openForm(state.sources.find(o => o.id === s.id), "title")], ["C’est bien ça", () => dismiss("p|" + s.id)]]}); });
   if(typeof red !== "undefined" && red.sim && red.sim.unflagged) t.unshift({key:"sim", title:`${red.sim.unflagged} passage${red.sim.unflagged > 1 ? "s" : ""} repris sans guillemets ni citation`, sub:"Repérés par le contrôle des similitudes de ta rédaction.", acts:[["Voir les passages", () => { $("#dash").close(); setView("redac"); $("#simPanel").scrollIntoView({behavior:"smooth"}); }]]});
   (state.comments || []).filter(c => !c.done).forEach(c => {
@@ -241,13 +245,16 @@ function renderReports(){
     const issues = r.missing.length + r.yearOff.length;
     return `<div class="report"><h4>${esc(f.name)}</h4>
       <p class="sum">${r.total} citation${r.total > 1 ? "s" : ""} dans le texte. ${issues ? `${issues} problème${issues > 1 ? "s" : ""}.` : "Toutes ont leur référence."}</p>
-      ${r.missing.length ? `<details open><summary class="bad">Citées sans référence (${r.missing.length})</summary>${list(r.missing, x => `<li>${esc(x.c.raw)}</li>`)}</details>` : ""}
-      ${r.yearOff.length ? `<details open><summary class="bad">Année différente (${r.yearOff.length})</summary>${list(r.yearOff, x => `<li>${esc(x.c.raw)} : la référence indique ${esc(x.s._label)}</li>`)}</details>` : ""}
+      ${r.missing.length ? `<details open><summary class="bad">Citées sans référence (${r.missing.length})</summary>${list(r.missing, x => `<li>${esc(citeVue(x.c))}</li>`)}</details>` : ""}
+      ${r.yearOff.length ? `<details open><summary class="bad">Année différente (${r.yearOff.length})</summary>${list(r.yearOff, x => `<li>${esc(citeVue(x.c))} : la référence indique ${esc(x.s._label)}</li>`)}</details>` : ""}
       ${r.unused.length ? `<details><summary>Jamais citées (${r.unused.length})</summary>${list(r.unused, s => `<li>${st.cite(s, "", "parenthese")} ${esc(s.title)}</li>`)}</details>` : ""}
-      ${r.ok.length ? `<details><summary>Correspondances (${r.ok.length})</summary>${list(r.ok, x => `<li>${esc(x.c.raw)}</li>`)}</details>` : ""}
+      ${r.ok.length ? `<details><summary>Correspondances (${r.ok.length})</summary>${list(r.ok, x => `<li>${esc(citeVue(x.c))}</li>`)}</details>` : ""}
       ${structBlk(f)}
     </div>`;
-  }).join("") : `<p class="legend">Dépose ton mémoire ou ta thèse sur la page principale : son contrôle apparaîtra ici.</p>`;
+  }).join("") : state.sources.length
+    // le texte des documents n’est gardé qu’en mémoire (confidentialité) : après un rechargement, il faut le redéposer
+    ? `<p class="legend">Le contrôle des citations se fait à partir du texte de ton document, qui n’est jamais enregistré. Redépose ton mémoire pour comparer ses citations avec ta bibliographie.</p>`
+    : `<p class="legend">Dépose ton mémoire ou ta thèse sur la page principale : son contrôle apparaîtra ici.</p>`;
 }
 
 function renderIntext(){
@@ -292,7 +299,7 @@ function renderSynth(){
   const issues = TASKS.filter(x => !x.info).length;
   $("#facts").innerHTML = `<div><dt>Références</dt><dd>${a.n}</dd></div><div><dt>À corriger</dt><dd>${issues}</dd></div>
     <div><dt>Période couverte</dt><dd>${a.min ? (a.min === a.max ? a.min : `${a.min}–${a.max}`) : "—"}</dd></div><div><dt>Moins de dix ans</dt><dd>${a.dated ? Math.round(100 * a.recent / a.dated) + NB + "%" : "—"}</dd></div>
-    <div><dt>Existence vérifiée</dt><dd>${(() => { const ex = L.map(existFor).filter(Boolean); const sus = ex.filter(e => e.v === "suspect").length; return net.blocked ? "Hors ligne" : net.running ? "En cours…" : ex.length ? `${ex.filter(e => e.v === "found").length}/${L.length}${sus ? ` · ${sus} suspecte${sus > 1 ? "s" : ""}` : ""}` : "—"; })()}</dd></div>`;
+    <div><dt>Existence vérifiée</dt><dd>${(() => { const ex = L.map(existFor).filter(Boolean); const sus = ex.filter(e => e.v === "suspect").length; return net.blocked ? "Hors ligne" : net.running ? "En cours…" : ex.length ? `${ex.filter(e => e.v === "found").length}/${L.length}${sus ? `<small class="sus">${sus} suspecte${sus > 1 ? "s" : ""}</small>` : ""}` : "—"; })()}</dd></div>`;
 }
 function renderAnalyse(){
   const box = $("#analyse"); const a = analyze(state.sources);
@@ -831,7 +838,7 @@ $("#vBtn").onclick = () => {
   const t = $("#vText").value; if(!t.trim()) return;
   const r = verifyAny(t, labeled());
   $("#vRes").innerHTML = `<p class="legend">${r.total} citation${r.total > 1 ? "s" : ""} repérée${r.total > 1 ? "s" : ""}. ${r.missing.length} sans référence, ${r.yearOff.length} avec une année différente.</p>` +
-    (r.missing.length ? `<ul>${r.missing.map(x => `<li>${esc(x.c.raw)}</li>`).join("")}</ul>` : "") + (r.yearOff.length ? `<ul>${r.yearOff.map(x => `<li>${esc(x.c.raw)} : la référence indique ${esc(x.s._label)}</li>`).join("")}</ul>` : "");
+    (r.missing.length ? `<ul>${r.missing.map(x => `<li>${esc(citeVue(x.c))}</li>`).join("")}</ul>` : "") + (r.yearOff.length ? `<ul>${r.yearOff.map(x => `<li>${esc(citeVue(x.c))} : la référence indique ${esc(x.s._label)}</li>`).join("")}</ul>` : "");
 };
 
 /* ---------- copie et export ---------- */
@@ -907,7 +914,7 @@ function downloadReport(){
   const li = arr => arr.length ? `<ul>${arr.map(x => `<li>${x}</li>`).join("")}</ul>` : `<p>Rien à signaler.</p>`;
   const docs = ui.files.filter(f => f.body && f.body.trim().length > 200 && (f.mode === "biblio" || f.mode === "texte"));
   const reports = docs.map(f => { const r = verifyAny(stripMarks(f.body), L); return `<p><b>${esc(f.name)}</b> : ${r.total} citations dans le texte, ${r.missing.length} sans référence, ${r.yearOff.length} avec une année différente, ${r.unused.length} référence(s) jamais citée(s).</p>` +
-    (r.missing.length ? `<p>Citées sans référence :</p>${li(r.missing.map(x => esc(x.c.raw)))}` : "") + (r.yearOff.length ? `<p>Années différentes :</p>${li(r.yearOff.map(x => `${esc(x.c.raw)} (bibliographie : ${esc(x.s._label)})`))}` : "") +
+    (r.missing.length ? `<p>Citées sans référence :</p>${li(r.missing.map(x => esc(citeVue(x.c))))}` : "") + (r.yearOff.length ? `<p>Années différentes :</p>${li(r.yearOff.map(x => `${esc(citeVue(x.c))} (bibliographie : ${esc(x.s._label)})`))}` : "") +
     (r.unused.length ? `<p>Jamais citées :</p>${li(r.unused.map(s => esc(stripHtml(st.cite(s, "", "parenthese")))))}` : ""); }).join("");
   const incomplete = L.map(s => ({s, m: checks(s, state.style, state.sources)})).filter(x => x.m.length).map(x => `${esc(stripHtml(st.cite(x.s, "", "parenthese")))} : ${esc(x.m.map(y => y.t).join(", "))}`);
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Rapport de contrôle bibliographique</title></head>
@@ -1790,5 +1797,6 @@ document.querySelectorAll("#uiLangSeg button").forEach(b => b.onclick = () => { 
 try{ const langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""]); if(!localStorage.getItem(LS) && /^en/i.test(langs[0] || "") && !langs.some(l => /^fr/i.test(l))) state.uiLang = "en"; }catch(e){}
 
 /* ---------- démarrage ---------- */
+document.body.classList.toggle("in-claude", !!(window.claude && window.claude.use)); // textes propres à la démonstration dans Claude
 loadLocal(); compte.init(); refreshDraftUi(); renderAll(); applyLang(); setTimeout(() => sync.pull(), 400); setView((() => { try{ return localStorage.getItem("bibliocard.view") || "biblio"; }catch(e){ return "biblio"; } })()); micUi(); updateCount();
 setStatus(state.sources.length ? "Enregistré sur cet appareil" : "Prêt");
