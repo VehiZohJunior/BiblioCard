@@ -1200,8 +1200,10 @@ function compteDialog(message){
         <ul>${p.inclus.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
         ${on ? `<button class="btn ${p.n === 3 ? "primary" : ""} small" data-pay="${p.n}">${payee === p.n ? "Prolonger de 30 jours" : `Choisir la formule ${p.n}`}</button>` : ""}
       </div>`).join("")}</div>
+      ${payee ? `<p class="note">Choisir une autre formule la fait commencer le jour du paiement, pour 30 jours : les jours restants de ta formule actuelle ne sont pas reportés. Repayer ta formule actuelle ajoute 30 jours à sa date de fin.</p>` : ""}
       <p class="legend">Paiement sécurisé par PayDunya : Orange Money, MTN, Moov, Wave ou carte bancaire. Chaque paiement ouvre 30 jours d’accès ; rien n’est prélevé automatiquement.</p>
-      <p class="legend">Tes documents restent sur ton appareil. Seuls ton adresse e-mail et ton abonnement sont enregistrés en ligne.</p>
+      <p class="legend">Tes documents restent sur ton appareil. En ligne, nous gardons seulement ton compte, ton abonnement et, si tu synchronises tes appareils, ta bibliothèque.</p>
+      <p class="legend">${on ? "En payant" : "En continuant"}, tu acceptes nos conditions et notre politique de confidentialité${NB}: <a href="cgu.html" target="_blank" rel="noopener">Conditions d’utilisation</a> · <a href="cgv.html" target="_blank" rel="noopener">Conditions de vente</a> · <a href="confidentialite.html" target="_blank" rel="noopener">Confidentialité</a></p>
       ${on ? `<div class="row"><button class="btn small" id="acctOut">Se déconnecter</button></div>` : ""}
     </div>`;
   dlg.querySelector("#xClose").onclick = () => dlg.close();
