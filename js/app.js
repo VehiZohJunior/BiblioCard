@@ -140,7 +140,8 @@ function renderSheet(){
   ol.innerHTML = L.map(s => {
     const m = checks(s, state.style, state.sources); marks += m.length;
     const flag = isAuto(s) && !m.length ? `<span class="mark okm">À relire</span>` : "";
-    return `<li class="entry"><div class="ref">${bibFor(s)}</div><div class="marks">${m.length ? m.map(x => `<button class="mark" data-fix="${s.id}" data-field="${x.f || ""}">${esc(x.t)}</button>`).join("") : flag || `<span class="mark okm">Conforme</span>`}${(state.comments || []).some(c => !c.done && c.target === "ref" && c.refKey === refKey(s)) ? `<button class="mark" data-cm="1">Commentaire de l’encadreur</button>` : ""}${(() => { const e = existFor(s); return !e ? "" : e.v === "suspect" ? `<button class="mark" data-exist="1">Référence suspecte</button>` : e.v === "found" ? `<span class="mark okm">Existe (${esc(e.best.src)})</span>` : e.v === "close" ? `<button class="mark" data-exist="1">Titre ou année à vérifier</button>` : ""; })()}</div></li>`;
+    const enLigne = s._enligne && s._enligne.length ? `<span class="mark okm">Complété en ligne : ${esc(s._enligne.join(", "))}</span>` : "";
+    return `<li class="entry"><div class="ref">${bibFor(s)}</div><div class="marks">${m.length ? m.map(x => `<button class="mark" data-fix="${s.id}" data-field="${x.f || ""}">${esc(x.t)}</button>`).join("") : flag || `<span class="mark okm">Conforme</span>`}${enLigne}${(state.comments || []).some(c => !c.done && c.target === "ref" && c.refKey === refKey(s)) ? `<button class="mark" data-cm="1">Commentaire de l’encadreur</button>` : ""}${(() => { const e = existFor(s); return !e ? "" : e.v === "suspect" ? `<button class="mark" data-exist="1">Référence suspecte</button>` : e.v === "found" ? `<span class="mark okm">Existe (${esc(e.best.src)})</span>` : e.v === "close" ? `<button class="mark" data-exist="1">Titre ou année à vérifier</button>` : ""; })()}</div></li>`;
   }).join("");
   ol.querySelectorAll("[data-fix]").forEach(b => b.onclick = () => openForm(state.sources.find(s => s.id === b.dataset.fix), b.dataset.field));
   ol.querySelectorAll("[data-exist]").forEach(b => b.onclick = () => openDash("existence"));
@@ -503,7 +504,7 @@ async function handleFiles(list){
     }catch(err){ Object.assign(f, {busy:false, error:true, status:`Lecture impossible : ${err.message || err}`}); renderFiles(); think(false); post({role: "a", kind: "error", text: f.status}); }
   }
   // une seule bibliographie pour tous les documents déposés : les œuvres citées qui manquent sont cherchées ensemble
-  if(aGenerer) await completerGeneration(null);
+  if(aGenerer){ await completerGeneration(null); await completerEnLigne(); }
 }
 /* GÉNÉRATION DE LA BIBLIOGRAPHIE : le comportement par défaut de SCIENTUS, pour tout texte rédigé (document
    déposé, texte collé, texte écrit ou dicté dans Rédaction). On part des citations du texte ; on ne recopie
@@ -521,7 +522,7 @@ async function genererDepuisTexte(text, nom){
   Object.assign(f, decide(text)); if(f.mode === "source"){ f.mode = "texte"; f.body = text; }
   ui.files.push(f); renderFiles();
   await runFile(f);
-  if(!f.error) await completerGeneration(nom);
+  if(!f.error){ await completerGeneration(nom); await completerEnLigne(); }
 }
 
 async function runFile(f){ think(true); try{ await runFileCore(f); } finally { think(false); }
@@ -802,6 +803,39 @@ async function chercherCitation(c, ctx){
   if(top[0] && top[0].type === "book"){ top[0].year = an; await completerEdition(top[0], an); }
   return {verdict, top};
 }
+/* VALEUR AJOUTÉE : le chercheur ne fournit jamais tout. Pour chaque référence incomplète selon sa norme, SCIENTUS
+   cherche en ligne les éléments qui manquent (livre : éditeur et ville dans les éditions Open Library ; article ou
+   chapitre : revue, volume, numéro, pages, DOI dans CrossRef). Il ne remplit que les cases vides, n’écrase jamais
+   ce que le chercheur a écrit, et marque ce qu’il a ajouté (« Complété en ligne ») pour qu’il le relise. */
+const CHAMPS_LIGNE = {container: "revue", volume: "volume", issue: "numéro", pages: "pages", publisher: "éditeur", city: "ville", doi: "DOI"};
+function manquants(s){
+  const L = (REQ[s.type] || REQ.book).filter(f => f in CHAMPS_LIGNE && !s[f]);
+  if((s.type === "article") && !s.volume) L.push("volume");
+  return [...new Set(L)];
+}
+async function completerUne(s){
+  const avant = {...s};
+  if((s.type === "book" || s.type === "thesis" || s.type === "chapter") && (!s.city || !s.publisher)){ await completerEdition(s, s.year); villeEditeur(s); }
+  if(manquants(s).length && s.type !== "book"){
+    const r = await crFile(`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(`${s.title} ${s.authors[0].family}`.slice(0, 250))}&rows=3&select=DOI,title,author,issued,type,container-title,publisher,publisher-location,volume,issue,page`);
+    const it = ((((r.data || {}).message || {}).items) || []).map(fromCrossref).find(c => simTitle(s.title, c.title) >= .85 && (!s.year || !c.year || Math.abs(+c.year - +s.year) <= 1) && c.authors.some(a => norm(a.family) === norm(s.authors[0].family)));
+    if(it) Object.keys(CHAMPS_LIGNE).forEach(k => { if(!s[k] && it[k]) s[k] = it[k]; });
+  }
+  const ajoutes = Object.keys(CHAMPS_LIGNE).filter(k => !avant[k] && s[k]);
+  if(ajoutes.length) s._enligne = [...new Set([...(s._enligne || []), ...ajoutes.map(k => CHAMPS_LIGNE[k])])];
+  return ajoutes;
+}
+async function completerEnLigne(){
+  const L = state.sources.filter(s => !s._essaiLigne && s.title && s.authors.length && manquants(s).length);
+  if(!L.length) return;
+  post({role: "a", kind: "info", text: `Je complète en ligne ${L.length > 1 ? `les ${L.length} références incomplètes` : "la référence incomplète"} : éditeur, ville, revue, volume, numéro, pages…`}); think(true);
+  let i = 0, n = 0; const champs = {};
+  const travail = async () => { while(i < L.length){ const s = L[i++]; s._essaiLigne = 1;
+    try{ const a = await completerUne(s); if(a.length){ n++; a.forEach(k => champs[CHAMPS_LIGNE[k]] = (champs[CHAMPS_LIGNE[k]] || 0) + 1); } }catch(e){} } };
+  await Promise.all([travail(), travail(), travail()]);
+  think(false); save(); renderAll();
+  post({role: "a", kind: "complete", n, total: L.length, champs, reste: state.sources.filter(s => manquants(s).length).length});
+}
 async function construireBiblio(nom, sansCommande){
   if(!exiger("biblio")) return;
   const docs = ui.files.filter(f => f.body && (f.mode === "texte" || f.mode === "biblio") && (!nom || f.name === nom));
@@ -1067,6 +1101,7 @@ $("#addBtn").onclick = async () => {
       const list = await parseMany(refs, {status:""});
       think(false); const k = addSources(list); $("#smart").value = "";
       post({role: "a", kind: "added", ids: state.sources.filter(s => !before.has(s.id)).map(s => s.id), dup: list.length - k});
+      await completerEnLigne();
     }
   } finally { btn.innerHTML = BTN_GO; btn.disabled = false; $("#smart").dispatchEvent(new Event("input")); }
 };
@@ -1174,7 +1209,7 @@ function openForm(src, focusField){
   dlg.onclose = () => {
     if(dlg.returnValue !== "save") return; collect();
     if(!s.title){ toast("Ajoute au moins un titre"); return; }
-    delete s.aConfirmer; delete s.aCompleter; // relue et enregistrée par le chercheur
+    delete s.aConfirmer; delete s.aCompleter; delete s._enligne; // relue et enregistrée par le chercheur
     if(isNew){ if(!s.origin || s.origin === "Saisie manuelle" || isAuto(s)) s.origin = "Saisie manuelle"; addSources([s]) ? toast("Fiche ajoutée") : toast("Cette référence est déjà dans ta bibliographie"); }
     else { setTimeout(() => { if(state.catalogShare) shareVerified(true); }, 800); const i = state.sources.findIndex(x => x.id === s.id); if(isAuto(s)){ s._method = s._method || s.origin; s.origin = "Vérifiée"; s._validated = Date.now(); } state.sources[i] = s; save(); renderAll(); toast("Fiche enregistrée"); }
   };
@@ -1813,6 +1848,8 @@ function appBody(m){
         <div class="props">${m.items.map((x, i) => propCarte(m, x, i)).join("")}</div>
         ${sures ? `<div class="chips">${chip(sures > 1 ? `Ajouter les ${sures} références trouvées` : "Ajouter la référence trouvée", {t:"prop-all", m:m.id}, "pri")}</div>` : `<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}</div>`}`;
     }
+    case "complete": { const det = Object.entries(m.champs || {}).map(([k, v]) => `${k} (${v})`).join(", ");
+      return `<p>${m.n ? `J’ai complété en ligne <b>${plur(m.n, "référence", "références")}</b> sur ${m.total}${det ? ` : ${esc(det)}` : ""}. Les éléments ajoutés portent la mention « Complété en ligne » : relis-les.` : "Les bases ouvertes n’ont rien apporté de plus pour les références incomplètes."}${m.reste ? ` ${plur(m.reste, "référence reste incomplète", "références restent incomplètes")} : elles sont dans la liste À faire, à compléter à la main.` : ""}</p><div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${chip("Télécharger en Word", {t:"dl"})}</div>`; }
     case "added": return `<p>${m.ids.length ? `J’ai ajouté ${plur(m.ids.length, "référence", "références")}${m.dup ? `, ${plur(m.dup, "doublon écarté", "doublons écartés")}` : ""}.` : "Ces références sont déjà dans ta bibliographie."}</p>${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}</div>`;
     case "restyle": return `<p>C’est fait : toute la bibliographie est en <b>${esc((STYLES[m.style] || st).full)}</b>.</p>${previewIds(labeled().map(s => s.id), 3)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}${chip("Télécharger en Word", {t:"dl"})}</div>`;
     case "exist": return `<p>Vérification d’existence terminée : <b>${m.found}</b> trouvée${m.found > 1 ? "s" : ""}, <b>${m.suspect}</b> suspecte${m.suspect > 1 ? "s" : ""}, ${m.close || 0} proche${m.close > 1 ? "s" : ""}, ${m.none} introuvable${m.none > 1 ? "s" : ""}.</p>${m.suspect ? previewIds(m.sus || []) : ""}<div class="chips">${chip("Voir le détail", {t:"side", v:"existence"}, m.suspect ? "warn" : "")}</div>`;
