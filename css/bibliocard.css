@@ -547,3 +547,33 @@ body.legal{background:var(--bg)}
 .prop .chips{margin-top:8px}
 .prop.ajoutee{border-color:var(--ok)}
 .prop.ecartee,.prop.main{background:var(--sunk)}
+/* ---------- Plan et lectures ---------- */
+body[data-view="plan"] #viewBiblio, body[data-view="plan"] #viewRedac, body[data-view="plan"] .composer{display:none!important}
+body:not([data-view="plan"]) #viewPlan{display:none}
+body[data-view="plan"] main.simple{padding-bottom:60px}
+body[data-view="plan"] #toast{bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.planform{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.planform .row{display:flex;flex-wrap:wrap;gap:8px}
+.planform .legend{margin:0}
+#planListe{margin-top:16px;display:flex;flex-direction:column;gap:10px}
+.ppart{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.ppart.n2{margin-left:22px;border-left:3px solid var(--turquoise)}
+.ppart.n3{margin-left:44px;border-left:3px solid var(--line)}
+.ppart .ph2{display:flex;gap:8px;align-items:center}
+.ppart .pt2{flex:1;min-width:0;border:0;border-bottom:1px dashed var(--line);background:transparent;font-family:var(--serif);font-size:16.5px;font-weight:600;color:var(--ink);padding:4px 2px}
+.ppart.n2 .pt2,.ppart.n3 .pt2{font-size:15px;font-weight:500}
+.ppart .pt2:focus{outline:none;border-bottom-color:var(--brass)}
+.ppart .pbt{display:flex;gap:2px;flex:none}
+.ppart .pbt button{width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-size:15px}
+.ppart .pbt button:hover:not(:disabled){background:var(--sunk);color:var(--ink)}
+.ppart .pbt button:disabled{opacity:.3}
+.ppart .legend{margin:6px 2px 0}
+.ppart .chips{margin-top:8px}
+.lects{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.lects li{border-top:1px solid var(--line);padding-top:8px}
+.lects .ref{font-size:14px}
+.lects .lmeta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:4px;font-size:12.5px;color:var(--muted)}
+.lects .lmeta a{color:var(--brass);font-weight:600}
+.lects .lmeta .chip{padding:5px 11px;font-size:12.5px;margin-left:auto}
+.planactions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+@media (max-width:520px){ .ppart .ph2{flex-wrap:wrap} .ppart .pt2{flex-basis:100%} .ppart .pbt{margin-left:auto} .ppart.n2{margin-left:10px} .ppart.n3{margin-left:20px} .ppart .pbt button{width:28px} .lects .lmeta .chip{margin-left:0} }

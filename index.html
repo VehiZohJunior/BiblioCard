@@ -79,6 +79,20 @@
   <details class="panel2" id="voixPanel"><summary>Contribuer à la dictée en langues ivoiriennes</summary><div class="in prose" id="voixBox"></div></details>
   <section class="panel2" style="padding:14px 16px" id="simPanel" hidden><h3 style="margin:0 0 6px;font-size:15px">Contrôle des similitudes</h3><div id="simRes"></div></section>
 </div>
+
+<div id="viewPlan" class="redac plantrav">
+  <button class="back2" id="planBack">← Bibliographie</button>
+  <h1>Plan et lectures</h1>
+  <p class="lead">Choisis un modèle de plan, remplace ses intitulés par les tiens, puis demande des lectures pour chaque partie. BiblioCard n’écrit rien à ta place : il propose une structure et des sources à lire.</p>
+  <div class="panel2 planform">
+    <label class="f full"><span>Sujet de ton travail</span><textarea id="planSujet" rows="2" placeholder="Le discours de la presse ivoirienne pendant les élections de 2020"></textarea></label>
+    <label class="f full"><span>Modèle de plan</span><select id="planModele"></select></label>
+    <div class="row"><button class="btn small primary" id="planAppliquer">Proposer ce modèle</button><button class="btn small" id="planDoc" hidden>Reprendre le plan de mon document</button></div>
+    <p class="legend" id="planSource"></p>
+  </div>
+  <div id="planListe"></div>
+  <div class="row planactions" id="planActions" hidden><button class="btn small" id="planAjout">Ajouter une partie</button><button class="btn small" id="planToutes">Lectures pour toutes les parties</button><button class="btn small" id="planCopier">Copier le plan</button></div>
+</div>
 </main>
 <section id="viewReview" class="simple" style="max-width:820px;margin:0 auto;padding:26px 20px 120px">
   <div class="revban"><h1 id="revTitle"></h1><p id="revMeta"></p></div>
@@ -184,6 +198,7 @@
       <nav class="menu" aria-label="Menu">
         <button data-go="biblio"><span class="mi"><svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="5" width="22" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="17" r="1.8" fill="var(--brass)"/><path d="M6 9h14M6 12h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>Bibliographie</button>
         <button data-go="redac"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10v4M8.5 7v10M12 4v16M15.5 7v10M19 10v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Rédaction Lian’Z</button>
+        <button data-go="plan"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M8 10h11M8 15h11M5 20h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="10" r="1.2" fill="currentColor"/><circle cx="5" cy="15" r="1.2" fill="currentColor"/></svg></span>Plan et lectures</button>
         <button data-dt="norme"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>Norme, profil et langue</button>
         <button data-dt="fiches"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z M9 10h7M9 14h7M9 18h4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg></span>Références et catalogue</button>
         <button data-dt="export"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Export, encadreur et sauvegarde</button>
@@ -248,6 +263,7 @@
         <li><div><b>Structuration de chaque référence</b><span>Auteurs, année, titre, revue ou éditeur, lieu et pages sont identifiés. L’italique de Word sert d’indice pour les titres d’ouvrages et de revues.<span class="claude-only"> Dans Claude, une analyse par IA affine ce découpage.</span></span></div></li>
         <li><div><b>Vérification d’existence</b><span>Chaque référence est recherchée dans trois bases ouvertes : OpenAlex, HAL et CrossRef. Un DOI inexistant ou qui renvoie à une autre publication est signalé comme suspect.</span></div></li>
         <li><div><b>Bibliographie construite à partir des citations</b><span>Quand le texte cite une œuvre absente de la bibliographie, BiblioCard la cherche dans OpenAlex et Open Library à partir du nom de l’auteur et de l’année, puis choisit la plus probable d’après la phrase où elle est citée. L’éditeur et la ville viennent de l’édition de l’année citée. Chaque proposition est soumise au chercheur avant d’être ajoutée.</span></div></li>
+        <li><div><b>Plan et lectures</b><span>Les modèles de plan suivent NORCAMES/LSH pour les articles et l’usage courant des universités pour les mémoires et les thèses. Chaque partie porte une consigne, jamais de texte rédigé. Les lectures viennent d’OpenAlex et de HAL, cherchées avec les mots de l’intitulé et du sujet, puis classées selon les mots retrouvés dans le titre et le nombre de citations.</span></div></li>
         <li><div><b>Mise en forme et contrôle</b><span>Chaque référence est rédigée selon la norme choisie, les informations manquantes sont signalées, et les citations du texte sont comparées à la bibliographie. Pour un article de revue, la structure est contrôlée selon NORCAMES : parties obligatoires, numérotation, citations longues.</span></div></li>
       </ol>
       <div class="blk prose">

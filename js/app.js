@@ -7,7 +7,9 @@ const LS = "bibliocard.v3";
 const NOOP = 0;
 const state = { sources: [], style: "cames", cames: {upper:true, yearParen:false}, profile: "norcames", profiles: {}, citeMode: "parenthese", updatedAt: 0, exist: {}, evalExtra: [],
   comments: [], draft: {title:"", text:""}, thread: [], projects: {}, current: null, uiLang: "fr", catalogShare: false, catalogCfg: {url:"", key:""}, studentName: "", reviewerName: "", anonId: "" };
-const PKEYS = ["sources","style","profile","citeMode","exist","comments","draft","thread"];
+const PKEYS = ["sources","style","profile","citeMode","exist","comments","draft","thread","plan"];
+const planVide = () => ({sujet: "", modele: "article_theorique", items: []});
+state.plan = planVide();
 const GKEYS = ["profiles","evalExtra","projects","current","uiLang","catalogShare","catalogCfg","studentName","reviewerName","anonId","updatedAt"];
 const KINDS = {memoire:"Mémoire de master", these:"Thèse de doctorat", article:"Article scientifique", communication:"Communication", rapport:"Rapport", autre:"Autre"};
 const ui = { pages: {}, filter: "", files: [], dismissed: new Set() };
@@ -25,9 +27,9 @@ const NOTES = {
 /* ---------- persistance ---------- */
 function setStatus(t, saving){ $("#statusText").textContent = t; $("#status").classList.toggle("saving", !!saving); }
 function newPid(){ return "j" + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
-function blankProject(name, kind){ return {id: newPid(), name, kind, createdAt: Date.now(), updatedAt: Date.now(), sources: [], style: "cames", profile: "norcames", citeMode: "parenthese", exist: {}, comments: [], draft: {title:"", text:""}, thread: []}; }
+function blankProject(name, kind){ return {id: newPid(), name, kind, createdAt: Date.now(), updatedAt: Date.now(), sources: [], style: "cames", profile: "norcames", citeMode: "parenthese", exist: {}, comments: [], draft: {title:"", text:""}, thread: [], plan: planVide()}; }
 function syncCurrent(){ const p = state.projects[state.current]; if(!p) return; PKEYS.forEach(k => p[k] = state[k]); p.updatedAt = Date.now(); }
-function loadProject(pid){ const p = state.projects[pid]; if(!p) return; state.current = pid; PKEYS.forEach(k => { if(p[k] !== undefined) state[k] = JSON.parse(JSON.stringify(p[k])); }); state.comments = state.comments || []; state.thread = state.thread || []; state.draft = state.draft || {title:"", text:""}; }
+function loadProject(pid){ const p = state.projects[pid]; if(!p) return; state.current = pid; PKEYS.forEach(k => { if(p[k] !== undefined) state[k] = JSON.parse(JSON.stringify(p[k])); }); state.comments = state.comments || []; state.thread = state.thread || []; state.draft = state.draft || {title:"", text:""}; if(!p.plan) state.plan = planVide(); }
 function ensureProjects(){
   if(!state.anonId) state.anonId = "u" + Math.random().toString(36).slice(2, 12);
   if(!state.projects || !Object.keys(state.projects).length){
@@ -336,7 +338,7 @@ function renderEval(){
     download("bibliocard-fiabilite.csv", "\ufeff" + rows.map(r => r.join(";")).join("\n"), "text/csv"); };
   $("#evIn").onclick = () => $("#fileIn").click();
 }
-function renderAll(){ renderProjBtn(); renderCatalog(); renderSync(); renderEval(); renderNorm(); renderFiles(); renderSheet(); renderTasks(); renderSynth(); renderExist(); renderReports(); renderIntext(); renderCards(); renderAnalyse(); renderThread(); }
+function renderAll(){ renderPlan(); renderProjBtn(); renderCatalog(); renderSync(); renderEval(); renderNorm(); renderFiles(); renderSheet(); renderTasks(); renderSynth(); renderExist(); renderReports(); renderIntext(); renderCards(); renderAnalyse(); renderThread(); }
 
 /* ---------- tableau de bord ---------- */
 const DGROUPS = {home:["home"], norme:["norme"], fiches:["fiches","catalogue","citer"], export:["export"], methode:["methode"]};
@@ -716,6 +718,115 @@ function propCarte(m, x, i){
       : `<p class="legend">Aucune œuvre de cet auteur pour cette année dans les bases ouvertes. C’est fréquent pour les ouvrages publiés en Afrique.</p><div class="chips">${act("Saisir à la main", "prop-man", "pri")}${act("Écarter", "prop-no")}</div>`) : ""}
   </div>`;
 }
+
+/* ================= PLAN ET LECTURES =================
+   Un modèle de plan (moteur : MODELES_PLAN) que le chercheur réécrit avec ses propres intitulés, puis, pour
+   chaque partie, des lectures trouvées dans OpenAlex et HAL. BiblioCard ne rédige rien : il propose une
+   structure et des sources à lire. Seuls le sujet et les intitulés partent en ligne, jamais le texte. */
+const plan = () => state.plan || (state.plan = planVide());
+const docAvecPlan = () => ui.files.find(f => f.text && f.text.length > 300);
+// plusieurs parties génériques donnent la même requête : une seule interrogation par adresse et par session
+const memoLectures = new Map();
+const getMemo = url => { if(!memoLectures.has(url)) memoLectures.set(url, getJSON(url).then(r => { if(!r.data) memoLectures.delete(url); return r; })); return memoLectures.get(url); };
+async function chercherLectures(sujet, titre){
+  const {mots, requetes} = requetesLectures(sujet, titre);
+  if(!requetes.length) return {etat: "vague", L: [], requetes};
+  // OpenAlex sans clé : petit budget quotidien par adresse IP, et une recherche plein texte coûte cher.
+  // Une seule requête OpenAlex par partie (la plus courte, la plus large) ; HAL, sans limite, reçoit toutes les requêtes.
+  const courte = requetes.reduce((a, q) => q.split(" ").length < a.split(" ").length ? q : a);
+  const [oa, ...hal] = await Promise.all([
+    getMemo(`https://api.openalex.org/works?search=${encodeURIComponent(courte)}&per-page=15&select=display_name,title,publication_year,authorships,type,cited_by_count,primary_location,biblio,doi,open_access`),
+    ...requetes.map(q => getMemo(`https://api.archives-ouvertes.fr/search/?q=${encodeURIComponent(q)}&rows=8&fl=title_s,authFullName_s,producedDateY_i,docType_s,uri_s,journalTitle_s,bookTitle_s,publisher_s,volume_s,issue_s,page_s,doiId_s,authorityInstitution_s&wt=json`)),
+  ]);
+  if(!oa.data && hal.every(r => !r.data)) return {etat: "erreur"};
+  const cands = [];
+  ((oa.data || {}).results || []).forEach(w => { const s = fromOpenAlex(w); s._lien = (w.open_access && w.open_access.oa_url) || (s.doi ? "https://doi.org/" + s.doi : ""); cands.push(s); });
+  hal.forEach(r => (((r.data || {}).response || {}).docs || []).forEach(d => { const s = fromHal(d); s._lien = s.url; s.url = ""; cands.push(s); }));
+  return {etat: "ok", L: classerLectures(mots, cands), requetes};
+}
+async function lecturesPour(items){
+  if(!exiger("plan")) return;
+  const P = plan(), R = new Array(items.length);
+  items.forEach(it => it.lect = {etat: "cherche"}); renderPlan();
+  let k = 0;
+  const travail = async () => { while(k < items.length){ const i = k++; R[i] = await chercherLectures(P.sujet, items[i].t); } };
+  await Promise.all([travail(), travail()]);
+  // des parties génériques (« Conclusion », « Chapitre 5 : [titre] ») posent la même question : dans l’ordre du plan,
+  // chacune reçoit les lectures suivantes, et quand il n’y en a plus, on l’invite à préciser son intitulé
+  const rang = {};
+  items.forEach((it, i) => {
+    const r = R[i];
+    if(r.L){ const cle = r.requetes.join("|"), d = rang[cle] || 0; rang[cle] = d + 6; r.L = r.L.slice(d, d + 6); if(d && !r.L.length) r.etat = "memes"; }
+    it.lect = r;
+  });
+  save(); renderPlan();
+  if(items.every(it => it.lect.etat === "erreur")) toast("Je n’arrive pas à joindre OpenAlex ni HAL. Vérifie ta connexion Internet.");
+}
+function ajouterLecture(it, j){
+  const s = {...it.lect.L[j], id: "s" + Math.random().toString(36).slice(2, 10), file: ""};
+  ["_lien", "_src", "_notoriete", "_olKey", "_score"].forEach(k => delete s[k]);
+  addSources([s]); renderPlan(); toast("Ajoutée à ta bibliographie, à relire");
+}
+function remplacerPlan(items, msg){
+  const P = plan(), avant = P.items;
+  P.items = items.map(x => ({n: x.n, t: x.t, r: x.r || "", sans: !!x.sans}));
+  save(); renderPlan();
+  if(avant.length) toast(msg, "Annuler", () => { P.items = avant; save(); renderPlan(); });
+}
+function lecturesHtml(it){
+  const L = it.lect;
+  if(!L) return `<div class="chips"><button class="chip" data-pa="lect">Lectures pour cette partie</button></div>`;
+  if(L.etat === "cherche") return `<p class="legend">Recherche dans OpenAlex et HAL…</p>`;
+  if(L.etat === "erreur") return `<p class="legend">Je n’arrive pas à joindre OpenAlex ni HAL. Vérifie ta connexion, puis réessaie.</p><div class="chips"><button class="chip" data-pa="lect">Réessayer</button></div>`;
+  if(L.etat === "memes") return `<p class="legend">Cet intitulé cherche les mêmes mots que les parties plus haut : leurs lectures valent aussi pour celle-ci. Écris un intitulé plus précis pour en avoir d’autres.</p><div class="chips"><button class="chip" data-pa="lect">Chercher à nouveau</button></div>`;
+  if(L.etat === "vague") return `<p class="legend">Cet intitulé est trop général pour chercher des lectures. Écris le sujet de ton travail en haut, ou un intitulé plus précis.</p><div class="chips"><button class="chip" data-pa="lect">Réessayer</button></div>`;
+  if(!L.L.length) return `<p class="legend">Aucune lecture trouvée pour cet intitulé. Essaie un mot plus précis.</p><div class="chips"><button class="chip" data-pa="lect">Chercher à nouveau</button></div>`;
+  return `<ol class="lects">${L.L.map((s, j) => `<li><div class="ref">${bibFor(s)}</div><div class="lmeta"><span>${esc(s._src || "")}</span>${s._notoriete ? `<span>Citée ${s._notoriete} fois</span>` : ""}${s._lien ? `<a href="${esc(s._lien)}" target="_blank" rel="noopener">Lire en ligne</a>` : ""}${state.sources.some(o => sameRef(o, s)) ? `<span class="tag ok">Dans ta bibliographie</span>` : `<button class="chip" data-pa="add" data-j="${j}">Ajouter à ma bibliographie</button>`}</div></li>`).join("")}</ol>
+    <p class="legend">Lis chaque source avant de la citer. Mots recherchés : <span data-notr="1">${esc(L.requetes.join(" · "))}</span></p><div class="chips"><button class="chip" data-pa="lect">Chercher à nouveau</button></div>`;
+}
+function renderPlan(){
+  const box = $("#planListe"); if(!box) return;
+  const P = plan(), sel = $("#planModele");
+  if(!sel.options.length) sel.innerHTML = Object.entries(MODELES_PLAN).map(([k, m]) => `<option value="${k}">${esc(m.nom)}</option>`).join("");
+  sel.value = MODELES_PLAN[P.modele] ? P.modele : "article_theorique";
+  if(document.activeElement !== $("#planSujet")) $("#planSujet").value = P.sujet || "";
+  $("#planSource").textContent = `Modèle établi d’après : ${MODELES_PLAN[sel.value].source}. Remplace les intitulés entre crochets par les tiens.`;
+  $("#planDoc").hidden = !docAvecPlan();
+  $("#planActions").hidden = !P.items.length;
+  box.innerHTML = P.items.length ? P.items.map((it, i) => `<div class="ppart n${it.n}" data-i="${i}">
+    <div class="ph2"><input class="pt2" value="${esc(it.t)}" aria-label="Intitulé"><div class="pbt">
+      <button data-pa="up" title="Monter" ${i ? "" : "disabled"}>↑</button><button data-pa="down" title="Descendre" ${i < P.items.length - 1 ? "" : "disabled"}>↓</button><button data-pa="niv" title="${it.n > 1 ? "Remonter d’un niveau" : "Faire une sous-partie"}">${it.n > 1 ? "⇤" : "⇥"}</button><button data-pa="del" title="Supprimer">✕</button></div></div>
+    ${it.r ? `<p class="legend">${esc(it.r)}</p>` : ""}${it.sans ? "" : lecturesHtml(it)}</div>`).join("")
+    : `<p class="legend">Choisis un modèle et touche « Proposer ce modèle »${docAvecPlan() ? ", ou reprends le plan de ton document" : ""}.</p>`;
+}
+$("#planBack").onclick = () => setView("biblio");
+$("#planSujet").onchange = e => { plan().sujet = e.target.value.trim(); save(); };
+$("#planModele").onchange = e => { plan().modele = e.target.value; save(); renderPlan(); };
+$("#planAppliquer").onclick = () => { const P = plan(); P.modele = $("#planModele").value; remplacerPlan(MODELES_PLAN[P.modele].items, "Modèle proposé"); };
+$("#planDoc").onclick = () => {
+  const f = docAvecPlan(), items = f ? planDepuisTexte(f.text, f.headings) : [];
+  if(!items.length){ toast("Je ne trouve pas de titres dans ton document : utilise un modèle."); return; }
+  remplacerPlan(items, `Plan repris de « ${f.name} »`);
+};
+$("#planAjout").onclick = () => { plan().items.push({n: 1, t: "Nouvelle partie", r: ""}); save(); renderPlan(); const L = document.querySelectorAll("#planListe .pt2"); const i = L[L.length - 1]; if(i){ i.focus(); i.select(); } };
+$("#planToutes").onclick = () => lecturesPour(plan().items.filter(it => !it.sans));
+$("#planCopier").onclick = async () => {
+  const txt = plan().items.map(it => "    ".repeat(it.n - 1) + it.t).join("\n");
+  try{ await navigator.clipboard.writeText(txt); toast("Plan copié. Colle-le dans Word."); }catch(e){ toast("Copie impossible sur cet appareil"); }
+};
+$("#planListe").addEventListener("change", e => { if(!e.target.classList.contains("pt2")) return; const it = plan().items[+e.target.closest(".ppart").dataset.i]; if(it){ it.t = e.target.value.trim() || it.t; delete it.lect; save(); renderPlan(); } });
+$("#planListe").addEventListener("click", e => {
+  const b = e.target.closest("[data-pa]"); if(!b) return;
+  const P = plan(), i = +b.closest(".ppart").dataset.i, it = P.items[i]; if(!it) return;
+  const a = b.dataset.pa;
+  if(a === "lect"){ lecturesPour([it]); return; }
+  if(a === "add"){ ajouterLecture(it, +b.dataset.j); return; }
+  if(a === "up" && i > 0) P.items.splice(i - 1, 2, P.items[i], P.items[i - 1]);
+  else if(a === "down" && i < P.items.length - 1) P.items.splice(i, 2, P.items[i + 1], P.items[i]);
+  else if(a === "niv") it.n = it.n > 1 ? 1 : 2;
+  else if(a === "del"){ P.items.splice(i, 1); toast("Partie supprimée", "Annuler", () => { P.items.splice(i, 0, it); save(); renderPlan(); }); }
+  save(); renderPlan();
+});
 function enrich(id){
   const s = state.sources.find(x => x.id === id), e = existFor(s); if(!e || !e.best) return;
   let n = 0;
@@ -1549,6 +1660,7 @@ function intent(t){
   const map = [["vancouver","vancouver"],["note de bas","notes"],["notes","notes"],["apa","apa"],["mla","mla"],["chicago","chicago"],["iso","iso"],["norcames","cames"],["cames","cames"]];
   if(/\b(norme|style|format|mets|met|passe|convertis|convertir|change|en)\b/.test(x)) for(const [k, v] of map) if(new RegExp("\\b" + k + "\\b").test(x)) return {t: "style", v};
   if(/(construi|genere|fabrique|cree|fais|faire|etabli|dresse|complete).*(biblio|references)/.test(x)) return {t: "build"};
+  if(/\bplan\b|\blectures?\b|quoi lire/.test(x)) return {t: "plan"};
   if(/(corrig|remplac|repare).*(document|memoire|these|fichier|word)/.test(x)) return {t: "fix"};
   if(/(verifi|existe|inventee|fausses?|suspect)/.test(x)) return {t: "exist"};
   if(/(telecharg|exporte|export)/.test(x)) return {t: "dl"};
@@ -1561,6 +1673,7 @@ async function runIntent(it, raw){
   if(it.t === "style"){ state.style = it.v; save(); renderAll(); post({role: "a", kind: "restyle", style: it.v}); }
   else if(it.t === "fix") await doFix(null);
   else if(it.t === "build") await construireBiblio(null, true);
+  else if(it.t === "plan"){ post({role: "a", kind: "info", text: "J’ouvre « Plan et lectures » : choisis un modèle, mets tes intitulés, puis demande des lectures pour chaque partie."}); setView("plan"); }
   else if(it.t === "exist"){ if(!state.sources.length){ post({role: "a", kind: "info", text: "Ta bibliographie est vide : dépose d’abord un document avec le bouton +."}); return; } Object.keys(state.exist).forEach(k => delete state.exist[k]); net.blocked = false; await runExistence(true); }
   else if(it.t === "dl"){ if(state.sources.length){ downloadWord(); post({role: "a", kind: "info", text: `Je télécharge ta bibliographie en Word, norme ${STYLES[state.style].full}.`}); } else post({role: "a", kind: "info", text: "Il n’y a encore rien à télécharger : dépose d’abord un document."}); }
   else post({role: "a", kind: it.t});
@@ -1654,6 +1767,7 @@ function setView(v){
   document.querySelectorAll("#modeSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.view === v ? "true" : "false"));
   try{ localStorage.setItem("bibliocard.view", v); }catch(e){}
   if(v === "redac") updateCount();
+  if(v === "plan") renderPlan();
 }
 document.querySelectorAll("#modeSeg button").forEach(b => b.onclick = () => setView(b.dataset.view));
 $("#langSel").innerHTML = LANGS.map(([c,, n]) => `<option value="${c}">${n}</option>`).join("");

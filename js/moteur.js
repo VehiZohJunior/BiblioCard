@@ -460,7 +460,7 @@ const FORMULES = [
   {n: 3, prix: 7000, titre: "Toutes les fonctions", inclus: ["Tout ce que contient la formule 2", "Contrôle des similitudes (anti-plagiat)", "Toutes les nouveautés de l’application"]},
 ];
 // formule minimale de chaque fonction réservée
-const BESOIN = {biblio: 1, dictee: 2, plagiat: 3};
+const BESOIN = {biblio: 1, dictee: 2, plagiat: 3, plan: 3};
 // Formule en vigueur d’après les dates du serveur. decalage = heure du serveur − heure de l’appareil au moment
 // de la lecture : une horloge d’appareil avancée ou retardée ne change rien.
 function formuleEnVigueur(acces, maintenant){
@@ -892,6 +892,121 @@ function fusionFiches(a, b){
   s._notoriete = Math.max(a._notoriete || 0, b._notoriete || 0);
   return s;
 }
+
+/* ---------- plan de travail et lectures par partie ----------
+   Des squelettes reconnus, avec pour chaque partie une consigne (ce qu’elle doit contenir), jamais du texte.
+   Les intitulés entre crochets sont à remplacer par ceux du chercheur. n = niveau (1 partie, 2 sous-partie). */
+const MODELES_PLAN = {
+  article_theorique: {nom: "Article de revue CAMES : contribution théorique", source: "NORCAMES/LSH", items: [
+    {n: 1, t: "Introduction", r: "Justification du thème, problématique, hypothèses ou objectifs scientifiques, approche."},
+    {n: 1, t: "1. [Titre de la première partie]", r: "Premier moment du développement articulé. Partie titrée et numérotée."},
+    {n: 2, t: "1.1. [Titre]", r: ""}, {n: 2, t: "1.2. [Titre]", r: ""},
+    {n: 1, t: "2. [Titre de la deuxième partie]", r: "Deuxième moment du développement."},
+    {n: 2, t: "2.1. [Titre]", r: ""}, {n: 2, t: "2.2. [Titre]", r: ""},
+    {n: 1, t: "3. [Titre de la troisième partie]", r: "Troisième moment, si le raisonnement l’exige."},
+    {n: 1, t: "Conclusion", r: "Réponse à la problématique, apports, limites et perspectives."},
+    {n: 1, t: "Références bibliographiques", r: "Seulement les sources citées, par ordre alphabétique des noms d’auteurs.", sans: true}]},
+  article_terrain: {nom: "Article de revue CAMES : recherche de terrain", source: "NORCAMES/LSH", items: [
+    {n: 1, t: "Introduction", r: "Contexte, problématique, hypothèses ou objectifs, intérêt de l’étude."},
+    {n: 1, t: "1. Méthodologie", r: "Terrain, population ou corpus, échantillon, outils de collecte, méthode d’analyse."},
+    {n: 1, t: "2. Résultats", r: "Présentation organisée des données obtenues, sans interprétation."},
+    {n: 2, t: "2.1. [Premier résultat]", r: ""}, {n: 2, t: "2.2. [Deuxième résultat]", r: ""},
+    {n: 1, t: "3. Discussion", r: "Interprétation des résultats, confrontés aux travaux antérieurs et aux hypothèses."},
+    {n: 1, t: "Conclusion", r: "Synthèse, limites de l’étude, perspectives de recherche."},
+    {n: 1, t: "Références bibliographiques", r: "Seulement les sources citées, par ordre alphabétique des noms d’auteurs.", sans: true}]},
+  memoire: {nom: "Mémoire de master", source: "Usage courant des universités", items: [
+    {n: 1, t: "Introduction générale", r: "Contexte, justification du sujet, problématique, questions de recherche, hypothèses, objectifs, annonce du plan."},
+    {n: 1, t: "Première partie : cadre théorique et méthodologique", r: ""},
+    {n: 2, t: "Chapitre 1 : revue de la littérature", r: "Ce que les travaux antérieurs disent du sujet, et ce qu’ils laissent de côté."},
+    {n: 2, t: "Chapitre 2 : cadre théorique et conceptuel", r: "Théories mobilisées et définition des concepts clés."},
+    {n: 2, t: "Chapitre 3 : méthodologie", r: "Terrain, corpus ou population, échantillon, outils de collecte, méthode d’analyse."},
+    {n: 1, t: "Deuxième partie : [analyse et résultats]", r: ""},
+    {n: 2, t: "Chapitre 4 : [titre]", r: "Présentation et analyse des données."},
+    {n: 2, t: "Chapitre 5 : [titre]", r: "Suite de l’analyse."},
+    {n: 2, t: "Chapitre 6 : discussion", r: "Interprétation des résultats, vérification des hypothèses, confrontation aux travaux antérieurs."},
+    {n: 1, t: "Conclusion générale", r: "Rappel de la démarche, principaux résultats, limites, perspectives."},
+    {n: 1, t: "Bibliographie", r: "Toutes les sources citées, selon la norme exigée.", sans: true},
+    {n: 1, t: "Annexes", r: "Outils de collecte, extraits du corpus, documents complémentaires.", sans: true}]},
+  these: {nom: "Thèse de doctorat", source: "Usage courant des écoles doctorales", items: [
+    {n: 1, t: "Introduction générale", r: "Contexte, état de la question, problématique, hypothèses, objectifs, méthodologie générale, annonce du plan."},
+    {n: 1, t: "Première partie : cadre théorique, conceptuel et méthodologique", r: ""},
+    {n: 2, t: "Chapitre 1 : état de l’art", r: "Synthèse critique des travaux sur le sujet."},
+    {n: 2, t: "Chapitre 2 : cadre théorique", r: "Théories mobilisées, concepts clés et leur articulation."},
+    {n: 2, t: "Chapitre 3 : méthodologie", r: "Terrain, corpus, outils, méthodes d’analyse, limites méthodologiques."},
+    {n: 1, t: "Deuxième partie : [titre]", r: "Premier grand ensemble d’analyses."},
+    {n: 2, t: "Chapitre 4 : [titre]", r: ""}, {n: 2, t: "Chapitre 5 : [titre]", r: ""},
+    {n: 1, t: "Troisième partie : [titre]", r: "Second grand ensemble : interprétation, discussion, propositions."},
+    {n: 2, t: "Chapitre 6 : [titre]", r: ""}, {n: 2, t: "Chapitre 7 : [titre]", r: ""},
+    {n: 1, t: "Conclusion générale", r: "Synthèse, apports de la thèse, limites, perspectives."},
+    {n: 1, t: "Bibliographie", r: "Toutes les sources citées, selon la norme exigée.", sans: true},
+    {n: 1, t: "Annexes", r: "Documents complémentaires.", sans: true},
+    {n: 1, t: "Index", r: "Si l’école doctorale l’exige.", sans: true}]},
+};
+// mots d’un intitulé qui ne disent rien du sujet traité
+const MOTS_STRUCTURE = /^(premiere|deuxieme|troisieme|quatrieme|partie|chapitre|section|titre|introduction|conclusion|generale|general|sous|resultats?|discussion|annexes?|bibliographie|references|bibliographiques|revue|litterature|etat|question|cadre|theorique|conceptuel|methodologie|methodologique|analyse|pendant|depuis|selon|durant|avant|apres|lors|entre|autour|vers|chez|leurs?)$/;
+const RECHERCHE_PAR_ROLE = [[/revue de la litterature|etat de l art|etat de la question/, ""], [/cadre theorique|conceptuel/, "théorie"], [/methodolog/, "méthode enquête"], [/discussion/, ""]];
+// mots-clés de recherche pour une partie : son intitulé, complété par le sujet quand l’intitulé est générique
+function requeteLectures(sujet, titre){
+  const nettoye = norm(String(titre).replace(/\[[^\]]*\]/g, " ").replace(/^\s*(?:\d+(?:\.\d+)*\.?|chapitre\s+\d+\s*:?)\s*/i, ""));
+  const propres = nettoye.split(" ").filter(w => w.length > 3 && !MOTS_VIDES.has(w) && !MOTS_STRUCTURE.test(w));
+  const motsSujet = norm(sujet).split(" ").filter(w => w.length > 3 && !MOTS_VIDES.has(w) && !MOTS_STRUCTURE.test(w)).slice(0, 6);
+  if(propres.length >= 2) return [...new Set([...propres, ...motsSujet.slice(0, 3)])].slice(0, 8).join(" ");
+  const role = RECHERCHE_PAR_ROLE.find(([re]) => re.test(nettoye));
+  return [...new Set([...motsSujet, ...propres, ...(role && role[1] ? norm(role[1]).split(" ") : [])])].slice(0, 8).join(" ");
+}
+// Les bases exigent tous les mots d’une requête : au-delà de 3 mots, elles ne trouvent presque rien.
+// On lance donc 2 ou 3 requêtes courtes (« presse ivoirienne », « titrologie »…), puis on réunit et on classe.
+function requetesLectures(sujet, titre){
+  const mots = requeteLectures(sujet, titre).split(" ").filter(w => w && !/^\d+$/.test(w));
+  const q = [mots.slice(0, 3), mots.slice(1, 3), mots.slice(0, 2)].map(x => x.join(" ")).filter(x => x.split(" ").length >= 2);
+  // le premier mot de sens de l’intitulé, seul : c’est en général l’objet de la partie (« titrologie »)
+  const specifique = norm(String(titre).replace(/\[[^\]]*\]/g, " ").replace(/^\s*(?:\d+(?:\.\d+)*\.?|chapitre\s+\d+\s*:?)\s*/i, "")).split(" ").filter(w => w.length > 6 && !MOTS_VIDES.has(w) && !MOTS_STRUCTURE.test(w))[0];
+  if(specifique) q.unshift(specifique);
+  return {mots, requetes: [...new Set(q)].slice(0, 3)};
+}
+const FAUX_TITRES = /^(references?|r[ée]f[ée]rences|bibliograph(y|ie)|appendix|annexes?|index|front matter|back matter|table des mati[èe]res|sommaire|contents|introduction|conclusion|editorial|[ée]ditorial)$/i;
+// lectures classées : mots-clés présents dans le titre (le premier, objet de la partie, compte double), puis notoriété ;
+// doublons et faux titres retirés
+function classerLectures(mots, cands){
+  const M = [...new Set(mots.map(w => w.slice(0, 5)))], vus = new Set();
+  return (cands || []).filter(s => s.title && s.title.length > 8 && !FAUX_TITRES.test(s.title.trim()) && s.authors.length).map(s => {
+    const T = motsCles(s.title + " " + (s.container || "")); let n = 0; M.forEach((w, i) => { if(T.has(w)) n += i ? 1 : 2; });
+    return {s, score: n + Math.min(.9, Math.log10(1 + (s._notoriete || 0)) / 4) + (s.year >= String(new Date().getFullYear() - 15) ? .2 : 0)};
+  }).filter(x => x.score >= 1).sort((a, b) => b.score - a.score)
+    // même œuvre avec ou sans sous-titre : on garde la mieux classée
+    .filter(x => { const k = norm(x.s.title.split(/\s*[:.]\s+/)[0]).slice(0, 50); return !vus.has(k) && vus.add(k); }).map(x => x.s);
+}
+// plan d’un document déposé : titres des styles Word si disponibles, sinon titres numérotés ou de parties
+function planDepuisTexte(text, headings){
+  const lignes = (headings && headings.length ? headings : String(text || "").split(/\n/)).map(l => stripMarks(l).replace(/\s+/g, " ").trim()).filter(Boolean);
+  const items = [];
+  for(const l of lignes){
+    if(l.length > 110 || /[.;!?,]$/.test(l)) continue;
+    const num = l.match(NUM_HEAD);
+    let n = 0;
+    if(/^(?:premi[eè]re|deuxi[eè]me|troisi[eè]me|quatri[eè]me|cinqui[eè]me)\s+partie|^partie\s+[\divx]+/i.test(l)) n = 1;
+    else if(/^chapitre\s+[\divx]+/i.test(l)) n = 2;
+    else if(/^(introduction|conclusion)(\s+g[ée]n[ée]rale)?\s*:?$/i.test(l) || RE_PARTIE_REF.test(l)) n = 1;
+    else if(num && num[1].split(".").every(x => +x >= 1 && +x <= 20) && /^\p{Lu}/u.test(num[2]) && l.split(" ").length <= 14) n = Math.min(3, num[1].split(".").length);
+    else if(headings && headings.length) n = 2;
+    if(n) items.push({n, t: l, r: ""});
+  }
+  return items;
+}
+const RE_PARTIE_REF = /^(?:r[ée]f[ée]rences bibliographiques|bibliographie|annexes?)\s*:?$/i;
+// fiche HAL (archive ouverte, très riche en travaux francophones)
+const HAL_TYPES = {ART: "article", OUV: "book", COUV: "chapter", THESE: "thesis", HDR: "thesis", MEM: "thesis", REPORT: "report", COMM: "chapter", DOUV: "book"};
+function fromHal(d){
+  const s = blank(), un = v => Array.isArray(v) ? v[0] : (v || "");
+  s.type = HAL_TYPES[d.docType_s] || "article";
+  s.authors = (d.authFullName_s || []).map(parseAuthor).filter(Boolean);
+  s.title = String(un(d.title_s)).trim(); s.year = d.producedDateY_i ? String(d.producedDateY_i) : "";
+  s.container = d.journalTitle_s || un(d.bookTitle_s) || ""; s.publisher = un(d.publisher_s);
+  s.volume = d.volume_s || ""; s.issue = un(d.issue_s); s.pages = d.page_s || ""; s.doi = d.doiId_s || ""; s.url = d.uri_s || "";
+  if(s.type === "thesis"){ s.publisher = un(d.authorityInstitution_s) || s.publisher; s.genre = d.docType_s === "MEM" ? "Mémoire" : "Thèse de doctorat"; }
+  s.origin = "Recherche en ligne"; s._src = "HAL";
+  return villeEditeur(s);
+}
 /* ---------- indicateurs : conformité et profil de la bibliographie ---------- */
 const REQ = {article:["authors","title","year","container","pages"], book:["authors","title","year","publisher","city"], chapter:["authors","title","year","container","publisher","pages"], thesis:["authors","title","year","publisher"], report:["authors","title","year","publisher"], webpage:["title","url","accessed"]};
 function conformity(list, styleKey){
@@ -1055,4 +1170,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
