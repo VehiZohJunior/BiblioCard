@@ -284,6 +284,9 @@ const TYPE_LABEL = {article:"Article", book:"Livre", chapter:"Chapitre", thesis:
 function checks(s, styleKey, all){
   const m = [];
   const st = STYLES[styleKey];
+  // entrées générées depuis une citation : œuvre retrouvée en ligne avec un doute, ou rien trouvé du tout
+  if(s.aConfirmer) m.push({f:"title", t:"Œuvre à confirmer"});
+  if(s.aCompleter) m.push({f:"title", t:"Introuvable en ligne : à compléter"});
   if(!s.title) m.push({f:"title", t:"Titre manquant"});
   if(!s.authors.length) m.push({f:"authors", t:"Auteur manquant"});
   if(!s.year) m.push({f:"year", t:"Année manquante (s.d.)"});
@@ -473,6 +476,21 @@ function formuleEnVigueur(acces, maintenant){
 
 /* ---------- lecture d’un document : section bibliographie + découpage ---------- */
 const YEAR_RE = /(1[5-9]\d{2}|20\d{2}|s\.\s?d\.|n\.\s?d\.)/;
+/* Une vraie référence : un nom d’auteur en tête (« BOURDIEU Pierre, », « Fairclough, N. », « Al-Azzawi Q. (2018) »),
+   une année (ou s.d.), une longueur raisonnable, et pas de phrases rédigées. Sans ce garde-fou, les paragraphes
+   d’un mémoire sans bibliographie passaient pour des références (« CHAPTER II: THEORETICAL FRAMEWORK This chapter… »). */
+const DEBUT_PROSE = /^(?:\d+[.)]\s|[IVX]+[.)]\s|chapter|chapitre|section|partie|part\b|introduction|conclusion|this|these|the|in|as|according|however|thus|selon|comme|ainsi|ce|cette|ces|les|la|le|dans|nous|on|il|elle|en|pour|par|de|du|des)\b/i;
+const MOTS_PROSE = /\b(?:is|are|was|were|which|that|this|we|he|she|they|est|sont|était|qui|que|nous|il|elle|ils|cette|dont)\b/gi;
+function estReference(raw){
+  const t = stripMarks(String(raw || "")).replace(/\s+/g, " ").trim();
+  if(t.length < 25 || t.length > 700) return false;
+  // « Le langage est… » est de la prose ; « Le Goff, Jacques » est un nom : le mot suivant décide
+  if(/^(?:\d+[.)]\s|[IVX]+[.)]\s|chapter\b|chapitre\b|section\b)/i.test(t) || (DEBUT_PROSE.test(t) && /^\S+\s+\p{Ll}/u.test(t))) return false;
+  if(!/\b(1[5-9]\d\d|20\d\d)[a-z]?\b|\bs\.\s?d\.|\bn\.\s?d\./i.test(t)) return false;
+  if(!/^[\p{Lu}][\p{L}'’\-]+(?:\s+(?:[\p{Lu}][\p{L}'’\-]*\.?|de|da|van|von|der|del|dos|du|le|la|al|el))*\s*[,(.:]|^[\p{Lu}][\p{Lu}'’\-]{1,}\s+[\p{Lu}]/u.test(t)) return false;
+  return (t.match(MOTS_PROSE) || []).length < 3;
+}
+const partReferences = L => L.length ? L.filter(estReference).length / L.length : 0;
 function findBibSection(text){
   const head = /^[ \t]*(?:[IVX\d]+[.)-]?\s*)?(r[ée]f[ée]rences bibliographiques|r[ée]f[ée]rences|bibliograp{1,2}h{1,2}ie(?:\s+(?:g[ée]n[ée]rale|s[ée]lective|indicative))?|sources et bibliographie|ouvrages cit[ée]s|works cited|references|bibliograp{1,2}h{1,2}y|webographie)[ \t]*:?[ \t]*$/gim; // « BIBLIOGRAPPHY » : coquille réelle
   let m, last = null;
@@ -724,7 +742,8 @@ function findCitations(text){
     });
   }
   // « T. A. van Dijk (2008) » : la particule van / von fait partie du nom (pas « de », trop fréquent dans la phrase)
-  const re2 = /((?:\p{Lu}\.[\s-]?)*)\s*((?:v[ao]n\s+)?\p{Lu}[\p{L}'’-]+)(?:\s+et\s+al\.?)?\s+\((1[5-9]\d{2}|20\d{2})([a-z]?)/gu;
+  // (« Van Dijk (2008) » en début de phrase aussi)
+  const re2 = /((?:\p{Lu}\.[\s-]?)*)\s*((?:[vV][ao]n\s+)?\p{Lu}[\p{L}'’-]+)(?:\s+et\s+al\.?)?\s+\((1[5-9]\d{2}|20\d{2})([a-z]?)/gu;
   while((m = re2.exec(text))){
     // « DIOP, Cheikh Anta (1954). Nations… » : ligne d’une liste de références, pas une citation
     const famAt = m.index + m[0].lastIndexOf(m[2], m[0].indexOf("("));
@@ -1222,4 +1241,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};

@@ -465,9 +465,10 @@ async function extract(file, f){
 }
 function decide(text){
   const sec = findBibSection(text);
-  if(sec && splitReferences(sec.section).length >= 2) return {mode:"biblio", body: sec.body, section: sec.section};
+  // une liste de références n’est retenue que si ses entrées ressemblent vraiment à des références
+  if(sec){ const r = splitReferences(sec.section); if(r.length >= 2 && partReferences(r) >= 0.6) return {mode:"biblio", body: sec.body, section: sec.section}; }
   const all = splitReferences(text);
-  if(all.length >= 4 && all.join(" ").length > text.length * 0.5) return {mode:"biblio", body:"", section:text};
+  if(all.length >= 4 && all.join(" ").length > text.length * 0.5 && partReferences(all) >= 0.6) return {mode:"biblio", body:"", section:text};
   if(findCitations(stripMarks(text)).length >= 4) return {mode:"texte", body:text, section:""};
   return {mode:"source", body:"", section:""};
 }
@@ -512,7 +513,7 @@ async function runFileCore(f){
   if(f.mode === "biblio" && !f.section){ const sec = findBibSection(f.text); f.section = sec ? sec.section : f.text; f.body = sec ? sec.body : ""; }
   if(f.mode === "texte"){ f.body = f.body || f.text; f.busy = false; const c = findCitations(stripMarks(f.body)).length; f.status = `${c} citation${c > 1 ? "s" : ""} repérée${c > 1 ? "s" : ""}, comparées avec ta bibliographie ci-contre`; save(); renderAll(); return; }
   if(f.mode === "biblio"){
-    const refs = splitReferences(f.section);
+    const refs = splitReferences(f.section).filter(estReference); // jamais un paragraphe rédigé
     if(!refs.length){ Object.assign(f, {busy:false, error:true, status:"Aucune référence reconnue. Essaie « Source à citer » ou colle tes références."}); renderAll(); return; }
     f.status = `${refs.length} référence${refs.length > 1 ? "s" : ""} trouvée${refs.length > 1 ? "s" : ""}, mise en forme…`; renderFiles();
     const list = await parseMany(refs, f);
@@ -796,35 +797,55 @@ async function construireBiblio(nom, sansCommande){
   await Promise.all([travail(), travail(), travail()]);
   think(false);
   if(horsLigne === todo.length){ post({role: "a", kind: "error", text: "Je n’arrive pas à joindre les bases en ligne. Vérifie ta connexion Internet, puis réessaie."}); return; }
-  post({role: "a", kind: "propositions", items});
+  /* La bibliographie générée contient TOUTES les sources citées : la meilleure œuvre trouvée est ajoutée
+     d’office (marquée « Œuvre à confirmer » s’il reste un doute, avec les autres possibilités à un geste), et
+     une citation introuvable en ligne donne quand même son entrée (auteur, année), marquée « à compléter ». */
+  for(const x of items){ if(x.choix.length) await ajouterChoix(x, x.verdict !== "sure"); else ajouterProvisoire(x); }
+  post({role: "a", kind: "propositions", items, auto: true});
 }
+async function ajouterChoix(x, doute){
+  const s = {...x.choix[x.pick], id: "s" + Math.random().toString(36).slice(2, 10), file: x.file};
+  if(s.type === "book"){ s.year = annee(x.cite); if(!s.city || !s.publisher) await completerEdition(s, s.year); }
+  ["_olKey", "_src", "_notoriete", "_score", "_oaId", "_lien"].forEach(k => delete s[k]);
+  if(doute) s.aConfirmer = true;
+  addSources([s]); x.etat = "ajoutee"; x.id = (state.sources.find(o => sameRef(o, s)) || s).id;
+}
+function ajouterProvisoire(x){
+  const s = blank(); s.type = "book"; s.authors = [{family: x.cite.family, given: ""}]; s.year = annee(x.cite); s.file = x.file;
+  s.origin = "Citation du texte"; s.aCompleter = true;
+  addSources([s]); x.etat = "ajoutee"; x.provisoire = true; x.id = (state.sources.find(o => o.id === s.id) || s).id;
+}
+function retirerSource(id){ const i = state.sources.findIndex(s => s.id === id); if(i >= 0) state.sources.splice(i, 1); }
 async function actionProposition(a){
   const m = (state.thread || []).find(x => x.id === a.m); if(!m) return;
-  const ajouter = async x => {
-    const s = {...x.choix[x.pick], id: "s" + Math.random().toString(36).slice(2, 10), file: x.file};
-    if(s.type === "book"){ s.year = annee(x.cite); if(!s.city || !s.publisher) await completerEdition(s, s.year); }
-    delete s._olKey; delete s._src; delete s._notoriete; delete s._score;
-    addSources([s]); x.etat = "ajoutee"; x.id = (state.sources.find(o => sameRef(o, s)) || s).id;
-  };
-  if(a.t === "prop-ok") await ajouter(m.items[a.i]);
-  else if(a.t === "prop-all"){ for(const x of m.items) if(x.etat === "attente" && x.verdict === "sure" && x.choix.length) await ajouter(x); }
-  else if(a.t === "prop-next"){ const x = m.items[a.i]; x.pick = (x.pick + 1) % x.choix.length; }
-  else if(a.t === "prop-no") m.items[a.i].etat = "ecartee";
-  else if(a.t === "prop-man"){ const x = m.items[a.i]; const s = blank(); s.authors = [{family: x.cite.family, given: ""}]; s.year = annee(x.cite); s.file = x.file; x.etat = "main"; openForm(s, "title"); }
+  const x = m.items[a.i];
+  if(a.t === "prop-ok") await ajouterChoix(x, false);
+  else if(a.t === "prop-all"){ for(const y of m.items) if(y.etat === "attente" && y.verdict === "sure" && y.choix.length) await ajouterChoix(y, false); }
+  else if(a.t === "prop-next"){ x.pick = (x.pick + 1) % x.choix.length; }
+  // l’œuvre ajoutée n’est pas la bonne : on la remplace par la suivante
+  else if(a.t === "prop-swap"){ retirerSource(x.id); x.pick = (x.pick + 1) % x.choix.length; await ajouterChoix(x, true); }
+  else if(a.t === "prop-keep"){ const s = state.sources.find(o => o.id === x.id); if(s) delete s.aConfirmer; x.verdict = "sure"; }
+  else if(a.t === "prop-del"){ retirerSource(x.id); x.etat = "ecartee"; }
+  else if(a.t === "prop-no") x.etat = "ecartee";
+  else if(a.t === "prop-man"){ const s = x.id && state.sources.find(o => o.id === x.id); if(s){ openForm(s, "title"); } else { const n = blank(); n.authors = [{family: x.cite.family, given: ""}]; n.year = annee(x.cite); n.file = x.file; x.etat = "main"; openForm(n, "title"); } }
   save(); renderAll(); renderThread(false);
 }
 function propCarte(m, x, i){
-  const s = x.choix[x.pick];
-  const tag = x.etat === "ajoutee" ? `<span class="tag ok">Ajoutée</span>` : x.etat === "ecartee" ? `<span class="tag">Écartée</span>` : x.etat === "main" ? `<span class="tag">Saisie à la main</span>`
-    : x.verdict === "sure" ? `<span class="tag ok">Trouvée</span>` : x.verdict === "choisir" ? `<span class="tag brass">À confirmer</span>` : `<span class="tag proof">Introuvable</span>`;
+  const ajoutee = x.etat === "ajoutee" && state.sources.find(o => o.id === x.id);
+  const s = ajoutee || x.choix[x.pick];
+  const tag = x.etat === "ecartee" ? `<span class="tag">Écartée</span>` : x.etat === "main" ? `<span class="tag">Saisie à la main</span>`
+    : x.provisoire ? `<span class="tag proof">À compléter</span>` : (ajoutee && !ajoutee.aConfirmer) || x.verdict === "sure" ? `<span class="tag ok">Trouvée</span>` : x.choix.length ? `<span class="tag brass">À confirmer</span>` : `<span class="tag proof">Introuvable</span>`;
   const act = (label, t, cls) => chip(label, {t, m: m.id, i}, cls);
+  let chips = "";
+  if(ajoutee) chips = x.provisoire ? `${act("Compléter", "prop-man", "pri")}${act("Retirer", "prop-del")}`
+    : `${ajoutee.aConfirmer ? act("C’est la bonne", "prop-keep", "pri") : ""}${x.choix.length > 1 ? act(`Autre œuvre (${x.pick + 1}/${x.choix.length})`, "prop-swap") : ""}${act("Corriger", "prop-man")}${act("Retirer", "prop-del")}`;
+  else if(x.etat === "attente") chips = s ? `${act("Ajouter", "prop-ok", "pri")}${x.choix.length > 1 ? act(`Autre œuvre (${x.pick + 1}/${x.choix.length})`, "prop-next") : ""}${act("Saisir à la main", "prop-man")}${act("Écarter", "prop-no")}` : `${act("Saisir à la main", "prop-man", "pri")}${act("Écarter", "prop-no")}`;
   return `<div class="prop ${x.etat}"><div class="pcite"><span>Citée${NB}: <b data-notr="1">${esc(x.cite.raw)}</b></span>${tag}</div>
     ${s && x.etat !== "ecartee" && x.etat !== "main" ? `<div class="ref">${bibFor(s)}</div>` : ""}
-    ${x.etat === "attente" ? (s ? `<div class="chips">${act("Ajouter", "prop-ok", "pri")}${x.choix.length > 1 ? act(`Autre œuvre (${x.pick + 1}/${x.choix.length})`, "prop-next") : ""}${act("Saisir à la main", "prop-man")}${act("Écarter", "prop-no")}</div>`
-      : `<p class="legend">Aucune œuvre de cet auteur pour cette année dans les bases ouvertes. C’est fréquent pour les ouvrages publiés en Afrique.</p><div class="chips">${act("Saisir à la main", "prop-man", "pri")}${act("Écarter", "prop-no")}</div>`) : ""}
+    ${x.provisoire ? `<p class="legend">Aucune œuvre de cet auteur pour cette année dans les bases ouvertes, fréquent pour les ouvrages publiés en Afrique : l’entrée est créée avec l’auteur et l’année, complète le titre et l’éditeur.</p>` : ""}
+    ${chips ? `<div class="chips">${chips}</div>` : ""}
   </div>`;
 }
-
 /* ================= PLAN ET LECTURES =================
    Un modèle de plan (moteur : MODELES_PLAN) que le chercheur réécrit avec ses propres intitulés, puis, pour
    chaque partie, des lectures trouvées dans OpenAlex et HAL. SCIENTUS ne rédige rien : il propose une
@@ -1130,6 +1151,7 @@ function openForm(src, focusField){
   dlg.onclose = () => {
     if(dlg.returnValue !== "save") return; collect();
     if(!s.title){ toast("Ajoute au moins un titre"); return; }
+    delete s.aConfirmer; delete s.aCompleter; // relue et enregistrée par le chercheur
     if(isNew){ if(!s.origin || s.origin === "Saisie manuelle" || isAuto(s)) s.origin = "Saisie manuelle"; addSources([s]) ? toast("Fiche ajoutée") : toast("Cette référence est déjà dans ta bibliographie"); }
     else { setTimeout(() => { if(state.catalogShare) shareVerified(true); }, 800); const i = state.sources.findIndex(x => x.id === s.id); if(isAuto(s)){ s._method = s._method || s.origin; s.origin = "Vérifiée"; s._validated = Date.now(); } state.sources[i] = s; save(); renderAll(); toast("Fiche enregistrée"); }
   };
@@ -1760,6 +1782,10 @@ function appBody(m){
       return `<p>${esc(m.file)} ne contient pas de liste de références : j’ai repéré ${plur(m.cites || 0, "citation", "citations")} dans le texte. Je génère ta bibliographie à partir d’elles : chaque œuvre citée est cherchée en ligne, puis rédigée selon ta norme.</p><div class="chips">${chip("Construire ma bibliographie", {t:"build", v:m.file}, "pri")}${chip("Voir le contrôle", {t:"side", v:"controle"})}</div>`;
     case "propositions": {
       const n = v => m.items.filter(x => x.verdict === v).length, sures = m.items.filter(x => x.etat === "attente" && x.verdict === "sure" && x.choix.length).length;
+      if(m.auto){ const prov = m.items.filter(x => x.provisoire).length, doute = m.items.filter(x => !x.provisoire && x.verdict !== "sure").length, ok = m.items.length - prov - doute;
+        return `<p>${plur(m.items.length, "œuvre citée manquait", "œuvres citées manquaient")} à ta liste : chacune a maintenant son entrée dans la bibliographie. <b>${ok}</b> retrouvée${ok > 1 ? "s" : ""} en ligne, <b>${doute}</b> à confirmer (la plus probable est ajoutée, tu peux en choisir une autre), <b>${prov}</b> introuvable${prov > 1 ? "s" : ""} en ligne (ajoutée${prov > 1 ? "s" : ""} avec l’auteur et l’année, à compléter).</p>
+          <div class="props">${m.items.map((x, i) => propCarte(m, x, i)).join("")}</div>
+          <div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${chip("Télécharger en Word", {t:"dl"})}</div>`; }
       return `<p>${plur(m.items.length, "œuvre citée cherchée", "œuvres citées cherchées")}${NB}: <b>${n("sure")}</b> trouvée${n("sure") > 1 ? "s" : ""}, <b>${n("choisir")}</b> à confirmer, ${n("rien")} introuvable${n("rien") > 1 ? "s" : ""}. Vérifie chaque proposition${NB}: rien n’est ajouté sans ton accord.</p>
         <div class="props">${m.items.map((x, i) => propCarte(m, x, i)).join("")}</div>
         ${sures ? `<div class="chips">${chip(sures > 1 ? `Ajouter les ${sures} références trouvées` : "Ajouter la référence trouvée", {t:"prop-all", m:m.id}, "pri")}</div>` : `<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}</div>`}`;
