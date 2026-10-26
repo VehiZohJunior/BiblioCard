@@ -175,7 +175,7 @@ const exact = {
 "Première citation":"First citation","Citations suivantes":"Later citations","Ibid.":"Ibid.","Vancouver (numérotée)":"Vancouver (numbered)","Notes de bas de page (usage français)":"Footnotes (French usage)","Notes":"Notes",
 "Forme à placer en note de bas de page. La première citation est complète ; ensuite, forme abrégée avec op. cit., ou Ibid. si la note précédente cite le même ouvrage.":"Form to place in a footnote. The first citation is in full; after that, a short form with op. cit., or Ibid. if the previous note cites the same work.",
 "Le numéro suit l’ordre de première citation dans ton texte. Indique la page pour une citation directe.":"The number follows the order of first citation in your text. Give the page for a direct quotation.",
-"Qu’est-ce qu’on cite aujourd’hui ?":"What are we citing today?",
+"Qu’est-ce qu’on cite aujourd’hui ?":"What are we citing today?","Découvrir BiblioCard":"About BiblioCard",
 "Mémoires · thèses · articles · rapports":"Dissertations · theses · articles · reports","Ta bibliographie, tirée de ton texte":"Your bibliography, drawn from your text",
 "Dépose ton document : BiblioCard retrouve chaque œuvre que tu cites et la met en forme selon ta norme.":"Drop your document: BiblioCard finds every work you cite and formats it in your chosen style.",
 "Dépose ton mémoire ici":"Drop your dissertation here","Word, PDF ou texte. Ou touche pour choisir un fichier.":"Word, PDF or text. Or tap to choose a file.","Ton document reste sur ton appareil":"Your document stays on your device",

@@ -672,3 +672,116 @@ header.topbar{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-f
 :root[data-theme="dark"] :is(.prev li,.entry .ref,.prop .ref,.lects .ref){font-weight:350}
 .todo .go{width:auto;height:auto;border-radius:0;background:none;color:inherit;display:inline;transform:none}
 .ring svg circle:last-child{stroke-linecap:round}
+
+/* ===== page d’accueil publique (accueil.html) ===== */
+body.vitrine{background:var(--bg);font-size:16px;line-height:1.6}
+.vitrine::before{display:none}
+.vitrine a{color:inherit}
+.vin{max-width:1120px;margin:0 auto;padding:0 20px}
+.vnarrow{max-width:760px}
+.vsr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.vhead{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.2) blur(10px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+.vhead .vin{display:flex;align-items:center;gap:18px;height:64px}
+.vlogo{display:inline-flex;align-items:center;gap:9px;text-decoration:none}
+.vlogo img{border-radius:9px}
+.wordmark{font-family:var(--serif);font-weight:600;font-size:21px;letter-spacing:-.02em;color:var(--ink)}
+.vnav{display:none;gap:4px;margin-left:auto}
+.vnav a{text-decoration:none;color:var(--muted);font-size:14.5px;font-weight:500;padding:8px 12px;border-radius:var(--r-sm)}
+.vnav a:hover{color:var(--ink);background:var(--sunk)}
+.vhead .vbtn{margin-left:auto}
+@media (min-width:860px){ .vnav{display:flex} .vhead .vbtn{margin-left:8px} }
+.vbtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;font-weight:600;font-size:15.5px;padding:13px 22px;border-radius:var(--r-md);border:1px solid transparent;transition:filter var(--dur) var(--ease),transform var(--dur) var(--ease),background var(--dur) var(--ease)}
+.vbtn:hover{transform:translateY(-1px)}
+.vitrine .vbtn.or{background:var(--or);color:var(--on-or)}
+.vbtn.or:hover{filter:brightness(1.05)}
+.vitrine .vbtn.ghost{border-color:rgba(250,247,240,.35);color:#FAF7F0}
+.vbtn.ghost:hover{background:rgba(250,247,240,.08)}
+.vbtn.small{padding:9px 14px;font-size:14px}
+.veyebrow{margin:0 0 12px;font-size:12.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}
+
+/* héros : encre vers indigo, la bibliothèque au crépuscule */
+.vhero{position:relative;overflow:hidden;background:var(--hero);color:#FAF7F0;padding:56px 0 64px}
+.vhero::after{content:"";position:absolute;inset:auto -10% -40% auto;width:60%;aspect-ratio:1;border-radius:50%;background:radial-gradient(closest-side,rgba(212,162,76,.22),transparent);pointer-events:none}
+.vhero-in{position:relative;z-index:1;display:grid;gap:40px;align-items:center}
+@media (min-width:960px){ .vhero{padding:88px 0 96px} .vhero-in{grid-template-columns:1.1fr .9fr;gap:56px} }
+.vhero .veyebrow{color:#E2B865}
+.vhero h1{font-family:var(--serif);font-weight:500;font-size:clamp(36px,6.2vw,62px);line-height:1.04;letter-spacing:-.03em;margin:0 0 18px;text-wrap:balance}
+.vlead{font-size:clamp(16px,2vw,18.5px);line-height:1.6;color:#D9DEEA;max-width:52ch;margin:0 0 28px}
+.vlead b{color:#FAF7F0;font-weight:600}
+.vcta{display:flex;flex-wrap:wrap;gap:12px}
+.vassur{list-style:none;margin:22px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px;color:#C9D0E0}
+.vassur li{display:inline-flex;align-items:center;gap:7px}
+.vassur svg{color:#E2B865}
+.vpaper{margin:0;background:#FFFDF8;color:#1E2A4A;border-radius:var(--r-sm);padding:26px 24px 18px;box-shadow:0 30px 60px -24px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.15);transform:rotate(-1.2deg)}
+.vpaper-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.vpaper-t{font-family:var(--serif);font-weight:600;font-size:18px}
+.vtag{font-size:11.5px;font-weight:600;color:#8A6418;background:#F6ECD6;border-radius:99px;padding:3px 9px}
+.vpaper ol{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.vpaper li{display:grid;gap:5px}
+.vref{font-family:var(--serif);font-size:14.5px;line-height:1.55;padding-left:1.5em;text-indent:-1.5em}
+.vb{justify-self:start;margin-left:1.5em;font-size:11.5px;font-weight:500;border-radius:99px;padding:2px 9px}
+.vb.ok{background:#E7EFE7;color:#3C5C40}
+.vb.or{background:#F6ECD6;color:#7A5714}
+.vpaper figcaption{margin-top:14px;padding-top:10px;border-top:1px solid #EDE6D6;font-size:12.5px;color:#5B6474}
+
+/* bandeau des normes */
+.vnormes{border-bottom:1px solid var(--line);background:var(--surface)}
+.vnl{list-style:none;margin:0;padding:18px 0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px 28px;font-family:var(--serif);font-size:17px;font-weight:500;color:var(--ink)}
+.vnl .bientot{color:var(--muted)}
+.vnl small{font-family:var(--ui);font-size:11.5px;margin-left:4px}
+
+/* sections */
+.vsec{padding:72px 0}
+.vsec-alt{background:var(--surface);border-block:1px solid var(--line)}
+.vsec h2,.vfinal h2{font-family:var(--serif);font-weight:500;font-size:clamp(28px,4.4vw,42px);line-height:1.12;letter-spacing:-.025em;margin:0 0 14px;max-width:22ch;text-wrap:balance}
+.vintro{color:var(--muted);font-size:17px;max-width:60ch;margin:0 0 36px}
+.vsec h2 + .vgrid2,.vsec h2 + .vsteps,.vsec h2 + .vgrid4,.vsec h2 + .vlogos{margin-top:36px}
+.vgrid3,.vgrid2,.vgrid4,.vprix{display:grid;gap:16px}
+@media (min-width:720px){ .vgrid3{grid-template-columns:repeat(3,1fr)} .vgrid2{grid-template-columns:repeat(2,1fr)} .vgrid4{grid-template-columns:repeat(2,1fr)} }
+@media (min-width:1000px){ .vgrid2{grid-template-columns:repeat(3,1fr)} .vgrid4{grid-template-columns:repeat(4,1fr)} .vprix{grid-template-columns:repeat(3,1fr)} }
+.vcard,.vfeat,.vqui,.vplan{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;box-shadow:var(--shadow-sm);transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.vsec-alt .vcard,.vsec-alt .vfeat,.vsec-alt .vqui,.vsec-alt .vplan{background:var(--bg)}
+.vcard:hover,.vfeat:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.vcard h3,.vfeat h3,.vqui h3,.vplan h3,.vsteps h3{font-family:var(--serif);font-weight:600;font-size:20px;letter-spacing:-.01em;margin:0 0 8px}
+.vcard p,.vfeat p,.vqui p,.vsteps p{margin:0;color:var(--muted);font-size:15px}
+.vic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--brass-soft);color:var(--brass);margin-bottom:16px}
+.vfeat{border-top:3px solid var(--or)}
+.vnote{margin:28px 0 0;color:var(--muted);font-size:15px;max-width:70ch}
+.vnote a{color:var(--brass);font-weight:600}
+.vsteps{list-style:none;padding:0;margin:36px 0 0;display:grid;gap:16px}
+@media (min-width:720px){ .vsteps{grid-template-columns:repeat(3,1fr);gap:28px} }
+.vsteps li{position:relative;padding-top:4px}
+.vnum{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--encre);color:var(--ivoire);font-family:var(--serif);font-weight:600;font-size:19px;margin-bottom:14px}
+.vengage{list-style:none;margin:28px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:10px}
+.vengage li{font-size:14px;color:var(--ok);background:var(--ok-soft);border-radius:99px;padding:6px 14px}
+.vlogos{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media (min-width:720px){ .vlogos{grid-template-columns:repeat(4,1fr)} }
+.vslot{border:1.5px dashed var(--line-strong);border-radius:var(--r-lg);min-height:86px;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:13.5px;padding:16px}
+.vtemoins{display:grid;gap:12px;margin-top:12px}
+@media (min-width:720px){ .vtemoins{grid-template-columns:1fr 1fr} }
+.vtem p{margin:0;font-family:var(--serif);font-style:italic;font-size:16.5px;color:var(--muted)}
+.vtem a{color:var(--brass);font-weight:600}
+.vplan{display:flex;flex-direction:column;position:relative}
+.vplan.best{border:2px solid var(--or)}
+.vbest{position:absolute;top:-12px;left:20px;background:var(--or);color:var(--on-or);font-size:12px;font-weight:600;border-radius:99px;padding:3px 10px}
+.vmontant{margin:4px 0 14px;color:var(--muted);font-size:14.5px}
+.vmontant b{font-family:var(--serif);font-weight:600;font-size:34px;color:var(--ink);letter-spacing:-.02em}
+.vplan ul{margin:0;padding:0 0 0 18px;font-size:14.5px;display:grid;gap:4px}
+.vfaq{border-bottom:1px solid var(--line);padding:18px 0}
+.vfaq summary{cursor:pointer;font-family:var(--serif);font-weight:500;font-size:19px;list-style:none;display:flex;justify-content:space-between;gap:16px}
+.vfaq summary::-webkit-details-marker{display:none}
+.vfaq summary::after{content:"+";font-family:var(--ui);color:var(--brass);font-size:22px;line-height:1;transition:transform var(--dur) var(--ease)}
+.vfaq[open] summary::after{transform:rotate(45deg)}
+.vfaq p{margin:10px 0 0;color:var(--muted)}
+.vfaq a{color:var(--brass);font-weight:600}
+.vfinal{background:var(--hero);color:#FAF7F0;text-align:center;padding:80px 0}
+.vfinal h2{margin:0 auto 12px}
+.vfinal p{color:#D9DEEA;margin:0 0 28px;font-size:17px}
+.vfoot{padding:36px 0 calc(36px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
+.vfoot .vin{display:flex;flex-wrap:wrap;gap:16px 32px;justify-content:space-between;align-items:center}
+.vfoot p{margin:4px 0 0;font-size:13.5px;color:var(--muted)}
+.vfoot nav{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px}
+.vfoot nav a{color:var(--muted);text-decoration:none}
+.vfoot nav a:hover{color:var(--ink);text-decoration:underline}
+@media (max-width:520px){ .vsec{padding:56px 0} .vhero{padding:40px 0 52px} .vcta .vbtn{flex:1 1 100%} .vpaper{transform:none;padding:20px 18px 14px} }
+.vitrine main{max-width:none;margin:0;padding:0;display:block}
