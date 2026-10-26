@@ -1377,7 +1377,7 @@ const sync = { session: null, busy: false,
 };
 function renderSync(){
   const box = $("#syncBox"); if(!box) return;
-  $("#syncBlk").hidden = !!dbH;
+  $("#syncBlk").hidden = !!dbH || (window.BIBLIOCARD_CONFIG || {}).serveur === false; // autonome : la copie de secours remplace la synchronisation
   if(compte.payant && !sync.session){ box.innerHTML = `<p class="legend">Retrouve ta bibliothèque sur ton téléphone et ton ordinateur : connecte-toi avec le même compte Google sur chaque appareil.</p><button class="btn gbtn" id="syncG">${G_ICON}Continuer avec Google</button>`; $("#syncG").onclick = () => compte.connecter(); return; }
   if(!sync.on){ box.innerHTML = `<p class="legend">Sur ton propre site, la synchronisation utilise la même base gratuite que le catalogue partagé. Connecte d’abord le catalogue (Références et catalogue), puis reviens ici.</p>`; return; }
   if(sync.session){ box.innerHTML = `<p class="legend">Connecté avec <b data-notr="1">${esc(sync.session.email || "")}</b>. Ta bibliothèque se synchronise à chaque modification.</p><div class="row"><button class="btn small" id="syncNow">Synchroniser maintenant</button><button class="btn small" id="syncOut">Se déconnecter</button></div>`;
@@ -1401,6 +1401,8 @@ const compte = { acces: null,
   init(){
     // après la lecture des réglages enregistrés : le serveur officiel l’emporte sur une ancienne configuration
     if(CFG.supabaseUrl && CFG.supabaseKey){ state.catalogCfg = {url: CFG.supabaseUrl, key: CFG.supabaseKey}; catalog.init(); }
+    // application autonome : on oublie un serveur enregistré par une version précédente (rien ne part en ligne)
+    else if(CFG.serveur === false && state.catalogCfg && state.catalogCfg.url){ state.catalogCfg = {url: "", key: ""}; save(); }
     try{ this.acces = sync.session ? JSON.parse(localStorage.getItem(LSA) || "null") : null; }catch(e){ this.acces = null; }
     const retour = new URLSearchParams(location.search).get("paiement");
     if(retour){ try{ history.replaceState(null, "", location.pathname + location.hash); }catch(e){} }
@@ -1565,6 +1567,10 @@ const catalog = { owner: false, kind: null, db: null, uid: null, recent: [], sta
 function renderCatalog(){
   const box = $("#catBox"); if(!box) return;
   const mine = state.sources.filter(shareable);
+  if(!catalog.kind && (window.BIBLIOCARD_CONFIG || {}).serveur === false){
+    box.innerHTML = `<p class="note">Le catalogue partagé ouvrira avec les comptes BiblioCard. En attendant, tes références restent dans ta bibliothèque, sur ton appareil.</p>`;
+    return;
+  }
   if(!catalog.kind){
     box.innerHTML = `<p class="note">Sur ton propre site, le catalogue s’appuie sur une base gratuite que tu crées une fois (Supabase, offre gratuite). Le mode d’emploi est dans le fichier LISEZ-MOI. Renseigne ensuite ici son adresse et sa clé publique.</p>
       <div class="dbody" style="padding:4px 0"><label class="f full"><span>Adresse du catalogue</span><input id="catUrl" placeholder="https://xxxx.supabase.co" value="${esc(state.catalogCfg.url)}"></label><label class="f full"><span>Clé publique (anon)</span><input id="catKey" value="${esc(state.catalogCfg.key)}"></label></div>

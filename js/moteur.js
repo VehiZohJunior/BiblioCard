@@ -979,9 +979,13 @@ function classerLectures(mots, cands){
 // plan d’un document déposé : titres des styles Word si disponibles, sinon titres numérotés ou de parties
 function planDepuisTexte(text, headings){
   const lignes = (headings && headings.length ? headings : String(text || "").split(/\n/)).map(l => stripMarks(l).replace(/\s+/g, " ").trim()).filter(Boolean);
-  const items = [];
+  const items = [], vus = new Set();
   for(const l of lignes){
     if(l.length > 110 || /[.;!?,]$/.test(l)) continue;
+    // adresses et coordonnées de la page de titre (« 03 BP 7021 Ouagadougou 03 », téléphone, e-mail)
+    if(/\b(?:B\.?P\.?|tél|tel|fax|cedex)\b|@|https?:\/\/|^0\d/i.test(l)) continue;
+    // le sommaire et le corps répètent les mêmes titres : une seule fois chacun
+    const cle = norm(l); if(vus.has(cle)) continue;
     const num = l.match(NUM_HEAD);
     let n = 0;
     if(/^(?:premi[eè]re|deuxi[eè]me|troisi[eè]me|quatri[eè]me|cinqui[eè]me)\s+partie|^partie\s+[\divx]+/i.test(l)) n = 1;
@@ -989,11 +993,11 @@ function planDepuisTexte(text, headings){
     else if(/^(introduction|conclusion)(\s+g[ée]n[ée]rale)?\s*:?$/i.test(l) || RE_PARTIE_REF.test(l)) n = 1;
     else if(num && num[1].split(".").every(x => +x >= 1 && +x <= 20) && /^\p{Lu}/u.test(num[2]) && l.split(" ").length <= 14) n = Math.min(3, num[1].split(".").length);
     else if(headings && headings.length) n = 2;
-    if(n) items.push({n, t: l, r: ""});
+    if(n){ vus.add(cle); items.push({n, t: l, r: ""}); }
   }
   return items;
 }
-const RE_PARTIE_REF = /^(?:r[ée]f[ée]rences bibliographiques|bibliographie|annexes?)\s*:?$/i;
+const RE_PARTIE_REF = /^(?:r[ée]f[ée]rences bibliographiques|bibliographie|annexes?|bibliography|references|works cited|appendix|appendices)\s*:?$/i;
 // fiche HAL (archive ouverte, très riche en travaux francophones)
 const HAL_TYPES = {ART: "article", OUV: "book", COUV: "chapter", THESE: "thesis", HDR: "thesis", MEM: "thesis", REPORT: "report", COMM: "chapter", DOUV: "book"};
 function fromHal(d){

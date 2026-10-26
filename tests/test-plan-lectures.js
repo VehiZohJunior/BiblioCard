@@ -21,6 +21,9 @@ egal(L.map(s => s.authors[0].family).join(","), "B,D", "faux titres, doublons et
 // 3. Plan d’un document déposé et fiche HAL
 egal(E.planDepuisTexte("Introduction\nTexte du paragraphe qui se termine par un point.\n1. Le corpus étudié\n1.1. Les journaux retenus\nConclusion\nRéférences bibliographiques").map(x => x.n + ":" + x.t).join(" | "),
   "1:Introduction | 1:1. Le corpus étudié | 2:1.1. Les journaux retenus | 1:Conclusion | 1:Références bibliographiques", "plan repris du texte");
+// page de titre et sommaire d’un vrai mémoire PDF (Ouagadougou) : adresse écartée, titres répétés gardés une fois
+egal(E.planDepuisTexte("03 BP 7021 Ouagadougou 03\nIntroduction\n1. Cadre théorique\nINTRODUCTION\nTexte du chapitre qui finit par un point.\n1. Cadre théorique\nCONCLUSION").map(x => x.t).join(" | "),
+  "Introduction | 1. Cadre théorique | CONCLUSION", "adresse et doublons du sommaire");
 const these = E.fromHal({docType_s: "THESE", title_s: ["La titrologie ivoirienne"], authFullName_s: ["Koffi Kouassi"], producedDateY_i: 2018, authorityInstitution_s: ["Université Félix Houphouët-Boigny"], uri_s: "https://theses.hal.science/tel-1"});
 egal(`${these.type} | ${these.genre} | ${these.publisher}`, "thesis | Thèse de doctorat | Université Félix Houphouët-Boigny", "thèse HAL");
 
