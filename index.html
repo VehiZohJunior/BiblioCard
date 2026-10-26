@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BiblioCard</title>
 <meta name="description" content="Ta bibliographie, tirée de tes documents, et Lian’Z pour rédiger en parlant : NORCAMES, APA, ISO 690, Chicago, MLA, Vancouver, notes ; contrôle, vérification d’existence, similitudes, relecture par l’encadreur.">
-<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0E2131" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FAF7F0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12161F" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
@@ -33,9 +33,22 @@
 <div id="viewBiblio">
   <div class="thread" id="thread" aria-live="polite"></div>
   <section class="welcome" id="welcome" aria-labelledby="h1">
-    <div class="mark brandmark"><img src="icon-192.png" width="64" height="64" alt=""><span class="wordmark" data-notr="1">BiblioCard</span></div>
-    <h1 id="h1">Qu’est-ce qu’on cite aujourd’hui ?</h1>
-    <p class="hello">Touche <b>+</b> pour déposer un Word ou un PDF, ou colle une référence en bas.</p>
+    <div class="brandmark"><img src="icon-192.png" width="40" height="40" alt=""><span class="wordmark" data-notr="1">Biblio<span>Card</span></span></div>
+    <p class="eyebrow">Mémoires · thèses · articles · rapports</p>
+    <h1 id="h1">Ta bibliographie, tirée de ton texte</h1>
+    <p class="hello">Dépose ton document : BiblioCard retrouve chaque œuvre que tu cites et la met en forme selon ta norme.</p>
+    <button class="dropzone" id="dropZone" type="button" aria-describedby="dzSub">
+      <span class="dz-ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 12v6"/><path d="m15 15-3-3-3 3"/></svg></span>
+      <b class="dz-t">Dépose ton mémoire ici</b>
+      <span class="dz-sub" id="dzSub">Word, PDF ou texte. Ou touche pour choisir un fichier.</span>
+      <span class="dz-safe"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Ton document reste sur ton appareil</span>
+    </button>
+    <div class="normpick" role="group" aria-labelledby="normPickL"><span class="np-l" id="normPickL">Norme</span><div class="np" id="normPick"></div></div>
+    <ol class="parcours" aria-label="En trois étapes">
+      <li><span class="pnum">1</span><span>Dépose ton document</span></li>
+      <li><span class="pnum">2</span><span>Valide les références trouvées</span></li>
+      <li><span class="pnum">3</span><span>Télécharge ta bibliographie</span></li>
+    </ol>
     <p class="demo" id="demoLine"><button class="link" id="demoBtn">Essayer avec un mémoire d’exemple</button></p>
     <p class="acctline" id="acctLine" hidden></p>
   </section>

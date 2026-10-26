@@ -1,30 +1,50 @@
 /* BiblioCard : styles — généré depuis la version autonome, ne pas modifier à la main sans relancer les tests */
 
-/* Palette « Pétrole et or », mesurée sur le logo : bleu pétrole #0E3B5E → #0A97AC, or #CCA62E,
-   turquoise #20C6CA, bleu nuit #09233A. --brass reste le nom de l’accent (or) dans tout le code. */
+/* ===== Système de design « Bibliothèque au crépuscule » (validé le 2026-10-26) =====
+   Encre #1E2A4A, or ambré #D4A24C, ivoire papier #FAF7F0, terracotta #C8643B, sauge #7A9E7E, ardoise #5B6474.
+   Contrastes WCAG AA mesurés : l’or, la sauge et la terracotta servent de fonds et de traits ; pour du texte,
+   on prend leur version foncée (--brass, --ok, --proof). Les anciens noms (--brass, --proof, --ok…) sont gardés :
+   ils pointent maintenant vers la nouvelle palette, donc tout l’écran suit sans toucher au code. */
 :root{
-  --bg:#EEF2F5; --surface:#FFFFFF; --sunk:#F3F6F8; --ink:#0B2438; --muted:#4D6273; --line:#D3DDE4;
-  --brass:#7A5F0F; --brass-soft:#F6ECCB; --proof:#B3261E; --proof-soft:#FBE3E1; --ok:#0E6E6A; --ok-soft:#DCF0EE;
-  --petrole:#0E3B5E; --or:#CCA62E; --on-or:#0B2438; --turquoise:#0A7F91;
-  --page:#FFFFFF; --shadow:0 1px 0 rgba(11,36,56,.06), 0 8px 24px -12px rgba(11,36,56,.28);
-  --ui:"Instrument Sans","Segoe UI",system-ui,-apple-system,sans-serif;
-  --serif:"Literata",Georgia,"Times New Roman",serif;
+  /* couleurs de marque */
+  --encre:#1E2A4A; --indigo:#2E3A78; --or:#D4A24C; --on-or:#1E2A4A; --ivoire:#FAF7F0; --terra:#C8643B; --sauge:#7A9E7E; --ardoise:#5B6474;
+  /* rôles */
+  --bg:#FAF7F0; --surface:#FFFFFF; --sunk:#F3EEE3; --ink:#1E2A4A; --muted:#5B6474; --line:#E6DFD0; --line-strong:#D3C9B4;
+  --brass:#8A6418; --brass-soft:#F6ECD6; --proof:#A24A26; --proof-soft:#F8E7DE; --ok:#4A6E4F; --ok-soft:#E7EFE7;
+  --petrole:#1E2A4A; --turquoise:#2E3A78; --data:#2E3A78;
+  --page:#FFFFFF; --hero:linear-gradient(135deg,#1E2A4A 0%,#2E3A78 100%);
+  /* ombres teintées d’encre */
+  --shadow-sm:0 1px 2px rgba(30,42,74,.06); --shadow:0 1px 2px rgba(30,42,74,.06), 0 8px 24px -10px rgba(30,42,74,.18);
+  --shadow-lg:0 2px 4px rgba(30,42,74,.05), 0 24px 48px -16px rgba(30,42,74,.25);
+  /* typographie */
+  --ui:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  --serif:"Fraunces",Georgia,"Times New Roman",serif;
+  /* espacements, rayons, mouvement */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:24px;
+  --dur:180ms; --dur-lent:260ms; --ease:cubic-bezier(.2,.7,.2,1);
   color-scheme:light; box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#071521; --surface:#0E2131; --sunk:#0A1B29; --ink:#E5EDF3; --muted:#9BB0C0; --line:#1E3548;
-    --brass:#E2C25B; --brass-soft:#3A3216; --proof:#F2867F; --proof-soft:#3D1F1D; --ok:#5ED3C6; --ok-soft:#10302E;
-    --petrole:#123F63; --or:#D9B444; --on-or:#0B2438; --turquoise:#3FD0D3;
-    --page:#132A3C; --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7); color-scheme:dark;
+    --or:#E2B865; --on-or:#12161F; --terra:#E08A63; --sauge:#9DC3A1;
+    --bg:#12161F; --surface:#1A2030; --sunk:#151A26; --ink:#ECE6DA; --muted:#A4ACBA; --line:#2A3245; --line-strong:#3A4459;
+    --brass:#E2B865; --brass-soft:#3A2F17; --proof:#E08A63; --proof-soft:#3A231A; --ok:#9DC3A1; --ok-soft:#22352A;
+    --petrole:#ECE6DA; --turquoise:#B9C3F0; --data:#B9C3F0;
+    --page:#1D2436; --hero:linear-gradient(135deg,#1A2030 0%,#232C52 100%);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7); --shadow-lg:0 24px 60px -20px rgba(0,0,0,.8);
+    color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#071521; --surface:#0E2131; --sunk:#0A1B29; --ink:#E5EDF3; --muted:#9BB0C0; --line:#1E3548;
-  --brass:#E2C25B; --brass-soft:#3A3216; --proof:#F2867F; --proof-soft:#3D1F1D; --ok:#5ED3C6; --ok-soft:#10302E;
-  --petrole:#123F63; --or:#D9B444; --on-or:#0B2438; --turquoise:#3FD0D3;
-  --page:#132A3C; --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7); color-scheme:dark;
+  --or:#E2B865; --on-or:#12161F; --terra:#E08A63; --sauge:#9DC3A1;
+  --bg:#12161F; --surface:#1A2030; --sunk:#151A26; --ink:#ECE6DA; --muted:#A4ACBA; --line:#2A3245; --line-strong:#3A4459;
+  --brass:#E2B865; --brass-soft:#3A2F17; --proof:#E08A63; --proof-soft:#3A231A; --ok:#9DC3A1; --ok-soft:#22352A;
+  --petrole:#ECE6DA; --turquoise:#B9C3F0; --data:#B9C3F0;
+  --page:#1D2436; --hero:linear-gradient(135deg,#1A2030 0%,#232C52 100%);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.7); --shadow-lg:0 24px 60px -20px rgba(0,0,0,.8);
+  color-scheme:dark;
 }
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
 *,*::before,*::after{box-sizing:border-box}
@@ -496,10 +516,7 @@ body:not(.talk) .welcome{display:flex}
   .stabs button{padding:10px 5px 12px;font-size:13px}
   .stabs .badge{margin-left:2px}
 }
-/* données en bleu pétrole (l’or reste réservé aux appels à l’action et aux accents) */
-:root{--data:#0E3B5E}
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --data:#3FD0D3 } }
-:root[data-theme="dark"]{ --data:#3FD0D3 }
+/* données en indigo (l’or reste réservé aux appels à l’action et aux accents) : --data, défini en tête */
 .bars .t i{background:var(--data)}
 .dlogo{border-radius:7px;flex:none;margin-right:8px}
 #dashBack:not([hidden]) ~ .dlogo{display:none}
@@ -577,3 +594,81 @@ body[data-view="plan"] #toast{bottom:calc(24px + env(safe-area-inset-bottom,0px)
 .lects .lmeta .chip{padding:5px 11px;font-size:12.5px;margin-left:auto}
 .planactions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 @media (max-width:520px){ .ppart .ph2{flex-wrap:wrap} .ppart .pt2{flex-basis:100%} .ppart .pbt{margin-left:auto} .ppart.n2{margin-left:10px} .ppart.n3{margin-left:20px} .ppart .pbt button{width:28px} .lects .lmeta .chip{margin-left:0} }
+
+/* ===== v13 : refonte « Bibliothèque au crépuscule », écran principal ===== */
+body{font-size:15px;letter-spacing:-.003em}
+h1,h2,h3,.sheet h3,.dtop h2{font-feature-settings:"ss01"}
+::selection{background:var(--brass-soft);color:var(--ink)}
+:focus-visible{outline:2px solid var(--or);outline-offset:3px}
+header.topbar{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:saturate(1.2) blur(8px)}
+.tbtitle{font-family:var(--serif);font-weight:600;font-size:16px}
+
+/* accueil */
+.welcome{min-height:calc(100dvh - 230px);justify-content:center;padding:clamp(8px,4vh,40px) 4px 24px;animation:monte var(--dur-lent) var(--ease) both}
+@keyframes monte{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.welcome .brandmark{flex-direction:row;gap:10px;margin:0 0 22px}
+.welcome .brandmark img{width:40px;height:40px;border-radius:11px;box-shadow:var(--shadow)}
+.welcome .brandmark .wordmark{font-family:var(--serif);font-weight:600;font-size:25px;letter-spacing:-.02em;color:var(--ink)}
+.wordmark span{color:var(--brass)}
+.eyebrow{margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}
+.welcome h1{font-family:var(--serif);font-weight:500;font-size:clamp(31px,7.4vw,50px);line-height:1.08;letter-spacing:-.025em;max-width:15ch;margin:0 0 14px;text-wrap:balance}
+.welcome .hello{font-size:16px;line-height:1.55;max-width:44ch;margin:0 0 26px;color:var(--muted);text-wrap:pretty}
+.dropzone{width:100%;max-width:560px;display:grid;justify-items:center;gap:6px;padding:30px 20px 22px;border:1.5px dashed color-mix(in srgb,var(--or) 75%,var(--line));border-radius:var(--r-xl);background:var(--surface);color:var(--ink);box-shadow:var(--shadow);transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.dropzone:hover{transform:translateY(-2px);border-color:var(--or);box-shadow:var(--shadow-lg)}
+.dropzone:active{transform:translateY(0)}
+.dz-ic{width:60px;height:60px;border-radius:18px;display:grid;place-items:center;background:var(--brass-soft);color:var(--brass);margin-bottom:6px;transition:transform var(--dur) var(--ease)}
+.dropzone:hover .dz-ic{transform:translateY(-2px)}
+.dz-t{font-family:var(--serif);font-weight:600;font-size:20px;letter-spacing:-.01em}
+.dz-sub{font-size:14px;color:var(--muted)}
+.dz-safe{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;font-weight:500;color:var(--ok);background:var(--ok-soft);border-radius:99px;padding:4px 10px}
+.normpick{display:flex;flex-direction:column;align-items:center;gap:8px;margin:22px 0 0;max-width:560px}
+.np-l{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.np{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.npb{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:7px 13px;font-size:13.5px;font-weight:500;line-height:1.2;transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease),color var(--dur) var(--ease)}
+.npb:hover{border-color:var(--line-strong)}
+.npb[aria-pressed="true"]{background:var(--encre);border-color:var(--encre);color:var(--ivoire)}
+.npb.bientot{border-style:dashed;color:var(--muted);background:transparent;cursor:default}
+.npb.bientot small{font-size:11px;margin-left:5px}
+.parcours{list-style:none;margin:22px 0 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px 18px;font-size:13.5px;color:var(--muted)}
+.parcours li{display:inline-flex;align-items:center;gap:8px}
+.pnum{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line-strong);font-family:var(--serif);font-weight:600;font-size:12px;color:var(--ink)}
+.welcome .demo{margin:18px 0 0}
+.link{color:var(--brass)}
+@media (max-width:520px){ .welcome{justify-content:flex-start;padding-top:12px} .parcours{flex-direction:column;align-items:flex-start;gap:8px} .dropzone{padding:26px 16px 18px} }
+
+/* boutons : l’or pour l’action principale, l’encre pour le reste */
+.btn{border-radius:var(--r-md);transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease),filter var(--dur) var(--ease)}
+.btn.primary,.chip.pri{background:var(--or);color:var(--on-or);border-color:var(--or);font-weight:600}
+.btn.primary:hover,.chip.pri:hover{background:var(--or);opacity:1;filter:brightness(1.05)}
+.chip{transition:background var(--dur) var(--ease)}
+.go{background:var(--encre);color:var(--ivoire);transition:background var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.go:active{transform:scale(.96)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .go, :root:not([data-theme="light"]) .npb[aria-pressed="true"]{background:var(--or);border-color:var(--or);color:var(--on-or)} }
+:root[data-theme="dark"] .go, :root[data-theme="dark"] .npb[aria-pressed="true"]{background:var(--or);border-color:var(--or);color:var(--on-or)}
+
+/* barre de saisie */
+.composer{background:linear-gradient(to top,var(--bg) 72%,transparent)}
+.cbox{border-radius:var(--r-xl);border-color:var(--line);box-shadow:var(--shadow-lg)}
+.cbox:focus-within{border-color:var(--line-strong)}
+.pill{font-family:var(--ui)}
+
+/* conversation, propositions, bibliographie */
+.msg.a .atext{font-size:15.5px}
+.msg.u .bubble{background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm)}
+.prev{border-radius:var(--r-lg);box-shadow:var(--shadow-sm)}
+.prop{border-radius:var(--r-lg);padding:12px 14px;box-shadow:var(--shadow-sm);transition:border-color var(--dur) var(--ease)}
+.prop .ref,.prev li,.entry .ref{font-family:var(--serif)}
+.tag{font-weight:500;padding:2px 8px}
+.sheet{border-radius:var(--r-sm);box-shadow:var(--shadow-lg)}
+.synth,.panel2,.report,.file{border-radius:var(--r-lg)}
+.todo{border-radius:var(--r-lg)}
+.side{background:var(--bg)}
+.acctline .gbtn.or{background:transparent;color:var(--ink);border:1px solid var(--line-strong);font-weight:600}
+.acctline .gbtn.or:hover{background:var(--sunk);filter:none}
+@media (max-width:520px){ .welcome h1{font-size:31px;margin-bottom:10px} .welcome .hello{font-size:15px;margin-bottom:18px} .welcome .brandmark{margin-bottom:16px} .normpick,.parcours{margin-top:18px} }
+/* références : Fraunces s’épaissit aux petites tailles ; un peu plus légère, surtout en clair sur sombre */
+.prev li,.entry .ref,.prop .ref,.lects .ref,.card h5{font-weight:400}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) :is(.prev li,.entry .ref,.prop .ref,.lects .ref){font-weight:350} }
+:root[data-theme="dark"] :is(.prev li,.entry .ref,.prop .ref,.lects .ref){font-weight:350}
+.todo .go{width:auto;height:auto;border-radius:0;background:none;color:inherit;display:inline;transform:none}
+.ring svg circle:last-child{stroke-linecap:round}

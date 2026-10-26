@@ -19,7 +19,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   d.querySelector('#uiLangSeg [data-l="fr"]').click(); await wait(20);
   console.log("FR :", snap(), "| lang =", d.documentElement.lang);
   // aller-retour : le français revient à l’identique (défaut corrigé le 2026-10-24 : les onglets restaient en anglais)
-  if(!/^Qu’est-ce qu’on cite/.test(snap()) || !onglets().startsWith("Bibliographie / À faire")) errs.push("interface restée en anglais : " + snap() + " | " + onglets());
+  if(!/^Ta bibliographie, tirée de ton texte/.test(snap()) || !onglets().startsWith("Bibliographie / À faire")) errs.push("interface restée en anglais : " + snap() + " | " + onglets());
   if(snap() !== fr1) errs.push("retour au français incomplet : " + snap() + " ≠ " + fr1);
   if(onglets() !== ong1) errs.push("onglets restés traduits : " + onglets() + " ≠ " + ong1);
   console.log("erreurs :", errs.length ? errs : "aucune"); process.exit(0);

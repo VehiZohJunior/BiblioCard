@@ -107,6 +107,10 @@ const isAuto = s => s.origin === "Analyse automatique" || s.origin === "Analyse 
 function renderNorm(){
   $("#styleSeg").innerHTML = Object.entries(STYLES).map(([k,v]) => `<button aria-pressed="${k === state.style}" data-style="${k}">${esc(v.name)}</button>`).join("");
   $("#styleSeg").querySelectorAll("button").forEach(b => b.onclick = () => { state.style = b.dataset.style; save(); renderAll(); toast(`Bibliographie remise en forme : ${STYLES[state.style].name}`); });
+  // sélecteur de l’accueil : les normes disponibles, puis la place réservée aux suivantes
+  $("#normPick").innerHTML = Object.entries(STYLES).map(([k, v]) => `<button type="button" class="npb" aria-pressed="${k === state.style}" data-np="${k}" title="${esc(v.full)}">${esc(v.name)}</button>`).join("")
+    + `<span class="npb bientot" title="Norme en préparation">IEEE<small>bientôt</small></span>`;
+  $("#normPick").querySelectorAll("[data-np]").forEach(b => b.onclick = () => { if(b.dataset.np === state.style) return; state.style = b.dataset.np; save(); renderAll(); toast(`Norme choisie : ${STYLES[state.style].full}`); });
   $("#camesOpts").style.display = state.style === "cames" ? "block" : "none";
   renderProfiles();
   $("#normNote").textContent = NOTES[state.style];
@@ -1013,6 +1017,8 @@ $("#pickBtn").onclick = () => {
     else $("#demoBtn").click();
   });
 };
+// zone de dépôt de l’accueil : même chemin que « + › Un document Word ou PDF » ; le glisser-déposer passe par la fenêtre
+$("#dropZone").onclick = () => { $("#fileIn").accept = ".docx,.pdf,.txt"; $("#fileIn").click(); };
 /* pastille : choisir la norme comme on choisit un modèle */
 $("#normChange").onclick = () => {
   const d = sheet(`<div class="dhead"><h2>Norme</h2><button class="iconbtn" id="xClose">Fermer</button></div>
