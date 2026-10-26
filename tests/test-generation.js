@@ -51,5 +51,25 @@ As Fairclough (1989) explains, language and power are linked. Van Dijk (2008) sh
   const P = w.eval("state.sources");
   egal(P.some(s => /chapter|camouflage is the ability|this chapter/i.test(s.title + " " + s.authors.map(a => a.family).join(" "))), false, "aucun paragraphe rédigé pris pour une référence");
   egal(P.map(s => s.authors[0].family).sort().join(","), "Bertolotti,Charaudeau,Fairclough,Lakoff,Van Dijk", "une entrée par source citée");
+
+  // comportement par défaut de SCIENTUS : plusieurs documents à la fois -> une seule bibliographie, sans doublon
+  w.eval("state.sources = []; state.thread = []; ui.files = [];");
+  const A = "Chapitre 1. Comme l’a montré P. Bourdieu (1982), le langage est un pouvoir symbolique dans tous les champs sociaux, et cette idée structure notre approche du discours de presse en Côte d’Ivoire depuis plusieurs décennies de recherche.";
+  const B = "Chapitre 2. A. Mbembe (2000) décrit la postcolonie ; P. Bourdieu (1982) reste notre cadre pour lire les rapports de domination dans le champ médiatique ivoirien, en particulier pendant les périodes électorales récentes.";
+  await w.handleFiles([new w.File([A], "chap1.txt", {type: "text/plain"}), new w.File([B], "chap2.txt", {type: "text/plain"})]); await wait(300);
+  egal(w.eval("state.sources").map(s => s.authors[0].family).sort().join(","), "Bourdieu,Mbembe", "deux documents : une bibliographie commune, sans doublon");
+  egal(w.eval('state.thread.filter(m => m.kind === "propositions").length'), 1, "une seule recherche pour l’ensemble des documents");
+
+  // un texte rédigé collé dans la barre de saisie n’est pas une liste de références : il est généré
+  w.eval("state.sources = []; state.thread = []; ui.files = [];");
+  d.querySelector("#smart").value = "Selon G. Lakoff (2004), le cadrage façonne la pensée politique ; N. Fairclough (1989) relie langage et pouvoir dans les sociétés contemporaines.";
+  await d.querySelector("#addBtn").onclick(); await wait(300);
+  egal(w.eval("state.sources").map(s => s.authors[0].family).sort().join(","), "Fairclough,Lakoff", "texte collé : bibliographie générée à partir de ses citations");
+
+  // texte écrit ou dicté dans Rédaction
+  w.eval("state.sources = []; state.thread = []; ui.files = [];");
+  d.querySelector("#draft").value = "Pour P. Charaudeau (1997), le discours d’information médiatique construit un miroir social.";
+  await d.querySelector("#genRedac").onclick(); await wait(300);
+  egal(w.eval("state.sources").map(s => s.authors[0].family).join(","), "Charaudeau", "Rédaction : bibliographie générée à partir du texte écrit ou dicté");
   console.log(errs.length ? errs.join("\n") + `\nerreurs : ${errs.length}` : "erreurs : aucune");
 })();

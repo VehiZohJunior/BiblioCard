@@ -124,9 +124,9 @@ function renderFiles(){
       <button class="x" data-rm="${f.id}" aria-label="Retirer ${esc(f.name)}">Retirer</button>
       <div class="st ${f.error ? "err" : ""}">${f.busy ? `<span class="busy"></span>` : ""}<span>${esc(f.status)}</span>
         ${f.text && !f.busy ? `<label class="sr" for="m${f.id}">Traiter comme</label><select id="m${f.id}" data-mode="${f.id}">
-          <option value="biblio" ${f.mode === "biblio" ? "selected" : ""}>Document avec bibliographie</option>
-          <option value="source" ${f.mode === "source" ? "selected" : ""}>Source à citer</option>
-          <option value="texte" ${f.mode === "texte" ? "selected" : ""}>Texte à vérifier seulement</option></select>` : ""}
+          <option value="biblio" ${f.mode === "biblio" ? "selected" : ""}>Générer la bibliographie (avec la liste du document)</option>
+          <option value="source" ${f.mode === "source" ? "selected" : ""}>Ajouter comme source à citer</option>
+          <option value="texte" ${f.mode === "texte" ? "selected" : ""}>Générer la bibliographie à partir des citations</option></select>` : ""}
       </div></div>`).join("");
   box.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => removeFile(b.dataset.rm));
   box.querySelectorAll("[data-mode]").forEach(sel => sel.onchange = () => { const f = ui.files.find(x => x.id === sel.dataset.mode); f.mode = sel.value; runFile(f); });
@@ -469,7 +469,8 @@ function decide(text){
   if(sec){ const r = splitReferences(sec.section); if(r.length >= 2 && partReferences(r) >= 0.6) return {mode:"biblio", body: sec.body, section: sec.section}; }
   const all = splitReferences(text);
   if(all.length >= 4 && all.join(" ").length > text.length * 0.5 && partReferences(all) >= 0.6) return {mode:"biblio", body:"", section:text};
-  if(findCitations(stripMarks(text)).length >= 4) return {mode:"texte", body:text, section:""};
+  // un texte rédigé qui cite au moins une source : génération de la bibliographie (le comportement par défaut)
+  if(findCitations(stripMarks(text)).length >= 1) return {mode:"texte", body:text, section:""};
   return {mode:"source", body:"", section:""};
 }
 
@@ -482,6 +483,7 @@ window.addEventListener("dragleave", () => { dragN = Math.max(0, dragN - 1); if(
 window.addEventListener("drop", e => { if(!e.dataTransfer || !e.dataTransfer.files.length) return; e.preventDefault(); dragN = 0; $("#dropVeil").classList.remove("on"); handleFiles([...e.dataTransfer.files]); });
 
 async function handleFiles(list){
+  let aGenerer = false;
   // une copie de secours ou un dossier de relecture se rouvre toujours ; un nouveau document demande la formule 1
   if(list.some(f => /\.(docx|pdf|txt|bib|ris)$/i.test(f.name)) && !exiger("biblio")) return;
   for(const file of list){
@@ -497,10 +499,29 @@ async function handleFiles(list){
       if(!stripMarks(text).trim()){ Object.assign(f, {busy:false, error:true, status:"Aucun texte trouvé. Un PDF scanné doit d’abord passer par une reconnaissance de caractères."}); renderFiles(); think(false); post({role: "a", kind: "error", text: f.status}); continue; }
       Object.assign(f, {text}, decide(text)); IDB.put({name: f.name, text: stripMarks(text).slice(0, 3000000), at: Date.now()});
       await runFile(f);
-      // le texte cite des œuvres absentes de la liste du document (ou il n’y a pas de liste) : on les cherche aussitôt
-      if(!f.error && (f.mode === "biblio" || f.mode === "texte") && f.body && apparierCitations(stripMarks(f.body), state.sources).missing.length) await construireBiblio(f.name, true);
+      if(!f.error && (f.mode === "biblio" || f.mode === "texte")) aGenerer = true;
     }catch(err){ Object.assign(f, {busy:false, error:true, status:`Lecture impossible : ${err.message || err}`}); renderFiles(); think(false); post({role: "a", kind: "error", text: f.status}); }
   }
+  // une seule bibliographie pour tous les documents déposés : les œuvres citées qui manquent sont cherchées ensemble
+  if(aGenerer) await completerGeneration(null);
+}
+/* GÉNÉRATION DE LA BIBLIOGRAPHIE : le comportement par défaut de SCIENTUS, pour tout texte rédigé (document
+   déposé, texte collé, texte écrit ou dicté dans Rédaction). On part des citations du texte ; on ne recopie
+   jamais une liste déjà saisie. */
+async function completerGeneration(nom){
+  const docs = ui.files.filter(f => f.body && (f.mode === "biblio" || f.mode === "texte") && (!nom || f.name === nom));
+  if(docs.some(f => apparierCitations(stripMarks(f.body), state.sources).missing.length)) await construireBiblio(nom, true);
+}
+// texte rédigé = au moins une citation « Auteur (année) » ; une liste de références collée n’en contient aucune
+const estRedige = t => findCitations(stripMarks(t)).length >= 1;
+async function genererDepuisTexte(text, nom){
+  if(!exiger("biblio")) return;
+  ui.files = ui.files.filter(x => x.name !== nom); // le même texte regénéré remplace la génération précédente
+  const f = {id: "f" + Math.random().toString(36).slice(2,8), name: nom, ext: "TXT", status: "Lecture…", busy: true, text};
+  Object.assign(f, decide(text)); if(f.mode === "source"){ f.mode = "texte"; f.body = text; }
+  ui.files.push(f); renderFiles();
+  await runFile(f);
+  if(!f.error) await completerGeneration(nom);
 }
 
 async function runFile(f){ think(true); try{ await runFileCore(f); } finally { think(false); }
@@ -523,7 +544,7 @@ async function runFileCore(f){
        numéro, pages), rédigées ensuite selon la norme choisie. Une référence jamais citée n’est pas reprise ;
        une œuvre citée absente de la liste est cherchée en ligne (construireBiblio). */
     const corps = stripMarks(f.body || "");
-    const v = corps.trim().length > 200 ? apparierCitations(corps, list) : null;
+    const v = findCitations(corps).length ? apparierCitations(corps, list) : null;
     if(v && v.total){
       const citees = new Set(v.pairs.map(x => x.s.id));
       f.nonCitees = list.filter(s => !citees.has(s.id));
@@ -1039,6 +1060,8 @@ $("#addBtn").onclick = async () => {
       const s = blank(); s.type = "webpage"; s.url = d.url; try{ s.container = new URL(d.url).hostname.replace(/^www\./, ""); }catch(e){}
       s.accessed = new Date().toLocaleDateString(state.uiLang === "en" ? "en-GB" : "fr-FR", {day:"numeric", month:"long", year:"numeric"}); openForm(s, "title"); $("#smart").value = "";
       post({role: "a", kind: "info", text: "Je prépare une fiche de page web : complète son titre et son auteur."});
+    } else if(estRedige(raw)){
+      $("#smart").value = ""; await genererDepuisTexte(raw, "Texte collé");
     } else {
       const refs = d.kind === "many" ? d.lines : [d.text]; think(true);
       const list = await parseMany(refs, {status:""});
@@ -2133,6 +2156,13 @@ async function runSimilarity(){
   renderTasks();
 }
 $("#simBtn").onclick = () => exiger("plagiat") && runSimilarity();
+// Rédaction : la bibliographie de ce que le chercheur a écrit ou dicté, générée à partir de ses citations
+$("#genRedac").onclick = async () => {
+  const t = $("#draft").value;
+  if(!findCitations(t).length){ toast("Aucune citation repérée : cite tes sources sous la forme « Auteur (année) »"); return; }
+  setView("biblio"); post({role: "u", kind: "cmd", text: "Générer la bibliographie de mon texte"});
+  await genererDepuisTexte(t, $("#draftTitle").value.trim() || "Mon texte");
+};
 
 /* ================= INTERFACE BILINGUE ================= */
 const I18N = window.I18N_EN || {exact: {}, re: [], frag: []};
