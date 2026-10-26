@@ -353,9 +353,10 @@ function openSide(name){
   document.querySelectorAll("#side .dsec").forEach(x => x.classList.toggle("on", SGROUPS[g].includes(x.id.slice(3))));
   $("#side").hidden = false; document.body.classList.add("sideopen"); if($("#dash").open) $("#dash").close();
   $("#side .sbody").scrollTop = 0;
+  marquerNav();
   if(name !== SGROUPS[g][0]){ const el = $("#dt-" + name); if(el && el.scrollIntoView) setTimeout(() => el.scrollIntoView({block: "start"}), 30); }
 }
-function closeSide(){ $("#side").hidden = true; document.body.classList.remove("sideopen"); }
+function closeSide(){ $("#side").hidden = true; document.body.classList.remove("sideopen"); marquerNav(); }
 const DTITLES = {home:"BiblioCard", todo:"À faire", norme:"Norme, profil et langue", fiches:"Références et catalogue", controle:"Contrôles et existence", analyse:"Analyse et fiabilité", export:"Export, encadreur et sauvegarde", methode:"Méthode et éthique"};
 function dashTab(name){
   const g = Object.keys(DGROUPS).find(k => DGROUPS[k].includes(name)) || "home";
@@ -376,6 +377,17 @@ document.addEventListener("keydown", e => { if(e.key === "Escape" && !$("#side")
 $("#newProjBtn").onclick = () => { $("#dash").close(); projectDialog(); setTimeout(() => { const i = document.querySelector("#newProj [name=name]"); if(i) i.focus(); }, 60); };
 $("#backBiblio").onclick = () => setView("biblio");
 $("#dashBtn").onclick = () => openDash();
+// navigation des modules (barre latérale ou barre du bas) : mêmes chemins que le menu
+document.querySelectorAll("#appNav [data-nav]").forEach(b => b.onclick = () => {
+  if(b.dataset.nav === "controle"){ setView("biblio"); openSide("controle"); return; }
+  closeSide(); setView(b.dataset.nav);
+});
+document.querySelectorAll("#appNav [data-dash]").forEach(b => b.onclick = () => openDash(b.dataset.dash));
+$("#anNew").onclick = () => $("#newProjBtn").click();
+function marquerNav(){
+  const v = document.body.dataset.view, ctl = !$("#side").hidden && $('#stabs [data-st="controle"]').getAttribute("aria-pressed") === "true";
+  document.querySelectorAll("#appNav [data-nav]").forEach(b => { const on = ctl ? b.dataset.nav === "controle" : b.dataset.nav === v; on ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"); });
+}
 $("#dashClose").onclick = () => $("#dash").close();
 $("#dash").addEventListener("click", e => { if(e.target === $("#dash")) $("#dash").close(); });
 $("#normChange").onclick = () => openDash("norme");
@@ -1852,6 +1864,7 @@ function setView(v){
   try{ localStorage.setItem("bibliocard.view", v); }catch(e){}
   if(v === "redac") updateCount();
   if(v === "plan") renderPlan();
+  marquerNav();
 }
 document.querySelectorAll("#modeSeg button").forEach(b => b.onclick = () => setView(b.dataset.view));
 $("#langSel").innerHTML = LANGS.map(([c,, n]) => `<option value="${c}">${n}</option>`).join("");

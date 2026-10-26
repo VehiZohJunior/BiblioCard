@@ -320,7 +320,7 @@ body[data-view="redac"] .dock{display:none!important}
 .pick button{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:transparent;padding:10px 0;font-size:14px}
 .pick button:hover{color:var(--brass)}
 body[data-view="review"] #viewBiblio, body[data-view="review"] #viewRedac, body[data-view="review"] .modebar, body[data-view="review"] .dock{display:none!important}
-body:not([data-view="review"]) #viewReview{display:none}
+body[data-view]:not([data-view="review"]) #viewReview{display:none}
 .revban{background:var(--brass-soft);border:1px solid var(--brass);border-radius:14px;padding:14px 16px;margin-bottom:18px}
 .revban h1{font-family:var(--serif);font-size:24px;margin:0 0 4px}
 .revban p{margin:0;font-size:14px;color:var(--muted)}
@@ -785,3 +785,128 @@ body.vitrine{background:var(--bg);font-size:16px;line-height:1.6}
 .vfoot nav a:hover{color:var(--ink);text-decoration:underline}
 @media (max-width:520px){ .vsec{padding:56px 0} .vhero{padding:40px 0 52px} .vcta .vbtn{flex:1 1 100%} .vpaper{transform:none;padding:20px 18px 14px} }
 .vitrine main{max-width:none;margin:0;padding:0;display:block}
+
+/* ===== navigation évolutive : barre du bas (téléphone), barre latérale (ordinateur) ===== */
+:root{--nav-h:62px; --nav-w:252px}
+.appnav{position:fixed;z-index:8;left:0;right:0;bottom:0;display:flex;align-items:stretch;justify-content:space-around;gap:2px;height:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));padding:4px 6px env(safe-area-inset-bottom,0px);background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:saturate(1.2) blur(10px);border-top:1px solid var(--line)}
+.appnav > *:not([data-nav]):not(.an-plus){display:none}
+.appnav button{flex:1;min-width:0;border:0;background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:500;border-radius:var(--r-md);padding:4px 2px;transition:color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.appnav button .l{display:none}
+.appnav button[aria-current="page"]{color:var(--ink)}
+.appnav button[aria-current="page"] svg{color:var(--brass)}
+.appnav button:hover{color:var(--ink)}
+body[data-view="review"] .appnav{display:none}
+/* le reste de l’écran laisse la place à la barre du bas */
+.composer{bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));padding-bottom:10px}
+main.simple{padding-bottom:calc(200px + var(--nav-h) + env(safe-area-inset-bottom,0px))}
+body[data-view="redac"] main.simple,body[data-view="plan"] main.simple{padding-bottom:calc(40px + var(--nav-h) + env(safe-area-inset-bottom,0px))}
+#toast{bottom:calc(150px + var(--nav-h) + env(safe-area-inset-bottom,0px))}
+body[data-view="redac"] #toast,body[data-view="plan"] #toast{bottom:calc(16px + var(--nav-h) + env(safe-area-inset-bottom,0px))}
+@media (max-width:999px){ body[data-view="review"] main.simple{padding-bottom:60px} }
+
+@media (min-width:1000px){
+  .appnav{top:0;right:auto;width:var(--nav-w);height:auto;flex-direction:column;justify-content:flex-start;gap:2px;padding:18px 14px 18px;border-top:0;border-right:1px solid var(--line);background:var(--surface);overflow-y:auto;backdrop-filter:none}
+  .appnav > *:not([data-nav]):not(.an-plus){display:revert}
+  .appnav button{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;font-size:14.5px;padding:9px 12px;color:var(--ink)}
+  .appnav button svg{color:var(--muted);flex:none}
+  .appnav button .l{display:inline}
+  .appnav button .s{display:none}
+  .appnav button:hover{background:var(--sunk)}
+  .appnav button[aria-current="page"]{background:var(--brass-soft);font-weight:600}
+  .appnav button[aria-current="page"] svg{color:var(--brass)}
+  .an-brand{display:flex!important;align-items:center;gap:10px;text-decoration:none;padding:2px 8px 18px}
+  .an-brand img{border-radius:9px}
+  .an-brand .wordmark{font-size:21px}
+  .appnav .an-new{display:flex!important;justify-content:center;gap:8px;background:var(--encre);color:var(--ivoire);font-weight:600;font-size:14px;padding:10px 12px;margin-bottom:14px}
+  .appnav .an-new:hover{background:var(--indigo)}
+  .an-h{margin:16px 12px 6px;font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .an-soon{margin:0 4px;border:1.5px dashed var(--line-strong);border-radius:var(--r-md);padding:10px 12px;font-size:12.5px;line-height:1.45;color:var(--muted)}
+  .appnav .an-plus{margin-top:auto;border-top:1px solid var(--line);border-radius:0;padding-top:14px}
+  body[data-view]:not([data-view="review"]){padding-left:var(--nav-w)}
+  body[data-view]:not([data-view="review"]) .composer{left:var(--nav-w)}
+
+  main.simple{padding-bottom:200px}
+  body[data-view="redac"] main.simple,body[data-view="plan"] main.simple{padding-bottom:60px}
+  .composer{bottom:0;padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+  #toast{bottom:150px;margin-left:calc(var(--nav-w) / 2)}
+  body[data-view="redac"] #toast,body[data-view="plan"] #toast{bottom:24px}
+}
+@media (min-width:1100px){
+  body.sideopen[data-view]:not([data-view="review"]) main.simple{margin-left:max(0px, calc((100vw - var(--nav-w) - min(46vw,640px) - 780px) / 2))}
+}
+/* sombre : la marque du bouton actif reste lisible */
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .appnav .an-new{background:var(--or);color:var(--on-or)} }
+:root[data-theme="dark"] .appnav .an-new{background:var(--or);color:var(--on-or)}
+@media (min-width:1000px){ .appnav .an-tool{display:flex!important} }
+body[data-view]:not([data-view="review"]) #dashBtn{visibility:hidden}
+
+/* ===== autres écrans : volet de menu, fenêtres, rédaction, plan, relecture ===== */
+dialog{border-radius:var(--r-xl);box-shadow:var(--shadow-lg);border:1px solid var(--line)}
+dialog::backdrop{background:rgba(18,22,31,.45);backdrop-filter:blur(3px)}
+.dhead h2{font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-.01em}
+.dhead,.dfoot{background:var(--surface)}
+.f input,.f select,.f textarea{border-radius:var(--r-sm);background:var(--bg);transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.f input:focus,.f select:focus,.f textarea:focus{outline:none;border-color:var(--or);box-shadow:0 0 0 3px color-mix(in srgb,var(--or) 25%,transparent)}
+.seg{background:var(--sunk);border-radius:var(--r-md)}
+.seg button{border-radius:var(--r-sm)}
+.seg button[aria-pressed="true"]{color:var(--ink);box-shadow:var(--shadow-sm)}
+.opt{transition:background var(--dur) var(--ease)}
+.opt .oi{background:var(--brass-soft);color:var(--brass);border-radius:var(--r-md)}
+.choice button,.exp button{border-radius:var(--r-lg);background:var(--bg);transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.choice button:hover,.exp button:hover{border-color:var(--or);transform:translateY(-1px)}
+.exp b,.choice b{font-family:var(--serif);font-weight:600;font-size:15.5px}
+/* volet de menu */
+dialog#dash{border:0;border-right:1px solid var(--line)}
+dialog#dash .dtop h2{font-weight:600;letter-spacing:-.015em}
+.newproj{background:var(--encre);color:var(--ivoire);border-radius:var(--r-md)}
+.newproj:hover{background:var(--indigo)}
+.menu button{border-radius:var(--r-md);transition:background var(--dur) var(--ease)}
+.menu .mi{color:var(--brass)}
+.mhead{letter-spacing:.1em;text-transform:uppercase;font-size:11.5px}
+#projList button{border-radius:var(--r-sm)}
+#projList button.cur{background:var(--brass-soft)}
+.acct{border-radius:var(--r-lg)}
+.dsec h3{font-family:var(--serif);font-weight:600;font-size:17px;letter-spacing:-.01em;margin-bottom:6px}
+.method li::before{border-color:var(--or);color:var(--brass)}
+.kv div{border-radius:var(--r-md)}
+.note{border-radius:var(--r-md)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .newproj{background:var(--or);color:var(--on-or)} }
+:root[data-theme="dark"] .newproj{background:var(--or);color:var(--on-or)}
+/* volet des résultats */
+.stabs button[aria-pressed="true"]{border-bottom-color:var(--or)}
+.stop{background:var(--bg)}
+/* rédaction et plan : en-têtes de page communs */
+.redac h1{font-weight:500;font-size:clamp(28px,5vw,40px);letter-spacing:-.025em;text-wrap:balance}
+.redac .lead{font-size:15.5px;line-height:1.6}
+.back2{color:var(--brass)}
+.mic{border-radius:var(--r-xl);padding:16px 18px;box-shadow:var(--shadow)}
+.micbtn{background:var(--encre);color:var(--ivoire);transition:transform var(--dur) var(--ease)}
+.micbtn:active{transform:scale(.96)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .micbtn:not(.on){background:var(--or);color:var(--on-or)} }
+:root[data-theme="dark"] .micbtn:not(.on){background:var(--or);color:var(--on-or)}
+.micopts select{border-radius:var(--r-sm);background:var(--bg)}
+.paper{border-radius:var(--r-sm);box-shadow:var(--shadow-lg);padding:30px 32px}
+.paper input{font-weight:500;font-size:23px;letter-spacing:-.01em}
+.paper textarea{font-weight:400}
+.panel2>summary{font-family:var(--serif);font-weight:600;font-size:15.5px}
+.planform{border-radius:var(--r-lg);box-shadow:var(--shadow-sm)}
+.ppart{border-radius:var(--r-lg);box-shadow:var(--shadow-sm);padding:12px 14px}
+.ppart.n2{border-left-color:var(--or)}
+.ppart .pt2:focus{border-bottom-color:var(--or)}
+/* relecture par l’encadreur */
+.revban{background:var(--hero);color:#FAF7F0;border:0;border-radius:var(--r-xl);padding:22px 22px}
+.revban h1{font-weight:500;font-size:clamp(24px,4vw,32px);letter-spacing:-.02em}
+.revban p{color:#D9DEEA}
+.cmt{border-left-color:var(--or)}
+.cform textarea{border-radius:var(--r-sm);background:var(--surface)}
+/* pages légales */
+.legal .lhead{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px)}
+.legal .lhead b{font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-.02em}
+.legal .lhead b span{color:var(--brass)}
+.legal .lhead a.back{border-radius:var(--r-md)}
+.legal h1{font-weight:500;font-size:clamp(28px,5vw,38px);letter-spacing:-.025em}
+.legal h2{font-weight:600}
+.legal .resume{border-radius:0 var(--r-md) var(--r-md) 0;box-shadow:var(--shadow-sm)}
+.legal a{color:var(--brass)}
+.legal th{background:var(--sunk)}
+.lects .ref{font-family:var(--serif);line-height:1.55;padding-left:1.5em;text-indent:-1.5em}
