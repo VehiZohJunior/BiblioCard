@@ -5,7 +5,10 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 const I = s => s ? `<i>${esc(s)}</i>` : "";
 const stripHtml = h => String(h).replace(/<[^>]+>/g,"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&amp;/g,"&");
 // (\u0131 sans point, \u0142, \u00f8\u2026 : \u00ab Bourd\u0131eu \u00bb dans OpenAlex doit valoir \u00ab Bourdieu \u00bb)
-const norm = s => String(s||"").replace(/\u0131/g, "i").replace(/\u0142/g, "l").replace(/\u00f8/g, "o").replace(/[\u00e6]/g, "ae").replace(/\u0153/g, "oe").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+// normalisation mise en mémoire : avec 500 sources, les mêmes titres et noms sont normalisés des milliers de fois
+const NORM_MEMO = new Map();
+const norm = s => { const k = String(s||""); let v = NORM_MEMO.get(k); if(v === undefined){ v = normBrut(k); if(NORM_MEMO.size > 50000) NORM_MEMO.clear(); NORM_MEMO.set(k, v); } return v; };
+const normBrut = s => String(s||"").replace(/\u0131/g, "i").replace(/\u0142/g, "l").replace(/\u00f8/g, "o").replace(/[\u00e6]/g, "ae").replace(/\u0153/g, "oe").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
 const J = (parts, sep) => parts.filter(p => p && stripHtml(p).trim()).join(sep);
 const dash = p => String(p||"").replace(/\s*[-–—]+\s*/,"–");
 const hy = p => String(p||"").replace(/\s*[-–—]+\s*/,"-");
@@ -387,7 +390,7 @@ function checks(s, styleKey, all){
   if(s.type === "thesis" && !s.publisher) m.push({f:"publisher", t:"Université manquante"});
   if(s.type === "webpage"){ if(!s.url) m.push({f:"url", t:"URL manquante"}); if(!s.accessed) m.push({f:"accessed", t:"Date de consultation"}); }
   if(all){
-    const dup = all.find(o => o.id !== s.id && ((s.doi && o.doi && norm(o.doi) === norm(s.doi)) || (norm(o.title) && norm(o.title) === norm(s.title) && o.year === s.year)));
+    const dup = all.find(o => o.id !== s.id && ((s.doi && o.doi && norm(o.doi) === norm(s.doi)) || (o.year === s.year && norm(o.title) && norm(o.title) === norm(s.title))));
     if(dup) m.push({f:null, t:"Doublon probable"});
   }
   return m;

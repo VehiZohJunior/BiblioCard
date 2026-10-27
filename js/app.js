@@ -52,7 +52,12 @@ function save(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     syncCurrent();
-    try{ localStorage.setItem(LS, JSON.stringify(state)); }catch(e){ setStatus("Mémoire de l’appareil pleine : télécharge une copie de secours"); return; }
+    const txt = JSON.stringify(state);
+    try{ localStorage.setItem(LS, txt); }catch(e){
+      // la mémoire des réponses en ligne n’est qu’un raccourci : elle cède la place à la bibliographie
+      try{ Object.keys(localStorage).filter(k => k.startsWith("bibliocard.oa:")).forEach(k => localStorage.removeItem(k)); localStorage.removeItem("bibliocard.oa.index"); localStorage.setItem(LS, txt); }
+      catch(e2){ setStatus("Mémoire de l’appareil pleine : télécharge une copie de secours"); return; }
+    }
     if(dbH){
       try{
         const meta = {}; GKEYS.filter(k => k !== "projects").forEach(k => meta[k] = state[k]);
@@ -640,9 +645,19 @@ Texte :
 /* ---------- vérification d’existence ---------- */
 const net = { blocked: false, running: false, done: 0, total: 0 };
 async function getJSON(url, ms = 10000){
-  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
-  try{ const r = await fetch(url, {signal: ctl.signal}); if(!r.ok) return {status: r.status}; return {data: await r.json()}; }
-  catch(e){ return {error: true}; } finally { clearTimeout(t); }
+  // 300 à 500 sources : Open Library et CrossRef répondent « trop de demandes » (429) ou « surchargé » (503) ;
+  // on attend un peu et on réessaie, au lieu de perdre la source
+  for(let essai = 0; essai < 3; essai++){
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+    try{
+      const r = await fetch(url, {signal: ctl.signal});
+      if((r.status === 429 || r.status === 503) && essai < 2){ await new Promise(res => setTimeout(res, 1500 * (essai + 1) * (essai + 1))); continue; }
+      if(!r.ok) return {status: r.status}; return {data: await r.json()};
+    }
+    catch(e){ if(essai < 1 && e && e.name !== "AbortError"){ await new Promise(res => setTimeout(res, 1000)); continue; } return {error: true}; }
+    finally { clearTimeout(t); }
+  }
+  return {status: 429};
 }
 /* ---------- OpenAlex : budget gratuit limité ----------
    Sans clé, chaque adresse IP dispose de 0,10 $ par jour (remis à zéro à minuit UTC). Une recherche par mots
@@ -657,8 +672,10 @@ function oaMemoLire(url){
 function oaMemoEcrire(url, data){
   try{
     const idx = JSON.parse(localStorage.getItem(OA_INDEX) || "[]").filter(u => u !== url); idx.push(url);
-    while(idx.length > 150) localStorage.removeItem(OA_MEMO + idx.shift());
-    try{ localStorage.setItem(OA_MEMO + url, JSON.stringify({at: Date.now(), data})); }
+    // la bibliographie (500 sources) passe avant la mémoire des réponses : 120 réponses au plus, chacune sous 40 Ko
+    const txt = JSON.stringify({at: Date.now(), data}); if(txt.length > 40000) return;
+    while(idx.length > 120) localStorage.removeItem(OA_MEMO + idx.shift());
+    try{ localStorage.setItem(OA_MEMO + url, txt); }
     catch(e){ idx.splice(0, idx.length >> 1).forEach(u => localStorage.removeItem(OA_MEMO + u)); } // mémoire pleine : on oublie la moitié la plus ancienne
     localStorage.setItem(OA_INDEX, JSON.stringify(idx));
   }catch(e){}
@@ -753,12 +770,14 @@ async function runExistence(manual){
   const todo = state.sources.filter(s => s.title && !existFor(s));
   if(!todo.length){ if(manual) toast("Toutes les références ont déjà été vérifiées"); renderAll(); return; }
   net.running = true; net.done = 0; net.total = todo.length; net.plusTard = 0; renderExist();
-  let i = 0;
+  let i = 0, pannes = 0;
   const worker = async () => {
     while(i < todo.length && !net.blocked){
       const s = todo[i++];
       const r = await checkOne(s);
-      if(r.error){ net.blocked = true; break; }
+      // une panne passagère ne compte que pour sa référence ; quatre de suite : les bases sont injoignables
+      if(r.error){ if(++pannes >= 4){ net.blocked = true; break; } net.plusTard++; net.done++; continue; }
+      pannes = 0;
       if(r.plusTard){ net.plusTard++; net.done++; continue; }
       state.exist[s.id] = {...r, at: Date.now()}; net.done++;
       if(net.done % 3 === 0) renderExist();
@@ -793,7 +812,8 @@ async function completerEdition(s, an){
 }
 // CrossRef (accès public) refuse les appels simultanés : une seule recherche à la fois
 let crTour = Promise.resolve();
-function crFile(url){ const r = crTour.then(() => getJSON(url, 15000)); crTour = r.catch(() => {}); return r; }
+// accès public : une demande à la fois, espacées de 350 ms (au-delà, CrossRef refuse : « trop de demandes »)
+function crFile(url){ const r = crTour.then(() => getJSON(url, 15000)); crTour = r.catch(() => {}).then(() => new Promise(res => setTimeout(res, 350))); return r; }
 async function chercherCitation(c, ctx, domDoc){
   const an = annee(c), fam = encodeURIComponent(c.family);
   // Open Library deux fois : les œuvres de l’auteur autour de l’année citée, et ses œuvres les plus éditées
@@ -869,8 +889,9 @@ async function construireBiblio(nom, sansCommande){
   if(!exiger("biblio")) return;
   const docs = ui.files.filter(f => f.body && (f.mode === "texte" || f.mode === "biblio") && !(f.gen && f.gen.numerique) && (!nom || f.name === nom));
   if(!sansCommande) post({role: "u", kind: "cmd", text: "Construire ma bibliographie"});
-  if(!docs.length){ post({role: "a", kind: "error", text: "Dépose d’abord ton document (Word, PDF ou texte) avec le bouton + : je construis la bibliographie à partir des citations de son texte."}); return; }
-  const L = labeled(), vus = new Set(), todo = [];
+  const enAttente = state.sources.filter(s => s._cite);
+  if(!docs.length && !enAttente.length){ post({role: "a", kind: "error", text: "Dépose d’abord ton document (Word, PDF ou texte) avec le bouton + : je construis la bibliographie à partir des citations de son texte."}); return; }
+  const vus = new Set(), todo = [];
   // une source citée en note de bas de page avec sa référence complète entre directement : pas de recherche en ligne
   const deNotes = [];
   docs.forEach(f => { const body = stripMarks(f.body); apparierCitations(body, state.sources).missing.forEach(x => { const k = norm(x.c.family) + annee(x.c); if(vus.has(k)) return; vus.add(k);
@@ -878,35 +899,70 @@ async function construireBiblio(nom, sansCommande){
     todo.push({c: x.c, ctx: contexteCitation(body, x.c.raw), file: f.name, pos: body.indexOf(x.c.raw)}); }); });
   if(deNotes.length){ addSources(deNotes); post({role: "a", kind: "info", text: `${deNotes.length > 1 ? `${deNotes.length} sources citées en note de bas de page ont été reprises` : "Une source citée en note de bas de page a été reprise"} de leur note, sans recherche en ligne.`}); }
   todo.sort((a, b) => a.file === b.file ? a.pos - b.pos : 0); // dans l’ordre du texte
-  if(!todo.length){ post({role: "a", kind: "info", text: "Toutes les citations de ton texte ont déjà leur référence dans la bibliographie."}); return; }
+  if(!todo.length && !enAttente.length){ post({role: "a", kind: "info", text: "Toutes les citations de ton texte ont déjà leur référence dans la bibliographie."}); return; }
+  /* GRANDS DOCUMENTS (300 à 500 sources) : chaque œuvre citée reçoit d’abord son entrée (auteur, année), toutes
+     ensemble, puis la recherche en ligne remplace ces entrées une à une. La bibliographie est donc complète dès
+     le départ ; si la page se ferme ou si la connexion tombe, la recherche reprend où elle s’était arrêtée. */
+  const items = todo.map(t => ({cite: {family: t.c.family, year: t.c.year, raw: citeVue(t.c)}, file: t.file, verdict: "rien", choix: [], pick: 0, etat: "attente"}));
+  const fiches = items.map((x, k) => { const s = ficheProvisoire(x); s._cite = {family: x.cite.family, year: x.cite.year, raw: x.cite.raw, ctx: todo[k].ctx}; return s; });
+  addSources(fiches);
+  items.forEach((x, k) => { x.etat = "ajoutee"; x.provisoire = true; x.id = fiches[k].id; });
+  // recherches interrompues (page fermée, coupure) : elles reprennent avec les nouvelles
+  enAttente.forEach(s => items.push({cite: {family: s._cite.family, year: s._cite.year, raw: s._cite.raw}, file: s.file, verdict: "rien", choix: [], pick: 0, etat: "ajoutee", provisoire: true, id: s.id}));
   // la discipline des documents : une œuvre d’une autre discipline n’est jamais proposée pour une citation
   const domDoc = domaineTexte(docs.map(f => stripMarks(f.body)).join(" "));
-  post({role: "a", kind: "info", text: `Je cherche ${todo.length > 1 ? `les ${todo.length} œuvres citées` : "l’œuvre citée"} dans OpenAlex et Open Library…`}); think(true);
-  const items = new Array(todo.length); let i = 0, horsLigne = 0;
-  const travail = async () => { while(i < todo.length){ const k = i++, t = todo[k]; const r = await chercherCitation(t.c, t.ctx, domDoc); if(r.erreur) horsLigne++;
-    items[k] = {cite: {family: t.c.family, year: t.c.year, raw: citeVue(t.c)}, file: t.file, verdict: r.erreur ? "rien" : r.verdict, choix: (r.top || []).map(s => ({...s, _notoriete: undefined})), pick: 0, etat: "attente"}; } };
+  post({role: "a", kind: "info", text: rechercheTexte(0, items.length)}); const suivi = state.thread[state.thread.length - 1]; think(true);
+  let i = 0, faites = 0, horsLigne = 0;
+  const travail = async () => { while(i < items.length){ const x = items[i++]; const s = state.sources.find(o => o.id === x.id);
+    if(!s || !s._cite){ faites++; continue; } // retirée entre-temps
+    const r = await chercherCitation(s._cite, s._cite.ctx || "", domDoc);
+    if(r.erreur){ horsLigne++; faites++; continue; } // la fiche garde sa citation : la recherche reprendra plus tard
+    x.verdict = r.verdict; x.choix = (r.top || []).map(c => ({...c, _notoriete: undefined}));
+    if(x.choix.length) await remplacerProvisoire(x, s, x.verdict !== "sure");
+    else delete s._cite; // rien en ligne : l’entrée reste « à compléter »
+    faites++; suivi.text = rechercheTexte(faites, items.length); bientot(); } };
   await Promise.all([travail(), travail(), travail()]);
-  think(false);
-  if(horsLigne === todo.length){ post({role: "a", kind: "error", text: "Je n’arrive pas à joindre les bases en ligne. Vérifie ta connexion Internet, puis réessaie."}); return; }
+  think(false); save(); renderAll();
+  if(horsLigne === items.length){ post({role: "a", kind: "error", text: `Je n’arrive pas à joindre les bases en ligne. ${items.length > 1 ? `Les ${items.length} œuvres citées ont` : "L’œuvre citée a"} quand même leur entrée (auteur, année) ; la recherche reprendra à ta prochaine connexion.`}); return; }
   /* La bibliographie générée contient TOUTES les sources citées : la meilleure œuvre trouvée est ajoutée
      d’office (marquée « Œuvre à confirmer » s’il reste un doute, avec les autres possibilités à un geste), et
-     une citation introuvable en ligne donne quand même son entrée (auteur, année), marquée « à compléter ». */
-  for(const x of items){ if(x.choix.length) await ajouterChoix(x, x.verdict !== "sure"); else ajouterProvisoire(x); }
-  post({role: "a", kind: "propositions", items, auto: true});
+     une citation introuvable en ligne garde son entrée (auteur, année), marquée « à compléter ».
+     Le message ne garde que les cartes qui demandent un geste : 500 cartes « trouvée » n’apprennent rien. */
+  post({role: "a", kind: "propositions", items: items.filter(x => x.provisoire || x.verdict !== "sure"), auto: true, total: items.length, sures: items.filter(x => !x.provisoire && x.verdict === "sure").length, plusTard: horsLigne});
+}
+const rechercheTexte = (n, t) => `Recherche en ligne des œuvres citées (OpenAlex, Open Library, CrossRef) : ${n} sur ${t}. Chaque œuvre a déjà son entrée dans la bibliographie ; elle est remplacée dès que l’œuvre est retrouvée.`;
+// affichage regroupé : une mise à jour au plus toutes les 800 ms, même pour 500 sources
+let bientotT = null;
+function bientot(){ if(bientotT) return; bientotT = setTimeout(() => { bientotT = null; save(); renderAll(); }, 800); }
+async function remplacerProvisoire(x, prov, doute){
+  const s = {...x.choix[x.pick], id: prov.id, file: prov.file};
+  if(s.type === "book"){ s.year = annee(x.cite); if(!s.city || !s.publisher) await completerEdition(s, s.year); }
+  ["_olKey", "_src", "_notoriete", "_score", "_oaId", "_lien", "_domaine", "_champ"].forEach(k => delete s[k]);
+  if(doute) s.aConfirmer = true;
+  if(isAuto(s) && !s._orig){ s._orig = snapshot(s); s._method = s.origin; }
+  const i = state.sources.findIndex(o => o.id === prov.id); if(i < 0) return;
+  // la même œuvre déjà présente (citée sous deux formes) : l’entrée provisoire disparaît
+  const deja = state.sources.find(o => o.id !== prov.id && sameRef(o, s));
+  if(deja){ state.sources.splice(i, 1); x.id = deja.id; } else state.sources[i] = s;
+  x.etat = "ajoutee"; x.provisoire = false;
 }
 async function ajouterChoix(x, doute){
   const s = {...x.choix[x.pick], id: "s" + Math.random().toString(36).slice(2, 10), file: x.file};
   if(s.type === "book"){ s.year = annee(x.cite); if(!s.city || !s.publisher) await completerEdition(s, s.year); }
   ["_olKey", "_src", "_notoriete", "_score", "_oaId", "_lien", "_domaine", "_champ"].forEach(k => delete s[k]);
   if(doute) s.aConfirmer = true;
-  addSources([s]); x.etat = "ajoutee"; x.id = (state.sources.find(o => sameRef(o, s)) || s).id;
+  addSources([s]); x.etat = "ajoutee"; x.provisoire = false; x.id = (state.sources.find(o => sameRef(o, s)) || s).id;
 }
-function ajouterProvisoire(x){
+function ficheProvisoire(x){
   const s = blank(); s.type = "book"; s.year = annee(x.cite); s.file = x.file;
   // « Hodge & Kress (1979) » : les deux auteurs nommés dans la citation
   const co = coAuteursCites(x.cite), noms = [...String(x.cite.raw).matchAll(/((?:[vV][ao]n\s+)?\p{Lu}[\p{L}'’-]+)/gu)].map(m => m[1]);
   s.authors = [{family: x.cite.family, given: ""}, ...co.map(n => ({family: noms.find(m => norm(m).split(" ").pop() === n) || n, given: ""}))];
   s.origin = "Citation du texte"; s.aCompleter = true; if(/\bet\s+al\b/i.test(x.cite.raw)) s.etAl = true;
+  return s;
+}
+function ajouterProvisoire(x){
+  const s = ficheProvisoire(x);
   addSources([s]); x.etat = "ajoutee"; x.provisoire = true; x.id = (state.sources.find(o => o.id === s.id) || s).id;
 }
 function retirerSource(id){ const i = state.sources.findIndex(s => s.id === id); if(i >= 0) state.sources.splice(i, 1); }
@@ -1880,9 +1936,12 @@ function appBody(m){
       return `<p>${esc(m.file)} ne contient pas de liste de références : j’ai repéré ${plur(m.cites || 0, "citation", "citations")} dans le texte. Je génère ta bibliographie à partir d’elles : chaque œuvre citée est cherchée en ligne, puis rédigée selon ta norme.</p><div class="chips">${chip("Construire ma bibliographie", {t:"build", v:m.file}, "pri")}${chip("Voir le contrôle", {t:"side", v:"controle"})}</div>`;
     case "propositions": {
       const n = v => m.items.filter(x => x.verdict === v).length, sures = m.items.filter(x => x.etat === "attente" && x.verdict === "sure" && x.choix.length).length;
-      if(m.auto){ const prov = m.items.filter(x => x.provisoire).length, doute = m.items.filter(x => !x.provisoire && x.verdict !== "sure").length, ok = m.items.length - prov - doute;
-        return `<p>${plur(m.items.length, "œuvre citée manquait", "œuvres citées manquaient")} à ta liste : chacune a maintenant son entrée dans la bibliographie. <b>${ok}</b> retrouvée${ok > 1 ? "s" : ""} en ligne, <b>${doute}</b> à confirmer (la plus probable est ajoutée, tu peux en choisir une autre), <b>${prov}</b> introuvable${prov > 1 ? "s" : ""} en ligne (ajoutée${prov > 1 ? "s" : ""} avec l’auteur et l’année, à compléter).</p>
-          <div class="props">${m.items.map((x, i) => propCarte(m, x, i)).join("")}</div>
+      if(m.auto){ const tot = m.total || m.items.length, prov = m.items.filter(x => x.provisoire).length, doute = m.items.filter(x => !x.provisoire && x.verdict !== "sure").length, ok = m.sures !== undefined ? m.sures : m.items.length - prov - doute;
+        const MAXC = 60; // un grand document : les 60 premières cartes, le reste se règle dans la bibliographie
+        return `<p>${plur(tot, "œuvre citée manquait", "œuvres citées manquaient")} à ta liste : chacune a maintenant son entrée dans la bibliographie. <b>${ok}</b> retrouvée${ok > 1 ? "s" : ""} en ligne, <b>${doute}</b> à confirmer (la plus probable est ajoutée, tu peux en choisir une autre), <b>${prov}</b> introuvable${prov > 1 ? "s" : ""} en ligne (ajoutée${prov > 1 ? "s" : ""} avec l’auteur et l’année, à compléter).</p>
+          ${m.plusTard ? `<p>${plur(m.plusTard, "œuvre n’a", "œuvres n’ont")} pas pu être cherchée${m.plusTard > 1 ? "s" : ""} (connexion ou limite du jour) : la recherche reprendra d’elle-même.</p>` : ""}
+          <div class="props">${m.items.slice(0, MAXC).map((x, i) => propCarte(m, x, i)).join("")}</div>
+          ${m.items.length > MAXC ? `<p class="legend">et ${m.items.length - MAXC} autres, marquées « Œuvre à confirmer » ou « à compléter » dans la bibliographie.</p>` : ""}
           <div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${chip("Télécharger en Word", {t:"dl"})}</div>`; }
       return `<p>${plur(m.items.length, "œuvre citée cherchée", "œuvres citées cherchées")}${NB}: <b>${n("sure")}</b> trouvée${n("sure") > 1 ? "s" : ""}, <b>${n("choisir")}</b> à confirmer, ${n("rien")} introuvable${n("rien") > 1 ? "s" : ""}. Vérifie chaque proposition${NB}: rien n’est ajouté sans ton accord.</p>
         <div class="props">${m.items.map((x, i) => propCarte(m, x, i)).join("")}</div>
@@ -2290,5 +2349,5 @@ try{ const langs = (navigator.languages && navigator.languages.length ? navigato
 
 /* ---------- démarrage ---------- */
 document.body.classList.toggle("in-claude", !!(window.claude && window.claude.use)); // textes propres à la démonstration dans Claude
-loadLocal(); compte.init(); refreshDraftUi(); renderAll(); applyLang(); setTimeout(() => sync.pull(), 400); setView((() => { try{ return localStorage.getItem("bibliocard.view") || "biblio"; }catch(e){ return "biblio"; } })()); micUi(); updateCount();
+loadLocal(); compte.init(); refreshDraftUi(); renderAll(); applyLang(); setTimeout(() => { if(state.sources.some(s => s._cite) && navigator.onLine !== false) construireBiblio(null, true); }, 2500); setTimeout(() => sync.pull(), 400); setView((() => { try{ return localStorage.getItem("bibliocard.view") || "biblio"; }catch(e){ return "biblio"; } })()); micUi(); updateCount();
 setStatus(state.sources.length ? "Enregistré sur cet appareil" : "Prêt");
