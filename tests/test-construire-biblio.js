@@ -43,4 +43,18 @@ egal(oa("Framing", 1993, ["Robert M. Entman"], 16164, {type: "article", source: 
 egal(E.findCitations("Comme l’a montré T. A. van Dijk (2008, p. 12), et l’œuvre de Mbembe (2000).").map(c => c.family).join(" | "), "van Dijk | Mbembe", "particules");
 egal(/postcolonie/.test(E.contexteCitation("Intro. Pour l’Afrique, A. Mbembe (2000) a décrit la postcolonie. Suite.", "A. Mbembe (2000")), true, "contexte de la citation");
 
+// 8. Discipline : une thèse d’analyse du discours ne reçoit jamais un article de chimie ou d’astronomie
+const these = "Cette thèse porte sur le discours politique, la rhétorique et l’hyperbole dans la presse : analyse linguistique, pragmatique et sémantique des énoncés, argumentation, idéologie, communication médiatique et identité.".repeat(3);
+egal(E.domaineTexte(these), "Social Sciences", "domaine du document");
+const astro = Object.assign(oa("Measuring EUV Line Emission from the Hot Interstellar Medium", 1984, ["Simon E. Labov"], 40, {type: "article", source: {display_name: "International Astronomical Union Colloquium"}}), {_domaine: "Physical Sciences"});
+const socio = ol("Field methods of the project on linguistic change and variation", 1984, ["William Labov"]);
+const lab = E.classerCandidats({family: "Labov", year: "1984", raw: "Labov (1984"}, "Labov (1984) étudie la variation linguistique.", [astro, socio], "Social Sciences");
+egal(lab.L.map(x => x.s.title).join(" | "), "Field methods of the project on linguistic change and variation", "œuvre d’une autre discipline écartée (OpenAlex)");
+const chimie = oa("Determination of tin(IV) and organotin compounds in natural waters, coastal sediments and macro algae", 1979, ["Vernon F. Hodge"], 120, {type: "article", source: {display_name: "Analytical Chemistry"}});
+egal(E.classerCandidats({family: "Hodge", year: "1979", raw: "Hodge & Kress, 1979"}, "", [chimie], "Social Sciences").verdict, "rien", "chimie écartée d’après le titre et la revue");
+egal(E.classerCandidats({family: "Hodge", year: "1979", raw: "Hodge (1979"}, "", [chimie], null).L.length, 1, "sans discipline nette du document, rien n’est écarté");
+// 9. « Hodge & Kress (1979) » : l’œuvre doit avoir les deux auteurs nommés
+const billy = ol("Organization theory", 1979, ["Billy J. Hodge"]);
+const ideo = oa("Language as Ideology", 1979, ["Robert Hodge", "Gunther Kress"], 900);
+egal(E.classerCandidats({family: "Hodge", year: "1979", raw: "Hodge & Kress, 1979"}, "", [billy, ideo], "Social Sciences").L.map(x => x.s.title).join(" | "), "Language as Ideology", "co-auteur cité exigé");
 console.log(err ? `erreurs : ${err}` : "erreurs : aucune");

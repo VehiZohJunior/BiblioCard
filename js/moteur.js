@@ -877,6 +877,7 @@ function fromOpenAlex(w){
   // OpenAlex range parfois un livre parmi les « articles » : sans revue, sans volume ni pages, c’en est un
   if(s.type === "article" && !s.container && !s.volume && !s.pages) s.type = "book";
   s.origin = "Recherche en ligne"; s._notoriete = w.cited_by_count || 0; s._src = "OpenAlex";
+  const pt = w.primary_topic || {}; if(pt.domain) s._domaine = pt.domain.display_name; if(pt.field) s._champ = pt.field.display_name;
   return villeEditeur(s);
 }
 // ville des éditeurs les plus cités dans les mémoires (NORCAMES exige le lieu d’édition)
@@ -917,8 +918,45 @@ function memeAuteur(cite, s){
   const fam = norm(cite.family).split(" ").pop();
   return fam && s.authors.some(a => { const f = norm(a.family); return f === fam || f.split(" ").pop() === fam || f.endsWith(" " + fam); });
 }
-function scoreCandidat(cite, ctx, s){
+/* ---------- discipline du document et des œuvres ----------
+   Les quatre grands domaines d’OpenAlex. Le domaine du document vient de son vocabulaire ; celui d’une œuvre
+   vient d’OpenAlex (primary_topic) ou, à défaut, de son titre et de sa revue. Une œuvre d’un autre domaine
+   n’est jamais proposée pour une citation (cas réels : « Hodge & Kress (1979) » et « Labov (1984) », cités dans
+   une thèse d’analyse du discours, avaient reçu un article de chimie et un d’astronomie). */
+const DOMAINES = {
+  "Social Sciences": "discours discourse langag language linguisti semanti pragmati rhetori lexic syntax grammai grammar phonolog sociolinguist litter literatur roman novel poesi poetry poem theatr fiction narrat recit translat traduct sociolog societ social politi elector histoir histor philosoph educati enseign pedagog didacti econom droit juridi law communicati media medias presse press journalis cultur anthropolog psycholog identit ideolog argument hyperbol metaphor gender feminis religi geograph urban colonial postcolon africain african ecriture writing reading lecture",
+  "Physical Sciences": "chimi chemi chemical physiq physics molecul atom energ materia algorith informati comput reseau network wireless protocol mathemat equation astronom interstell galax spectr emission sediment organotin compound metal polymer catalys quantum electron circuit semiconduct optic laser thermodynam fluid mecaniq mechanic geolog mineral seism ocean climat",
+  "Life Sciences": "biolog plante plant espece species genet gene genom cellul cell ecolog agricult agronom forest animal bacteri protein enzym microb zoolog botani biodivers",
+  "Health Sciences": "sante health patient cliniq clinical maladi disease cancer medic hopital hospital epidemi therap infect vaccin nursing chirurg surgery pharmac diagnos mortal",
+};
+const RACINES_DOM = Object.entries(DOMAINES).map(([d, l]) => [d, l.split(" ")]);
+function compteDomaines(text){
+  const sc = {}; Object.keys(DOMAINES).forEach(d => sc[d] = 0);
+  norm(String(text || "").slice(0, 200000)).split(" ").forEach(w => { if(w.length < 4) return; for(const [d, R] of RACINES_DOM) if(R.some(r => w.startsWith(r))){ sc[d]++; break; } });
+  return sc;
+}
+// domaine d’un document : seulement s’il domine nettement (sinon on ne filtre pas)
+function domaineTexte(text){
+  const sc = compteDomaines(text), L = Object.entries(sc).sort((a, b) => b[1] - a[1]);
+  return L[0][1] >= 8 && L[0][1] >= 2 * L[1][1] ? L[0][0] : null;
+}
+// domaine d’une œuvre : OpenAlex d’abord ; sinon titre et revue, avec au moins deux indices concordants
+function domaineFiche(s){
+  if(s._domaine) return s._domaine;
+  const sc = compteDomaines(`${s.title || ""} ${s.container || ""}`), L = Object.entries(sc).sort((a, b) => b[1] - a[1]);
+  return L[0][1] >= 2 && L[1][1] === 0 ? L[0][0] : null;
+}
+// co-auteurs nommés dans la citation : « Hodge & Kress, 1979 », « Beaugrande and Dressler 1981 », « Kouadio et Traoré (2019) »
+function coAuteursCites(cite){
+  const raw = String(cite.raw || ""), fam = norm(cite.family).split(" ").pop();
+  return [...raw.matchAll(/(?:&|\band\b|\bet\b|,)\s*((?:[vV][ao]n\s+)?\p{Lu}[\p{L}'’-]+)/gu)].map(m => norm(m[1]).split(" ").pop()).filter(n => n && n !== fam && !/^(al|al\.|coll)$/.test(n) && !/^\d/.test(n));
+}
+function scoreCandidat(cite, ctx, s, domDoc){
+  if(domDoc){ const d = domaineFiche(s); if(d && d !== domDoc) return -1; } // autre discipline : jamais proposée
   if(!memeAuteur(cite, s) || !s.title) return -1;
+  // « Hodge & Kress (1979) » : le second auteur nommé doit figurer parmi les auteurs de l’œuvre
+  const co = coAuteursCites(cite);
+  if(co.length && !co.every(n => s.authors.some(a => norm(a.family).split(" ").pop() === n || norm(a.family) === n))) return -1;
   // l’initiale du prénom écarte les homonymes : « E. Ostrom » n’est pas Charles W. Ostrom
   const fam = norm(cite.family).split(" ").pop(), ini = initialesCitation(cite);
   const lui = s.authors.find(a => norm(a.family).split(" ").pop() === fam || norm(a.family).endsWith(" " + fam));
@@ -934,10 +972,10 @@ function scoreCandidat(cite, ctx, s){
     - (/(compte rendu|review of|erratum|corrigendum|^index$|^table des)/i.test(s.title) ? 1.5 : 0);
 }
 // candidats classés ; « sure » quand l’auteur, l’année et le sujet concordent nettement
-function classerCandidats(cite, ctx, cands){
+function classerCandidats(cite, ctx, cands, domDoc){
   const vus = new Map();
   (cands || []).forEach(s => {
-    const k = norm(s.title).slice(0, 60); const sc = scoreCandidat(cite, ctx, s);
+    const k = norm(s.title).slice(0, 60); const sc = scoreCandidat(cite, ctx, s, domDoc);
     if(sc < 0) return;
     const deja = vus.get(k);
     if(!deja || sc > deja.score) vus.set(k, {s: deja ? fusionFiches(s, deja.s) : s, score: sc});
@@ -1252,4 +1290,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};

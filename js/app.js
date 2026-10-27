@@ -669,7 +669,7 @@ async function oaJSON(url, payant, ms = 10000){
   }
   return {status: 429};
 }
-const OA_CHAMPS = "display_name,title,publication_year,authorships,type,cited_by_count,primary_location,biblio,doi,open_access";
+const OA_CHAMPS = "display_name,title,publication_year,authorships,type,cited_by_count,primary_location,biblio,doi,open_access,primary_topic";
 // autocomplétion (gratuite) puis fiches complètes des meilleures (gratuites aussi, une par œuvre)
 async function oaAutocomplete(q, filtre){
   const r = await oaJSON(`https://api.openalex.org/autocomplete/works?q=${encodeURIComponent(q)}${filtre ? "&filter=" + filtre : ""}`);
@@ -781,12 +781,12 @@ async function completerEdition(s, an){
 // CrossRef (accès public) refuse les appels simultanés : une seule recherche à la fois
 let crTour = Promise.resolve();
 function crFile(url){ const r = crTour.then(() => getJSON(url, 15000)); crTour = r.catch(() => {}); return r; }
-async function chercherCitation(c, ctx){
+async function chercherCitation(c, ctx, domDoc){
   const an = annee(c), fam = encodeURIComponent(c.family);
   // Open Library deux fois : les œuvres de l’auteur autour de l’année citée, et ses œuvres les plus éditées
   // (les 25 plus connues de Bourdieu ne comptent pas « Ce que parler veut dire », 1982)
   const [oa, ol, olAn] = await Promise.all([
-    oaJSON(`https://api.openalex.org/works?filter=publication_year:${+an - 1}-${+an + 1},raw_author_name.search:${fam}&sort=cited_by_count:desc&per-page=15&select=display_name,title,publication_year,authorships,type,cited_by_count,primary_location,biblio,doi`, true),
+    oaJSON(`https://api.openalex.org/works?filter=publication_year:${+an - 1}-${+an + 1},raw_author_name.search:${fam}&sort=cited_by_count:desc&per-page=15&select=display_name,title,publication_year,authorships,type,cited_by_count,primary_location,biblio,doi,primary_topic`, true),
     getJSON(`https://openlibrary.org/search.json?author=${fam}&limit=25&fields=key,title,subtitle,author_name,first_publish_year,edition_count`, 15000),
     getJSON(`https://openlibrary.org/search.json?q=${encodeURIComponent(`author:${c.family} first_publish_year:[${+an - 1} TO ${+an + 1}]`)}&limit=15&fields=key,title,subtitle,author_name,first_publish_year,edition_count`, 15000),
   ]);
@@ -797,7 +797,7 @@ async function chercherCitation(c, ctx){
   const cands = [...(((oa.data || {}).results) || []).map(fromOpenAlex),
     ...((((cr.data || {}).message || {}).items) || []).map(fromCrossrefRecherche),
     ...olDocs.filter(d => !d.first_publish_year || d.first_publish_year <= +an + 1).map(fromOpenLibrary)];
-  const {verdict, L} = classerCandidats(c, ctx, cands);
+  const {verdict, L} = classerCandidats(c, ctx, cands, domDoc);
   const top = L.slice(0, 3).map(x => ({...x.s, _score: Math.round(x.score * 100) / 100}));
   // un livre est cité dans une édition précise : son année, son éditeur, sa ville
   if(top[0] && top[0].type === "book"){ top[0].year = an; await completerEdition(top[0], an); }
@@ -861,9 +861,11 @@ async function construireBiblio(nom, sansCommande){
   docs.forEach(f => { const body = stripMarks(f.body); apparierCitations(body, state.sources).missing.forEach(x => { const k = norm(x.c.family) + annee(x.c); if(vus.has(k)) return; vus.add(k); todo.push({c: x.c, ctx: contexteCitation(body, x.c.raw), file: f.name, pos: body.indexOf(x.c.raw)}); }); });
   todo.sort((a, b) => a.file === b.file ? a.pos - b.pos : 0); // dans l’ordre du texte
   if(!todo.length){ post({role: "a", kind: "info", text: "Toutes les citations de ton texte ont déjà leur référence dans la bibliographie."}); return; }
+  // la discipline des documents : une œuvre d’une autre discipline n’est jamais proposée pour une citation
+  const domDoc = domaineTexte(docs.map(f => stripMarks(f.body)).join(" "));
   post({role: "a", kind: "info", text: `Je cherche ${todo.length > 1 ? `les ${todo.length} œuvres citées` : "l’œuvre citée"} dans OpenAlex et Open Library…`}); think(true);
   const items = new Array(todo.length); let i = 0, horsLigne = 0;
-  const travail = async () => { while(i < todo.length){ const k = i++, t = todo[k]; const r = await chercherCitation(t.c, t.ctx); if(r.erreur) horsLigne++;
+  const travail = async () => { while(i < todo.length){ const k = i++, t = todo[k]; const r = await chercherCitation(t.c, t.ctx, domDoc); if(r.erreur) horsLigne++;
     items[k] = {cite: {family: t.c.family, year: t.c.year, raw: citeVue(t.c)}, file: t.file, verdict: r.erreur ? "rien" : r.verdict, choix: (r.top || []).map(s => ({...s, _notoriete: undefined})), pick: 0, etat: "attente"}; } };
   await Promise.all([travail(), travail(), travail()]);
   think(false);
@@ -877,12 +879,15 @@ async function construireBiblio(nom, sansCommande){
 async function ajouterChoix(x, doute){
   const s = {...x.choix[x.pick], id: "s" + Math.random().toString(36).slice(2, 10), file: x.file};
   if(s.type === "book"){ s.year = annee(x.cite); if(!s.city || !s.publisher) await completerEdition(s, s.year); }
-  ["_olKey", "_src", "_notoriete", "_score", "_oaId", "_lien"].forEach(k => delete s[k]);
+  ["_olKey", "_src", "_notoriete", "_score", "_oaId", "_lien", "_domaine", "_champ"].forEach(k => delete s[k]);
   if(doute) s.aConfirmer = true;
   addSources([s]); x.etat = "ajoutee"; x.id = (state.sources.find(o => sameRef(o, s)) || s).id;
 }
 function ajouterProvisoire(x){
-  const s = blank(); s.type = "book"; s.authors = [{family: x.cite.family, given: ""}]; s.year = annee(x.cite); s.file = x.file;
+  const s = blank(); s.type = "book"; s.year = annee(x.cite); s.file = x.file;
+  // « Hodge & Kress (1979) » : les deux auteurs nommés dans la citation
+  const co = coAuteursCites(x.cite), noms = [...String(x.cite.raw).matchAll(/((?:[vV][ao]n\s+)?\p{Lu}[\p{L}'’-]+)/gu)].map(m => m[1]);
+  s.authors = [{family: x.cite.family, given: ""}, ...co.map(n => ({family: noms.find(m => norm(m).split(" ").pop() === n) || n, given: ""}))];
   s.origin = "Citation du texte"; s.aCompleter = true; if(/\bet\s+al\b/i.test(x.cite.raw)) s.etAl = true;
   addSources([s]); x.etat = "ajoutee"; x.provisoire = true; x.id = (state.sources.find(o => o.id === s.id) || s).id;
 }
@@ -968,7 +973,7 @@ async function lecturesPour(items){
 }
 function ajouterLecture(it, j){
   const s = {...it.lect.L[j], id: "s" + Math.random().toString(36).slice(2, 10), file: ""};
-  ["_lien", "_src", "_notoriete", "_olKey", "_score", "_oaId"].forEach(k => delete s[k]);
+  ["_lien", "_src", "_notoriete", "_olKey", "_score", "_oaId", "_domaine", "_champ"].forEach(k => delete s[k]);
   addSources([s]); renderPlan(); toast("Ajoutée à ta bibliographie, à relire");
 }
 function remplacerPlan(items, msg){
