@@ -477,8 +477,9 @@ function decide(text){
   // appels numérotés [1] et liste numérotée (Vancouver, IEEE)
   if(sec && sourcesNumerotees(stripMarks(sec.body), stripMarks(sec.section))) return {mode:"biblio", body: sec.body, section: sec.section};
   if(sec){ const r = splitReferences(sec.section); if(r.length >= 2 && partReferences(r) >= 0.6) return {mode:"biblio", body: sec.body, section: sec.section}; }
-  const all = splitReferences(text);
-  if(all.length >= 4 && all.join(" ").length > text.length * 0.5 && partReferences(all) >= 0.6) return {mode:"biblio", body:"", section:text};
+  const all = splitReferences(nettoyerSection(text, text));
+  // sans titre « Bibliographie » : le texte entier n’est une liste que s’il ne contient presque que des références
+  if(!sec && all.length >= 4 && all.join(" ").length > text.length * 0.5 && partReferences(all) >= 0.85) return {mode:"biblio", body:"", section: nettoyerSection(text, text)};
   // un texte rédigé qui cite au moins une source : génération de la bibliographie (le comportement par défaut)
   if(findCitations(stripMarks(text)).length >= 1) return {mode:"texte", body:text, section:""};
   return {mode:"source", body:"", section:""};
@@ -541,13 +542,13 @@ async function runFile(f){ think(true); try{ await runFileCore(f); } finally { t
 async function runFileCore(f){
   state.sources = state.sources.filter(s => s.file !== f.name);
   f.error = false; f.busy = true;
-  if(f.mode === "biblio" && !f.section){ const sec = findBibSection(f.text); f.section = sec ? sec.section : f.text; f.body = sec ? sec.body : ""; }
+  if(f.mode === "biblio" && !f.section){ const sec = findBibSection(f.text); f.section = sec ? sec.section : nettoyerSection(f.text, f.text); f.body = sec ? sec.body : ""; }
   if(f.mode === "texte"){ f.body = f.body || f.text; f.busy = false; const c = findCitations(stripMarks(f.body)).length; f.status = `${c} citation${c > 1 ? "s" : ""} repérée${c > 1 ? "s" : ""}, comparées avec ta bibliographie ci-contre`; save(); renderAll(); return; }
   if(f.mode === "biblio"){
     // appels numérotés : chaque numéro appelé dans le texte renvoie à l’entrée qui porte ce numéro
     const num = sourcesNumerotees(stripMarks(f.body || ""), stripMarks(f.section));
     if(num){
-      const lire = L => L.map(e => Object.assign(parseEntreeNumerotee(e.texte), {file: f.name})).filter(s => s.title || s.authors.length);
+      const lire = L => L.map(e => Object.assign(parseEntreeNumerotee(e.texte), {file: f.name})).filter(estFicheBibliographique);
       const k = addSources(lire(num.citees)); f.nonCitees = lire(num.nonCitees);
       f.gen = {citations: num.appels, retenues: k, nonCitees: f.nonCitees.length, aChercher: 0, numerique: true, sansEntree: num.sansEntree};
       f.busy = false; f.status = `${k} source${k > 1 ? "s" : ""} appelée${k > 1 ? "s" : ""} par numéro retrouvée${k > 1 ? "s" : ""} dans la liste du document${f.ocr ? ". Document scanné : relis attentivement" : ""}`;
@@ -556,7 +557,9 @@ async function runFileCore(f){
     const refs = splitReferences(f.section).filter(estReference); // jamais un paragraphe rédigé
     if(!refs.length){ Object.assign(f, {busy:false, error:true, status:"Aucune référence reconnue. Essaie « Source à citer » ou colle tes références."}); renderAll(); return; }
     f.status = `${refs.length} référence${refs.length > 1 ? "s" : ""} trouvée${refs.length > 1 ? "s" : ""}, mise en forme…`; renderFiles();
-    const list = await parseMany(refs, f);
+    // contrôle final : seule une vraie référence entre dans la bibliographie, jamais un morceau de texte
+    const lues = await parseMany(refs, f), list = lues.filter(estFicheBibliographique);
+    f.ecartees = lues.length - list.length;
     list.forEach(s => s.file = f.name);
     /* Générer la bibliographie, ce n’est pas recopier la liste du document : on part des citations du texte.
        La liste du document ne sert que de source de données (auteur, année, titre, revue ou éditeur, volume,
@@ -569,12 +572,12 @@ async function runFileCore(f){
       f.nonCitees = list.filter(s => !citees.has(s.id));
       const k = addSources(list.filter(s => citees.has(s.id)));
       const aChercher = new Set(v.missing.map(x => norm(x.c.family) + annee(x.c))).size;
-      f.gen = {citations: v.total, retenues: k, nonCitees: f.nonCitees.length, aChercher};
+      f.gen = {citations: v.total, retenues: k, nonCitees: f.nonCitees.length, aChercher, ecartees: f.ecartees};
       f.busy = false; f.status = `${k} source${k > 1 ? "s" : ""} citée${k > 1 ? "s" : ""} retrouvée${k > 1 ? "s" : ""} dans la liste du document${aChercher ? `, ${aChercher} à chercher en ligne` : ""}${f.ocr ? ". Document scanné : relis attentivement" : ""}`;
     } else {
       // une simple liste de références, sans texte rédigé : il n’y a pas de citations à suivre
       const k = addSources(list); f.gen = null; f.nonCitees = [];
-      f.busy = false; f.status = `${k} référence${k > 1 ? "s" : ""} ajoutée${k > 1 ? "s" : ""}${list.length - k ? `, ${list.length - k} déjà présente${list.length - k > 1 ? "s" : ""}` : ""}${f.ocr ? ". Document scanné : relis attentivement" : ""}`;
+      f.busy = false; f.status = `${k} référence${k > 1 ? "s" : ""} ajoutée${k > 1 ? "s" : ""}${list.length - k ? `, ${list.length - k} déjà présente${list.length - k > 1 ? "s" : ""}` : ""}${f.ecartees ? `, ${f.ecartees} ligne${f.ecartees > 1 ? "s" : ""} écartée${f.ecartees > 1 ? "s" : ""} (pas des références)` : ""}${f.ocr ? ". Document scanné : relis attentivement" : ""}`;
     }
     renderAll(); if(!net.blocked) runExistence(false); return;
   }
@@ -895,7 +898,7 @@ async function construireBiblio(nom, sansCommande){
   // une source citée en note de bas de page avec sa référence complète entre directement : pas de recherche en ligne
   const deNotes = [];
   docs.forEach(f => { const body = stripMarks(f.body); apparierCitations(body, state.sources).missing.forEach(x => { const k = norm(x.c.family) + annee(x.c); if(vus.has(k)) return; vus.add(k);
-    const n = x.c.refNote && parseNote(x.c.refNote); if(n){ n.file = f.name; deNotes.push(n); return; }
+    const n = x.c.refNote && parseNote(x.c.refNote); if(n && estFicheBibliographique(n)){ n.file = f.name; deNotes.push(n); return; }
     todo.push({c: x.c, ctx: contexteCitation(body, x.c.raw), file: f.name, pos: body.indexOf(x.c.raw)}); }); });
   if(deNotes.length){ addSources(deNotes); post({role: "a", kind: "info", text: `${deNotes.length > 1 ? `${deNotes.length} sources citées en note de bas de page ont été reprises` : "Une source citée en note de bas de page a été reprise"} de leur note, sans recherche en ligne.`}); }
   todo.sort((a, b) => a.file === b.file ? a.pos - b.pos : 0); // dans l’ordre du texte
@@ -917,7 +920,7 @@ async function construireBiblio(nom, sansCommande){
     if(!s || !s._cite){ faites++; continue; } // retirée entre-temps
     const r = await chercherCitation(s._cite, s._cite.ctx || "", domDoc);
     if(r.erreur){ horsLigne++; faites++; continue; } // la fiche garde sa citation : la recherche reprendra plus tard
-    x.verdict = r.verdict; x.choix = (r.top || []).map(c => ({...c, _notoriete: undefined}));
+    x.verdict = r.verdict; x.choix = (r.top || []).filter(estFicheBibliographique).map(c => ({...c, _notoriete: undefined}));
     if(x.choix.length) await remplacerProvisoire(x, s, x.verdict !== "sure");
     else delete s._cite; // rien en ligne : l’entrée reste « à compléter »
     faites++; suivi.text = rechercheTexte(faites, items.length); bientot(); } };
@@ -1925,6 +1928,7 @@ function appBody(m){
       if(m.mode === "biblio" && m.gen){ const g = m.gen;
         return `<p>J’ai lu <b>${plur(g.citations, g.numerique ? "appel numéroté" : "citation", g.numerique ? "appels numérotés" : "citations")}</b> dans le texte de ${esc(m.file)} et généré la bibliographie de <b>${plur(g.retenues, "source utilisée", "sources utilisées")}</b>, en ${esc(st.full)}. Pour chacune, seuls l’auteur, l’année, le titre, la revue ou l’éditeur, le volume, le numéro et les pages sont repris.${m.ocr ? " Le document était scanné : relis attentivement." : ""}</p>
           ${g.sansEntree && g.sansEntree.length ? `<p>${g.sansEntree.length > 1 ? `Les numéros ${g.sansEntree.map(n => `[${n}]`).join(", ")} sont appelés dans le texte mais absents` : `Le numéro [${g.sansEntree[0]}] est appelé dans le texte mais absent`} de la liste du document : un numéro seul ne dit ni l’auteur ni l’œuvre, ajoute-l${g.sansEntree.length > 1 ? "es" : "’"} toi-même.</p>` : ""}
+          ${g.ecartees ? `<p>${plur(g.ecartees, "passage de la liste a été écarté", "passages de la liste ont été écartés")} : ce n’étaient pas des références (intertitre, phrase rédigée, page de garde). La bibliographie ne contient que des références.</p>` : ""}
           ${g.aChercher ? `<p>${plur(g.aChercher, "œuvre citée manque", "œuvres citées manquent")} à la liste de ton document : je les cherche en ligne.</p>` : ""}
           ${g.nonCitees ? `<p>${plur(g.nonCitees, "référence de ta liste n’est citée", "références de ta liste ne sont citées")} nulle part dans le texte : je ne l${g.nonCitees > 1 ? "es" : "’"}ai pas reprise${g.nonCitees > 1 ? "s" : ""}.</p>` : ""}
           ${status()}${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${g.nonCitees ? chip("Ajouter quand même les non citées", {t:"noncitees", v:m.file}) : ""}${chip("Télécharger en Word", {t:"dl"})}</div>`;

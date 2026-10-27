@@ -596,18 +596,64 @@ function estReference(raw){
   return (t.match(MOTS_PROSE) || []).length < 3;
 }
 const partReferences = L => L.length ? L.filter(estReference).length / L.length : 0;
+/* SECTION BIBLIOGRAPHIE : elle commence au titre « Bibliographie » (ou « Références… », « Works cited »…) et
+   s’arrête au premier titre qui n’est plus de la bibliographie : résumé, abstract, mots clés, annexes, table des
+   matières, sommaire, index, glossaire, listes, remerciements, quatrième de couverture. Dans la section, on ôte
+   ce qui n’est pas une référence : intertitres (« I. Ouvrages », « WEBOGRAPHIE »), numéros et en-têtes de page,
+   lignes de table des matières. Une bibliographie générée ne contient rien d’autre que des références. */
+const TITRE_BIBLIO = /^[ \t]*(?:[IVX\d]+[.)-]?\s*)?(r[ée]f[ée]rences bibliographiques|r[ée]f[ée]rences|bibliograp{1,2}h{1,2}ie(?:\s+(?:g[ée]n[ée]rale|s[ée]lective|indicative))?|sources et bibliographie|ouvrages cit[ée]s|works cited|references|bibliograp{1,2}h{1,2}y)[ \t]*:?[ \t]*$/gim; // « BIBLIOGRAPPHY » : coquille réelle
+const FIN_BIBLIO = /^[ \t]*(?:[IVX\d]+[.)-]?\s*)?(?:(?:annexes?|table des mati[èe]res|table of contents|contents|sommaire|index(?:\s+des\s+\p{L}+)?|glossaire|glossary|appendix|appendices|liste des (?:tableaux|figures|sigles|abr[ée]viations|illustrations|cartes|graphiques|annexes|photos)|r[ée]sum[ée]|abstract|summary|mots[- ]cl[ée]s|key[- ]?words|remerciements|acknowledg?ements|quatri[èe]me de couverture|curriculum vitae|biographie de l[’']auteur)[ \t]*:?[ \t]*$|(?:mots[- ]cl[ée]s|key[- ]?words)\s*:|annexe\s*[\dIVX]+\s*[:.–-])/imu;
+const MOTS_INTERTITRE = /^(?:[IVX]{1,5}|\d{1,2}|[A-Za-z])[.)–-]\s+\S|^(?:ouvrages?|articles?|revues?|th[èe]ses?|m[ée]moires?|rapports?|documents?|sources?|webographie|sitographie|netographie|dictionnaires?|encyclop[ée]dies?|textes?|archives?|entretiens?|journaux|presse|corpus|chapitres?|actes|communications?|books?|journals?|reports?|websites?|web sources|primary|secondary|interviews?|newspapers?|official|autres?|others?)\b/iu;
+function estIntertitre(t){
+  if(YEAR_RE.test(t) || /,/.test(t) || t.split(/\s+/).length > 10) return false;
+  return MOTS_INTERTITRE.test(t) || (/^[\p{Lu}\s'’&-]+:?$/u.test(t) && /\p{Lu}{3}/u.test(t));
+}
+function nettoyerSection(section, tout){
+  // en-têtes et pieds de page : une même ligne répétée sur plusieurs pages, qui n’est pas une référence
+  const vues = new Map(); stripMarks(String(tout)).split("\n").forEach(l => { const k = l.trim(); if(k.length >= 12) vues.set(k, (vues.get(k) || 0) + 1); });
+  return String(section).split("\n").filter(l => {
+    const t = stripMarks(l).trim(); if(!t) return true;
+    if(/^(?:page\s*)?\d{1,4}(?:\s*(?:sur|\/|of|de)\s*\d{1,4})?$/i.test(t)) return false; // numéro de page
+    if(/(?:\.\s?){4,}\s*\d+\s*$|…{2,}\s*\d+\s*$/.test(t)) return false; // ligne de table des matières
+    if(vues.get(t) >= 2 && !estReference(t)) return false;
+    return !estIntertitre(t);
+  }).join("\n");
+}
+/* CONTRÔLE FINAL d’une fiche avant qu’elle entre dans une bibliographie générée : c’est une référence (un auteur
+   ou un titre, une année ou un titre), pas un morceau de texte. Écartées : les fiches dont l’« auteur » est un
+   titre de partie ou une ligne de page de garde (« INTRODUCTION La presse… », « UNIVERSITÉ FÉLIX… »,
+   « SIGLES ET ABRÉVIATIONS »), dont le titre est une phrase rédigée (résumé, question d’un questionnaire)
+   ou démesuré. */
+const TETES_NON_BIBLIO = /^(?:bibliograp|r[ée]f[ée]rences\b|introduction\b|conclusion\b|r[ée]sum[ée]|abstract\b|summary\b|sigles\b|abr[ée]viations\b|d[ée]dicace|remerciements|sommaire\b|table des|annexe|appendix|chapitre\b|chapter\b|partie\b|universit|minist[èe]re|r[ée]publique|ufr\b|facult[ée]|d[ée]partement|m[ée]moire de|th[èe]se de|pr[ée]sent[ée]e? par|sous la direction|ann[ée]e (?:universitaire|acad[ée]mique)|mots[- ]cl[ée]s|key ?words|page\b|questionnaire|tableau\b|figure\b|source\s*:)/i;
+function estFicheBibliographique(s){
+  if(!s) return false;
+  const champ = k => stripMarks(String(s[k] || "")).replace(/\s+/g, " ").trim();
+  const titre = champ("title"), aut = (s.authors || []).filter(a => a && (a.family || a.given));
+  if(!titre && !aut.length) return false;
+  if(!titre && !s.year) return false;
+  if(titre.length > 300) return false;
+  if(aut.some(a => { const f = String(a.family || "").trim(); return f.length > 80 || /\d/.test(f) || f.split(/\s+/).length > 6 || TETES_NON_BIBLIO.test(f); })) return false;
+  // une phrase rédigée n’est pas un titre : mots grammaticaux en nombre, ou titre qui s’ouvre sur un verbe en minuscule
+  const tout = [titre, champ("container"), champ("publisher"), champ("city")].join(" ");
+  if((tout.match(MOTS_PROSE) || []).length >= 4) return false;
+  if(/^\p{Ll}/u.test(titre) && !/^(?:l[’']|d[’']|de\b|des\b|du\b|la\b|le\b|les\b|un\b|une\b|the\b|a\b|an\b|on\b|in\b|e-|i[A-Z])/u.test(titre)) return false;
+  return true;
+}
 function findBibSection(text){
-  const head = /^[ \t]*(?:[IVX\d]+[.)-]?\s*)?(r[ée]f[ée]rences bibliographiques|r[ée]f[ée]rences|bibliograp{1,2}h{1,2}ie(?:\s+(?:g[ée]n[ée]rale|s[ée]lective|indicative))?|sources et bibliographie|ouvrages cit[ée]s|works cited|references|bibliograp{1,2}h{1,2}y|webographie)[ \t]*:?[ \t]*$/gim; // « BIBLIOGRAPPHY » : coquille réelle
   let m, last = null;
-  while((m = head.exec(stripMarks(text)))) last = m;
+  TITRE_BIBLIO.lastIndex = 0;
+  while((m = TITRE_BIBLIO.exec(stripMarks(text)))) last = m;
   if(!last) return null;
-  // positions identiques dans le texte marqué : on cherche le même titre dans le texte d’origine
-  const idx = text.lastIndexOf(last[0].trim());
-  const start = idx + last[0].trim().length;
+  // le même titre dans le texte d’origine, SEUL sur sa ligne : « BIBLIOGRAPHIE ........ 45 » d’une table des
+  // matières placée après la bibliographie n’est pas le titre de la section
+  const titre = last[0].trim(), re = new RegExp("^[ \\t]*" + titre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[ \\t]*$", "gm");
+  let idx = -1, t; while((t = re.exec(text))) idx = t.index + t[0].indexOf(titre);
+  if(idx < 0) idx = text.lastIndexOf(titre);
+  const start = idx + titre.length;
   let section = text.slice(start);
-  const end = section.search(/^[ \t]*(?:[IVX\d]+[.)-]?\s*)?(annexes?|table des mati[èe]res|index|glossaire|appendix|appendices|liste des (?:tableaux|figures|sigles))\b[^\n]{0,40}$/im);
+  const end = section.search(FIN_BIBLIO);
   if(end > 0) section = section.slice(0, end);
-  return {body: text.slice(0, idx), section};
+  return {body: text.slice(0, idx), section: nettoyerSection(section, text)};
 }
 /* ---------- texte d’un PDF ----------
    pages : pour chaque page, les morceaux de texte de pdf.js {str, x, y, w, h}.
@@ -746,10 +792,15 @@ function splitReferences(text){
     // ou s’ouvre sur un NOM en capitales, ou sur « Nom, I. » (liste d’auteurs APA qui passe à la ligne)
     const opens = YEAR_RE.test(l) || /^⟦?\p{Lu}{2}/u.test(l) || /^\p{Lu}[\p{L}'’-]+,\s(?:\p{Lu}\.\s?)+/u.test(l) || /^(?:\[\d+\]|\d{1,3}[.)]\s)/.test(l);
     if(cur && start.test(l) && opens && YEAR_RE.test(cur) && (/[.)»”]\s*$/.test(stripMarks(cur)) || strong)) { push(); cur = l; }
+    // une ligne sans année (titre de la liste, consigne) suivie d’une vraie référence : elle reste seule, puis
+    // tombe au filtre final (pas d’année) au lieu de se coller en tête de la référence
+    else if(cur && strong && !YEAR_RE.test(cur)) { push(); cur = l; }
     else cur = cur ? cur + " " + l : l;
   });
   push();
-  return refs.map(r => r.replace(/^(?:\[\d+\]|\d{1,3}[.)])\s*/,"").replace(/(\p{Ll})-\s+(\p{Ll})/gu,"$1$2").replace(/\s+/g," ").trim())
+  // mentions d’imprimeur ou de droits recopiées avec la référence : jamais dans une bibliographie
+  return refs.map(r => r.replace(/\s*(?:Printed in [^.]+\.|All rights reserved\.?|Tous droits réservés\.?|©[^.]*\.?|Downloaded from [^.]*\.?)/gi, ""))
+    .map(r => r.replace(/^(?:\[\d+\]|\d{1,3}[.)])\s*/,"").replace(/(\p{Ll})-\s+(\p{Ll})/gu,"$1$2").replace(/\s+/g," ").trim())
     .filter(r => stripMarks(r).length > 20 && YEAR_RE.test(r) && !/^(page|p\.)\s?\d+$/i.test(r));
 }
 
@@ -1489,4 +1540,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {estFicheBibliographique, nettoyerSection, parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
