@@ -469,6 +469,8 @@ async function extract(file, f){
 function decide(text){
   const sec = findBibSection(text);
   // une liste de références n’est retenue que si ses entrées ressemblent vraiment à des références
+  // appels numérotés [1] et liste numérotée (Vancouver, IEEE)
+  if(sec && sourcesNumerotees(stripMarks(sec.body), stripMarks(sec.section))) return {mode:"biblio", body: sec.body, section: sec.section};
   if(sec){ const r = splitReferences(sec.section); if(r.length >= 2 && partReferences(r) >= 0.6) return {mode:"biblio", body: sec.body, section: sec.section}; }
   const all = splitReferences(text);
   if(all.length >= 4 && all.join(" ").length > text.length * 0.5 && partReferences(all) >= 0.6) return {mode:"biblio", body:"", section:text};
@@ -512,7 +514,7 @@ async function handleFiles(list){
    déposé, texte collé, texte écrit ou dicté dans Rédaction). On part des citations du texte ; on ne recopie
    jamais une liste déjà saisie. */
 async function completerGeneration(nom){
-  const docs = ui.files.filter(f => f.body && (f.mode === "biblio" || f.mode === "texte") && (!nom || f.name === nom));
+  const docs = ui.files.filter(f => f.body && (f.mode === "biblio" || f.mode === "texte") && !(f.gen && f.gen.numerique) && (!nom || f.name === nom));
   if(docs.some(f => apparierCitations(stripMarks(f.body), state.sources).missing.length)) await construireBiblio(nom, true);
 }
 // texte rédigé = au moins une citation « Auteur (année) » ; une liste de références collée n’en contient aucune
@@ -537,6 +539,15 @@ async function runFileCore(f){
   if(f.mode === "biblio" && !f.section){ const sec = findBibSection(f.text); f.section = sec ? sec.section : f.text; f.body = sec ? sec.body : ""; }
   if(f.mode === "texte"){ f.body = f.body || f.text; f.busy = false; const c = findCitations(stripMarks(f.body)).length; f.status = `${c} citation${c > 1 ? "s" : ""} repérée${c > 1 ? "s" : ""}, comparées avec ta bibliographie ci-contre`; save(); renderAll(); return; }
   if(f.mode === "biblio"){
+    // appels numérotés : chaque numéro appelé dans le texte renvoie à l’entrée qui porte ce numéro
+    const num = sourcesNumerotees(stripMarks(f.body || ""), stripMarks(f.section));
+    if(num){
+      const lire = L => L.map(e => Object.assign(parseEntreeNumerotee(e.texte), {file: f.name})).filter(s => s.title || s.authors.length);
+      const k = addSources(lire(num.citees)); f.nonCitees = lire(num.nonCitees);
+      f.gen = {citations: num.appels, retenues: k, nonCitees: f.nonCitees.length, aChercher: 0, numerique: true, sansEntree: num.sansEntree};
+      f.busy = false; f.status = `${k} source${k > 1 ? "s" : ""} appelée${k > 1 ? "s" : ""} par numéro retrouvée${k > 1 ? "s" : ""} dans la liste du document${f.ocr ? ". Document scanné : relis attentivement" : ""}`;
+      renderAll(); if(!net.blocked) runExistence(false); return;
+    }
     const refs = splitReferences(f.section).filter(estReference); // jamais un paragraphe rédigé
     if(!refs.length){ Object.assign(f, {busy:false, error:true, status:"Aucune référence reconnue. Essaie « Source à citer » ou colle tes références."}); renderAll(); return; }
     f.status = `${refs.length} référence${refs.length > 1 ? "s" : ""} trouvée${refs.length > 1 ? "s" : ""}, mise en forme…`; renderFiles();
@@ -856,7 +867,7 @@ async function completerEnLigne(){
 }
 async function construireBiblio(nom, sansCommande){
   if(!exiger("biblio")) return;
-  const docs = ui.files.filter(f => f.body && (f.mode === "texte" || f.mode === "biblio") && (!nom || f.name === nom));
+  const docs = ui.files.filter(f => f.body && (f.mode === "texte" || f.mode === "biblio") && !(f.gen && f.gen.numerique) && (!nom || f.name === nom));
   if(!sansCommande) post({role: "u", kind: "cmd", text: "Construire ma bibliographie"});
   if(!docs.length){ post({role: "a", kind: "error", text: "Dépose d’abord ton document (Word, PDF ou texte) avec le bouton + : je construis la bibliographie à partir des citations de son texte."}); return; }
   const L = labeled(), vus = new Set(), todo = [];
@@ -1856,7 +1867,8 @@ function appBody(m){
   switch(m.kind){
     case "import":
       if(m.mode === "biblio" && m.gen){ const g = m.gen;
-        return `<p>J’ai lu <b>${plur(g.citations, "citation", "citations")}</b> dans le texte de ${esc(m.file)} et généré la bibliographie de <b>${plur(g.retenues, "source utilisée", "sources utilisées")}</b>, en ${esc(st.full)}. Pour chacune, seuls l’auteur, l’année, le titre, la revue ou l’éditeur, le volume, le numéro et les pages sont repris.${m.ocr ? " Le document était scanné : relis attentivement." : ""}</p>
+        return `<p>J’ai lu <b>${plur(g.citations, g.numerique ? "appel numéroté" : "citation", g.numerique ? "appels numérotés" : "citations")}</b> dans le texte de ${esc(m.file)} et généré la bibliographie de <b>${plur(g.retenues, "source utilisée", "sources utilisées")}</b>, en ${esc(st.full)}. Pour chacune, seuls l’auteur, l’année, le titre, la revue ou l’éditeur, le volume, le numéro et les pages sont repris.${m.ocr ? " Le document était scanné : relis attentivement." : ""}</p>
+          ${g.sansEntree && g.sansEntree.length ? `<p>${g.sansEntree.length > 1 ? `Les numéros ${g.sansEntree.map(n => `[${n}]`).join(", ")} sont appelés dans le texte mais absents` : `Le numéro [${g.sansEntree[0]}] est appelé dans le texte mais absent`} de la liste du document : un numéro seul ne dit ni l’auteur ni l’œuvre, ajoute-l${g.sansEntree.length > 1 ? "es" : "’"} toi-même.</p>` : ""}
           ${g.aChercher ? `<p>${plur(g.aChercher, "œuvre citée manque", "œuvres citées manquent")} à la liste de ton document : je les cherche en ligne.</p>` : ""}
           ${g.nonCitees ? `<p>${plur(g.nonCitees, "référence de ta liste n’est citée", "références de ta liste ne sont citées")} nulle part dans le texte : je ne l${g.nonCitees > 1 ? "es" : "’"}ai pas reprise${g.nonCitees > 1 ? "s" : ""}.</p>` : ""}
           ${status()}${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${g.nonCitees ? chip("Ajouter quand même les non citées", {t:"noncitees", v:m.file}) : ""}${chip("Télécharger en Word", {t:"dl"})}</div>`;

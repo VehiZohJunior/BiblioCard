@@ -273,6 +273,94 @@ function verifyNumeric(text, numbered){
   const unused = numbered.filter(s => !nums.has(s._num));
   return {ok, missing, yearOff: [], unused, total: raws.length, numeric: true};
 }
+/* Appels numérotés (Vancouver, IEEE) : « les travaux [1], [3-5] » ou « (2, 4) » renvoient à la liste numérotée
+   du document (« 1. Smith J, Jones K. Titre. Revue. 2010;12(3):45-50. »). Le numéro seul ne dit ni l'auteur ni
+   l'année : la source vient de l'entrée qui porte ce numéro. Seules les entrées appelées dans le texte sont retenues. */
+function listeNumerotee(section){
+  const out = []; let cur = null;
+  String(section || "").split(/\n/).forEach(l => {
+    const t = l.trim(); if(!t) return;
+    const m = t.match(/^(?:\[(\d{1,3})\]|(\d{1,3})[.)](?=\s)|(\d{1,3})\s+(?=\p{Lu}))\s*(.*)$/u);
+    const n = m && Number(m[1] || m[2] || m[3]);
+    // un nouveau numéro suit le précédent (1, 2, 3…) ; sinon la ligne continue l'entrée en cours
+    if(m && (!cur ? n <= 2 : n === cur.n + 1)){ cur = {n, texte: m[4]}; out.push(cur); }
+    else if(cur) cur.texte += " " + t;
+  });
+  return out.map(e => ({n: e.n, texte: e.texte.replace(/(\p{Ll})-\s+(\p{Ll})/gu, "$1$2").replace(/\s+/g, " ").trim()})).filter(e => e.texte.length > 15);
+}
+function appelsNumeriques(text, max){
+  const {nums, raws} = findNumericCites(text);
+  let total = raws.length;
+  // « (2) », « (1, 3) », « (4-6) » au fil de la phrase, jamais en tête de ligne (« (1) premier point »)
+  const re = /(?<=[\p{L}\p{N}.,;:»”’)\]]\s?)\((\d{1,3}(?:\s*[-–,]\s*\d{1,3})*)\)/gu; let m;
+  while((m = re.exec(text))){
+    const L = []; m[1].split(/\s*,\s*/).forEach(p => { const r = p.split(/\s*[-–]\s*/).map(Number); if(r.length === 2 && r[1] >= r[0] && r[1] - r[0] < 50){ for(let k = r[0]; k <= r[1]; k++) L.push(k); } else L.push(r[0]); });
+    if(L.every(n => n >= 1 && n <= max)){ L.forEach(n => nums.add(n)); total++; }
+  }
+  return {nums: new Set([...nums].filter(n => n >= 1 && n <= 999)), total};
+}
+// null quand le document ne cite pas par numéros
+function sourcesNumerotees(body, section){
+  const entrees = listeNumerotee(section); if(entrees.length < 2) return null;
+  const {nums, total} = appelsNumeriques(body, entrees[entrees.length - 1].n);
+  const citees = entrees.filter(e => nums.has(e.n)); if(!citees.length) return null;
+  // une bibliographie numérotée d’un texte qui cite « Auteur (année) » : les « (2) » du texte ne sont pas des appels
+  if(!findNumericCites(body).raws.length && findCitations(body).length >= total) return null;
+  const connus = new Set(entrees.map(e => e.n));
+  return {appels: total, citees, nonCitees: entrees.filter(e => !nums.has(e.n)), sansEntree: [...nums].filter(n => !connus.has(n)).sort((a, b) => a - b)};
+}
+/* Entrée d'une liste numérotée : Vancouver (« Smith J, Jones K. Titre. Revue. 2010;12(3):45-50. »,
+   « Bah M. Titre. Dakar: PUD; 2012. ») ou IEEE (« J. Smith and K. Jones, "Titre," Revue, vol. 12, no. 3,
+   pp. 45-50, 2010. »). Autre forme : lecture générale (parseRefHeuristic). */
+function parseEntreeNumerotee(ref){
+  const raw = stripMarks(String(ref || "")).replace(/\s+/g, " ").trim();
+  const s = blank(); s.origin = "Liste numérotée du document";
+  const doi = raw.match(/10\.\d{4,9}\/[^\s"<>]+/); if(doi) s.doi = doi[0].replace(/[).,;]+$/, "");
+  const pagesVan = p => { const m = String(p).match(/^(\d+)\s*[-–]\s*(\d+)$/); if(!m) return p; const a = m[1], b = m[2]; return b.length < a.length && Number(b) < Number(a.slice(-b.length)) === false ? `${a}-${a.slice(0, a.length - b.length)}${b}` : `${a}-${b}`; };
+  // IEEE : le titre entre guillemets
+  const ie = raw.match(/^(.+?),\s*[“"«]\s*(.+?)[,.]?\s*[”"»]\s*,?\s*(.*)$/);
+  if(ie){
+    s.authors = ie[1].replace(/,?\s+(?:and|et)\s+/g, ", ").split(/\s*,\s*/).filter(x => !/^et\s+al\.?$/i.test(x)).map(x => { const m = x.match(/^((?:\p{Lu}\.[\s-]?)+)\s*(.+)$/u); return m ? {family: m[2].trim(), given: m[1].trim()} : {family: x.trim(), given: ""}; }).filter(a => a.family);
+    if(/\bet\s+al\b/i.test(ie[1])) s.etAl = true;
+    s.title = ie[2]; const r = ie[3];
+    const y = [...r.matchAll(/(?<!\d)(1[5-9]\d{2}|20\d{2})(?!\d)/g)].pop(); if(y) s.year = y[1];
+    const v = r.match(/vol\.\s*(\w+)/i), n = r.match(/no\.\s*(\w+)/i), p = r.match(/pp?\.\s*([\d]+\s*[-–]\s*\d+|\d+)/i);
+    if(v) s.volume = v[1]; if(n) s.issue = n[1]; if(p) s.pages = p[1].replace(/\s/g, "").replace("–", "-");
+    s.container = (r.split(/\s*,\s*/)[0] || "").replace(/^in\s+/i, "");
+    if(!v && /(?:Press|Éditions|Editions|Publishers?|[A-Z][a-z]+:\s)/.test(r)){ s.type = "book"; const cp = r.match(/([^,]+?):\s*([^,]+)/); if(cp){ s.city = cp[1].trim(); s.publisher = cp[2].trim(); } s.container = ""; }
+    return s.title && s.year ? s : parseRefHeuristic(ref);
+  }
+  // IEEE, livre : « A. Diallo, Signal Processing. Abidjan: Presses Universitaires, 2016. »
+  const ib = raw.match(/^((?:\p{Lu}\.[\s-]?)+\s*[\p{Lu}][\p{L}'’-]+(?:(?:,|\s+and)\s+(?:\p{Lu}\.[\s-]?)+\s*[\p{Lu}][\p{L}'’-]+)*),\s+([^.]+)\.\s+([^:,]+):\s*([^,]+),\s*(1[5-9]\d{2}|20\d{2})/u);
+  if(ib){
+    s.type = "book"; s.title = ib[2].trim(); s.city = ib[3].trim(); s.publisher = ib[4].trim(); s.year = ib[5];
+    s.authors = ib[1].replace(/\s+and\s+/g, ", ").split(/\s*,\s*/).map(x => { const m = x.match(/^((?:\p{Lu}\.[\s-]?)+)\s*(.+)$/u); return {family: m[2].trim(), given: m[1].trim()}; });
+    return s;
+  }
+  // Vancouver : auteurs. Titre. Suite.
+  const parts = raw.split(/\.\s+(?=[\p{Lu}\p{N}[])/u);
+  if(parts.length < 3) return parseRefHeuristic(ref);
+  const aut = parts.shift(), auteurs = aut.split(/\s*,\s*/);
+  const individuels = auteurs.filter(x => !/^et\s+al\.?$/i.test(x)).every(x => /^[\p{Lu}][\p{L}'’ -]*\s\p{Lu}{1,3}$/u.test(x.trim()));
+  s.authors = individuels
+    ? auteurs.filter(x => !/^et\s+al\.?$/i.test(x)).map(x => { const m = x.trim().match(/^(.+)\s(\p{Lu}{1,3})$/u); return {family: m[1], given: m[2].split("").map(c => c + ".").join(" ")}; })
+    : [{family: aut, given: ""}];
+  if(/\bet\s+al\b/i.test(aut)) s.etAl = true;
+  s.title = parts.shift().replace(/[.\s]+$/, "");
+  const reste = parts.join(". ").replace(/\.\s*$/, "");
+  // article : « Revue. 2010;12(3):45-50 » ou « Revue. 2018 Mar;378:100-9 »
+  const art = reste.match(/^(.+?)\.\s*(1[5-9]\d{2}|20\d{2})[^;:]*(?:;\s*(\w+)?\s*(?:\((\w+)\))?)?(?::\s*([\w-]+))?/);
+  if(art && (art[3] || art[5])){
+    s.type = "article"; s.container = art[1].trim(); s.year = art[2];
+    if(art[3]) s.volume = art[3]; if(art[4]) s.issue = art[4]; if(art[5]) s.pages = pagesVan(art[5]);
+    return s;
+  }
+  // livre : « Ville: Éditeur; 2012 »
+  const liv = reste.match(/(?:^|\.\s*)([^.;:]+):\s*([^;]+);\s*(1[5-9]\d{2}|20\d{2})/);
+  if(liv){ s.type = "book"; s.city = liv[1].trim(); s.publisher = liv[2].trim(); s.year = liv[3]; return s; }
+  const y = [...reste.matchAll(/(?<!\d)(1[5-9]\d{2}|20\d{2})(?!\d)/g)].pop(); if(y) s.year = y[1];
+  return s.year ? s : parseRefHeuristic(ref);
+}
 function withLabels(sorted, authorDate){
   const groups = {};
   sorted.forEach(s => { const k = familyKey(s) + "|" + (s.year||""); (groups[k] = groups[k] || []).push(s.id); });
@@ -1398,4 +1486,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
