@@ -635,19 +635,7 @@ function checkArticleStructure(text, headings){
     // au-delà de 120 mots, c’est un guillemet resté ouvert, pas une citation
     if(qw >= 25 && qw <= 120 && qw + sw > 40 && lineStart.length > 3) out.longQuotes.push({text: stripMarks(q[1]).replace(/\s+/g, " ").trim().slice(0, 90), words: qw});
   }
-  // limites des « Normes de présentation CAMES » : résumé et abstract de 250 mots au plus ; 5 mots clés au plus
-  // (contribution théorique) ou 7 (recherche de terrain)
-  out.limites = [];
-  const blocMots = (k, suivants) => { if(at[k] === undefined) return 0; const fin = Math.min(...suivants.map(x => at[x]).filter(x => x !== undefined && x > at[k]), end);
-    return lines.slice(at[k], fin).join(" ").replace(RE[k], "").split(/\s+/).filter(w => /\p{L}/u.test(w)).length; };
-  [["resume", "Résumé", ["motscles", "abstract", "keywords", "introduction"]], ["abstract", "Abstract", ["keywords", "resume", "motscles", "introduction"]]].forEach(([k, nom, suiv]) => {
-    const n = blocMots(k, suiv); if(n > 250) out.limites.push(`${nom} : ${n} mots (250 au plus)`); });
-  const maxMots = out.terrain ? 7 : 5;
-  [["motscles", "Mots clés"], ["keywords", "Key words"]].forEach(([k, nom]) => {
-    if(at[k] === undefined) return;
-    const liste = lines[at[k]].replace(RE[k], "").replace(/^[\s:：-]+/, "").split(/\s*[,;]\s*/).map(x => x.replace(/[.\s]+$/, "")).filter(Boolean);
-    if(liste.length > maxMots) out.limites.push(`${nom} : ${liste.length} (${maxMots} au plus pour ${out.terrain ? "une recherche de terrain" : "une contribution théorique"})`); });
-  out.count = out.missing.length + out.order.length + out.numbering.length + out.longQuotes.length + out.italicQuotes.length + (out.email ? 0 : 1) + (out.refsLabel ? 1 : 0) + out.limites.length;
+  out.count = out.missing.length + out.order.length + out.numbering.length + out.longQuotes.length + out.italicQuotes.length + (out.email ? 0 : 1) + (out.refsLabel ? 1 : 0);
   return out;
 }
 function splitReferences(text){

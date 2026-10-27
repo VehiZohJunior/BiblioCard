@@ -279,8 +279,6 @@ const STRUCT_EN = x => x
 const re = [
  [/^(\d+) fiches?$/, (m, n) => `${n} ${P(n, "record", "records")}`],
  [/^J’ai lu$/, () => "I read"],
- [/^(Résumé|Abstract) : (\d+) mots \(250 au plus\)$/, (m, k, n) => `${k === "Résumé" ? "French abstract" : "Abstract"}: ${n} words (250 at most)`],
- [/^(Mots clés|Key words) : (\d+) \((\d) au plus pour (une contribution théorique|une recherche de terrain)\)$/, (m, k, n, x, t) => `${k === "Mots clés" ? "French keywords" : "Key words"}: ${n} (${x} at most for ${t === "une contribution théorique" ? "a theoretical contribution" : "field research"})`],
  [/^dans le texte de (.+) et généré la bibliographie de$/, (m, a) => `in the text of ${a} and generated the bibliography of`],
  [/^(\d+) sources? utilisées?$/, (m, n) => `${n} ${P(n, "source used", "sources used")}`],
  [/^, en (.+)\. Pour chacune, seuls l’auteur, l’année, le titre, la revue ou l’éditeur, le volume, le numéro et les pages sont repris\.(.*)$/, (m, a, r) => `, in ${a}. For each one, only the author, year, title, journal or publisher, volume, issue and pages are kept.` + r.replace(" Le document était scanné : relis attentivement.", " The document was scanned: check carefully.")],

@@ -65,7 +65,7 @@ async function cite(s, style){
 }
 async function insertBib(){
   const p = cur(), style = $("#style").value;
-  const html = `<p style="font-size:13pt">Références bibliographiques</p>` + labeledOf(p, style).map(s => `<p style="margin:0 0 6pt 1.25cm;text-indent:-1.25cm;font-family:'Times New Roman';font-size:12pt">${bibOf(s, style, p)}</p>`).join("");
+  const html = `<p style="font-weight:bold;font-size:13pt">Références bibliographiques</p>` + labeledOf(p, style).map(s => `<p style="margin:0 0 6pt 1.25cm;text-indent:-1.25cm;font-family:'Times New Roman';font-size:12pt">${bibOf(s, style, p)}</p>`).join("");
   try{ await Word.run(async ctx => { ctx.document.getSelection().insertHtml(html, Word.InsertLocation.after); await ctx.sync(); }); $("#msg").textContent = "Bibliographie insérée."; }
   catch(e){ $("#msg").innerHTML = `<span class="err">Insertion impossible : ${esc(e.message || e)}</span>`; }
 }

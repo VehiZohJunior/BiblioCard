@@ -222,7 +222,6 @@ function structureIssues(s){
     ...s.numbering.map(n => `${q(n.text.slice(0, 50))}${NB}: ${n.issue}`),
     ...s.longQuotes.map(c => `citation de ${c.words} mots dans la phrase, à mettre à la ligne et en retrait${NB}: ${q(c.text.slice(0, 50))}`),
     ...s.italicQuotes.map(c => `citation en italique, à mettre en romain entre guillemets${NB}: ${q(c.slice(0, 50))}`),
-    ...(s.limites || []),
   ];
 }
 function renderTasks(){
@@ -1265,7 +1264,7 @@ async function download(filename, data, type){
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], {type})); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 function downloadWord(){
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Références bibliographiques</title></head><body style="font-family:'Times New Roman',serif;font-size:12pt"><p style="font-size:13pt;margin-bottom:12pt">Références bibliographiques</p>${paras()}</body></html>`;
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Références bibliographiques</title></head><body style="font-family:'Times New Roman',serif;font-size:12pt"><p style="font-size:14pt;font-weight:bold;margin-bottom:12pt">Références bibliographiques</p>${paras()}</body></html>`;
   saveWord(`bibliographie-${STYLES[state.style].name.replace(/\s+/g, "-")}`, html);
 }
 ["#docBtn","#dDoc","#dockDl"].forEach(id => $(id).onclick = downloadWord);
@@ -2137,7 +2136,7 @@ $("#wDoc").onclick = () => {
   const refs = citedRefs(text), title = $("#draftTitle").value.trim() || "Sans titre";
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${esc(title)}</title></head><body style="font-family:'Times New Roman',serif;font-size:12pt;line-height:1.5">
     <p style="font-size:16pt;font-weight:bold;margin-bottom:14pt">${esc(title)}</p>${draftParas(text).map(p => `<p style="text-align:justify;margin:0 0 8pt">${esc(p)}</p>`).join("")}
-    ${refs.length ? `<p style="font-size:13pt;margin:18pt 0 8pt">Références bibliographiques</p>${refs.map(s => `<p style="margin:0 0 6pt 1.25cm;text-indent:-1.25cm">${bibFor(s)}</p>`).join("")}` : ""}</body></html>`;
+    ${refs.length ? `<p style="font-size:13pt;font-weight:bold;margin:18pt 0 8pt">Références bibliographiques</p>${refs.map(s => `<p style="margin:0 0 6pt 1.25cm;text-indent:-1.25cm">${bibFor(s)}</p>`).join("")}` : ""}</body></html>`;
   saveWord(title.replace(/[^\p{L}\p{N}]+/gu, "-").slice(0, 50) || "redaction", html);
   if(refs.length) toast(`Exporté avec ${refs.length} référence${refs.length > 1 ? "s" : ""} citée${refs.length > 1 ? "s" : ""}`);
 };
