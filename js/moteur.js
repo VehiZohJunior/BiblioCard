@@ -41,7 +41,7 @@ function listJoin(names, sep, last){ if(names.length <= 1) return names.join("")
 /* ---------- NORCAMES / LSH ---------- */
 /* Profils de revues : NORCAMES officiel et variantes publiées par les revues */
 const CAMES_PROFILES = {
-  norcames: {name:"NORCAMES officiel", src:"« Normes d’édition des revues de LSH dans le système CAMES »", upper:true, nameComma:false, yearParen:false, headSep:", ", placeSep:", ", pagesPrefix:"p.", quotes:"fr", inJournal:false},
+  norcames: {name:"NORCAMES officiel", src:"« Normes d’édition des revues de LSH dans le système CAMES »", upper:true, nameComma:false, yearParen:false, headSep:", ", placeSep:", ", pagesPrefix:"p.", quotes:"fr", inJournal:false, numeros:"nus"},
   kurukan:  {name:"Revue Kurukan Fuga", src:"Consignes aux auteurs de la revue (norme CAMES)", upper:false, nameComma:true, yearParen:true, headSep:". ", placeSep:": ", pagesPrefix:"pp.", quotes:"en", inJournal:true},
 };
 function camesAuthors(a, o){
@@ -52,7 +52,8 @@ function camesBib(s, prof){
   const o = {...CAMES_PROFILES.norcames, ...(prof || {})};
   const y = o.yearParen ? `(${lbl(s)})` : lbl(s);
   const q = t => o.quotes === "en" ? `“${esc(t)}”` : `«${NB}${esc(t)}${NB}»`;
-  const vi = J([s.volume && `vol.${NB}${esc(s.volume)}`, s.issue && `n°${NB}${esc(s.issue)}`], ", ");
+  // NORCAMES (exemple officiel « Diogène, 202, 4, p. 145-151 ») : volume puis numéro, nus ; d’autres revues écrivent « vol. », « n° »
+  const vi = o.numeros === "nus" ? J([esc(s.volume), esc(s.issue)], ", ") : J([s.volume && `vol.${NB}${esc(s.volume)}`, s.issue && `n°${NB}${esc(s.issue)}`], ", ");
   const pg = s.pages && `${o.pagesPrefix}${NB}${esc(hy(s.pages))}`;
   const place = o.placeSep === ", " ? [esc(s.city), esc(s.publisher)] : [J([esc(s.city), esc(s.publisher)], o.placeSep)];
   const cont = c => c ? (o.inJournal ? `in ${I(c)}` : I(c)) : "";
@@ -405,6 +406,8 @@ function parseRefHeuristic(line){
   const pg = rest.match(/p{1,2}\.?\s?(\d+\s?[-–]\s?\d+)/) || (s.type !== "book" && rest.match(/(?:,|:)\s?(\d+\s?[-–]\s?\d+)/)); if(pg) s.pages = pg[1].replace(/\s/g,"");
   const vol = rest.match(/vol(?:ume|\.)?\s?(\d+)/i) || rest.match(/(?:^|,\s)(\d+)\s?\(\d+\)/); if(vol) s.volume = vol[1];
   const iss = rest.match(/(?:n[°o]\.?|issue|no\.)\s?(\d+)/i) || rest.match(/\d+\s?\((\d+)\)/); if(iss) s.issue = iss[1];
+  // NORCAMES : numéros nus après la revue, « Diogène, 202, 4, p. 145-151 » (volume puis numéro)
+  if(!vol && !iss){ const nu = rest.match(/,\s?(\d{1,4}[a-z]?)(?:\s?,\s?(\d{1,4}[a-z]?(?:[-–/]\d{1,4})?))?\s?,\s?p{1,2}\.?\s?\d/); if(nu){ s.volume = nu[1]; if(nu[2]) s.issue = nu[2]; } }
   if(/th[èe]se|dissertation|m[ée]moire/i.test(raw)){
     s.type = "thesis"; const g = raw.match(/(Th[èe]se de doctorat|M[ée]moire de master|Ph\.?\s?D\.? dissertation|Doctoral dissertation)/i); if(g) s.genre = g[1];
     s.title = s.title.replace(/\.\s+(?:Ph\.?\s?D|PhD|Doctoral|Master|Th[èe]se|M[ée]moire)\b.*$/i, ""); // « Titre. Ph.D dissertation under… »
@@ -632,7 +635,19 @@ function checkArticleStructure(text, headings){
     // au-delà de 120 mots, c’est un guillemet resté ouvert, pas une citation
     if(qw >= 25 && qw <= 120 && qw + sw > 40 && lineStart.length > 3) out.longQuotes.push({text: stripMarks(q[1]).replace(/\s+/g, " ").trim().slice(0, 90), words: qw});
   }
-  out.count = out.missing.length + out.order.length + out.numbering.length + out.longQuotes.length + out.italicQuotes.length + (out.email ? 0 : 1) + (out.refsLabel ? 1 : 0);
+  // limites des « Normes de présentation CAMES » : résumé et abstract de 250 mots au plus ; 5 mots clés au plus
+  // (contribution théorique) ou 7 (recherche de terrain)
+  out.limites = [];
+  const blocMots = (k, suivants) => { if(at[k] === undefined) return 0; const fin = Math.min(...suivants.map(x => at[x]).filter(x => x !== undefined && x > at[k]), end);
+    return lines.slice(at[k], fin).join(" ").replace(RE[k], "").split(/\s+/).filter(w => /\p{L}/u.test(w)).length; };
+  [["resume", "Résumé", ["motscles", "abstract", "keywords", "introduction"]], ["abstract", "Abstract", ["keywords", "resume", "motscles", "introduction"]]].forEach(([k, nom, suiv]) => {
+    const n = blocMots(k, suiv); if(n > 250) out.limites.push(`${nom} : ${n} mots (250 au plus)`); });
+  const maxMots = out.terrain ? 7 : 5;
+  [["motscles", "Mots clés"], ["keywords", "Key words"]].forEach(([k, nom]) => {
+    if(at[k] === undefined) return;
+    const liste = lines[at[k]].replace(RE[k], "").replace(/^[\s:：-]+/, "").split(/\s*[,;]\s*/).map(x => x.replace(/[.\s]+$/, "")).filter(Boolean);
+    if(liste.length > maxMots) out.limites.push(`${nom} : ${liste.length} (${maxMots} au plus pour ${out.terrain ? "une recherche de terrain" : "une contribution théorique"})`); });
+  out.count = out.missing.length + out.order.length + out.numbering.length + out.longQuotes.length + out.italicQuotes.length + (out.email ? 0 : 1) + (out.refsLabel ? 1 : 0) + out.limites.length;
   return out;
 }
 function splitReferences(text){
