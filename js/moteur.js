@@ -744,34 +744,139 @@ function toRis(list){
 
 /* ---------- vérificateur texte ↔ bibliographie ---------- */
 const STOP = new Set(["Le","La","Les","Un","Une","En","Dans","Selon","Depuis","Avant","Après","Vers","Entre","The","In","Since","From","Au","Aux","Du","Des","De","Cf","Voir","See","Ibid","Op","Loi","Décret","Article","Art","Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"]);
+/* LECTURE DES SOURCES DANS UN TEXTE : chaque source citée, quelle que soit la façon de la citer.
+   - auteur-date entre parenthèses : « (S. Diakité, 1985, p. 105) », « (Bourdieu, 1982 ; Mbembe, 2000) »,
+     « (cf. Bourdieu, 1982) », « (Bourdieu, 1979 ; 1982) », « (Fanon, [1961] 2002) », « (Kouassi, s.d.) »,
+     « (Bourdieu, 1982, cité par Kouassi, 2015) », « (Hodge & Kress, 1979) », « (Fowler et al., 1979) » ;
+   - auteur-date dans la phrase : « P. Bourdieu (1982, p. 64) », « Bourdieu et Passeron (1970) »
+     (la source est au nom du PREMIER auteur), « Bourdieu (1979, 1982) », « Shannon’s (1948) », « Mbembe (2000 : 45) » ;
+   - notes de bas de page : « 1 P. Bourdieu, Ce que parler veut dire, Paris, Fayard, 1982, p. 64. »
+     (la note donne la référence complète, gardée dans refNote ; « Ibid. » et « op. cit. » renvoient à une source déjà lue) ;
+   - jamais un lieu, un mois, un tableau ou une période : « (Abidjan, 2013) », « (juin 2019) », « (1960-1990) ». */
+const LIEUX = new Set(["Abidjan","Bouaké","Bouake","Yamoussoukro","Korhogo","Daloa","Man","Gagnoa","Dakar","Bamako","Ouagadougou","Lomé","Lome","Cotonou","Niamey","Conakry","Libreville","Brazzaville","Kinshasa","Yaoundé","Douala","Paris","Lyon","Bordeaux","Marseille","Londres","London","Bruxelles","Genève","Montréal","Québec","Ivoire","Côte","Afrique","Ouest","Est","Nord","Sud","France","Sénégal","Mali","Burkina","Faso","Niger","Bénin","Togo","Guinée","Ghana","Nigeria","Cameroun","Gabon","Congo","Tchad","Maroc","Algérie","Tunisie","Tableau","Figure","Fig","Graphique","Carte","Annexe","Source","Sources","Enquête","Photo","Image","Schéma","Encadré","Chapitre","Partie","Volume","Tome","Page","Note","Loi","Décret","Arrêté","Ordonnance","Constitution"]);
+const AUTEUR = String.raw`(?:\p{Lu}\.[\s-]?){0,3}(?:(?<=\.)\p{Lu}\s)?\s*(?:(?:de|du|van|von|Van|Von|Le|La|Ben|Ould|Mac)\s+)?\p{Lu}[\p{L}’'\-]*\p{L}`;
+const LISTE_AUTEURS = String.raw`${AUTEUR}(?:\s*(?:,|\bet\b|\band\b|&)\s*${AUTEUR}){0,6}(?:,?\s+(?:et\s+al\.?|and\s+others|et\s+coll\.?))?`;
+const ANNEE = String.raw`(?:\[(?:1[5-9]\d{2}|20\d{2})\]\s*)?(?:1[5-9]\d{2}|20\d{2})[a-z]?(?!\d)|s\.\s?d\.|n\.\s?d\.`;
+const ANNEES = String.raw`(?:${ANNEE})(?:\s*[,;]\s*(?:${ANNEE}))*`;
+const RE_PAREN_SEG = new RegExp(String.raw`^(${LISTE_AUTEURS})(?:[’']s)?\s*,?\s*(${ANNEES})`, "u");
+const RE_PAREN_PRENOM = new RegExp(String.raw`^(\p{Lu}\p{Ll}+(?:-\p{Lu}\p{Ll}+)?)\s+(${AUTEUR})\s*,\s*(${ANNEES})`, "u");
+const RE_PAREN_DICO = new RegExp(String.raw`^((?:[\p{L}’'-]+\s+){0,6}(?:Dictionnaire|Dictionary|Encyclop\p{L}+|Larousse|Robert)(?:\s+[\p{L}’'-]+){0,6})\s*,\s*(${ANNEES})`, "u");
+const RE_ANNEES_SEULES = new RegExp(String.raw`^(${ANNEES})(?![\d-])`, "u");
+const RE_RECIT = new RegExp(String.raw`(${LISTE_AUTEURS})(?:[’']s)?\s*\(\s*(${ANNEES})(?=\s*[,:;)]|\s*$|\s+p\.)`, "gu");
+const RE_PREFIXE = /^(?:cf\.?|voir(?:\s+(?:notamment|aussi|par exemple|en particulier))?|see(?:\s+also)?|e\.\s?g\.,?|i\.\s?e\.,?|par exemple|d[’']après|selon|in|notamment|surtout)\s+/i;
+const anneesDe = s => [...String(s).matchAll(new RegExp(ANNEE, "gu"))].map(m => m[0].replace(/^\[\d{4}\]\s*/, "").replace(/\s/g, "")).map(a => /^[sn]\.d\.$/i.test(a) ? "s.d." : a);
+// mots qui ouvrent une phrase, jamais des noms d’auteur : « Enfin, T. A. van Dijk (2008) »
+const MOTS_LIAISON = new Set("Enfin Ainsi Toutefois Cependant Pourtant Également Egalement Ensuite Puis Donc Or Mais Et Aussi Par Pour Comme Quant Notamment Certes Bref Alors Ici Cela Ceci Il Elle Ils Elles Nous On Cette Ce Ces Son Sa Ses Leur Leurs Chez Sur Sous Avec Sans Pendant Lorsque Quand Si Bien Même Désormais Aujourd’hui Effectivement Finalement Contrairement Inversement Rappelons Soulignons Notons However Thus Moreover Finally Also According As For Hence Furthermore Indeed Therefore Similarly Likewise Here This These Those It They We Our Their Accordingly Consequently Nevertheless Nonetheless Additionally Besides Meanwhile Following Drawing Building Unlike Recently Previously Earlier Later Specifically Notably Interestingly Importantly Conversely Instead Rather Again Still Yet Then So In On At By From The".split(" "));
+function premierAuteur(liste){
+  // le premier vrai nom de la liste : on saute les mots de liaison placés devant
+  const noms = [...String(liste).matchAll(new RegExp(AUTEUR, "gu"))].map(x => x[0].trim());
+  const i = noms.findIndex(n => { const w = n.replace(/^(?:\p{Lu}\.[\s-]?)+(?:\p{Lu}\s)?\s*/u, ""); return !MOTS_LIAISON.has(w) && !STOP.has(w); });
+  if(i > 0) liste = String(liste).slice(String(liste).indexOf(noms[i]));
+  const m = String(liste).match(new RegExp(String.raw`^((?:\p{Lu}\.[\s-]?){0,3}(?:(?<=\.)\p{Lu}\s)?)\s*((?:(?:de|du|van|von|Van|Von|Le|La|Ben|Ould|Mac)\s+)?\p{Lu}[\p{L}’'\-]*\p{L})`, "u"));
+  if(!m) return null;
+  // « de Certeau », « du Bois » : la particule minuscule française ne fait pas partie du nom de classement
+  return {family: m[2].replace(/^(?:de|du)\s+/, ""), initial: !!m[1]};
+}
 function findCitations(text){
   const found = [];
-  // initial : la citation donne l’initiale du prénom, comme le demande NORCAMES (« S. Diakité, 1985 »)
-  const add = (fam, yr, raw, initial) => { fam = fam.replace(/[’']s$/,""); if(!fam || STOP.has(fam) || fam.length < 2) return; found.push({family:fam, year:yr, raw:raw.replace(/\s+/g, " ").trim(), initial}); };
-  const re1 = /\(([^()]{2,160}?)\)/g; let m;
-  while((m = re1.exec(text))){
-    m[1].split(/;/).forEach(part => {
-      const p = part.match(/((?:\p{Lu}\.[\s-]?)*)\s*(?:(?:de|du|da|di|le|la)\s)?((?:v[ao]n\s+)?\p{Lu}[\p{L}'’-]+)(?:\s+(?:et|and|&)\s+(?:\p{Lu}\.[\s-]?)*\s*\p{Lu}[\p{L}'’-]+)?(?:\s+et\s+al\.?)?,?\s+(1[5-9]\d{2}|20\d{2})([a-z]?)/u);
-      if(p) add(p[2], p[3] + p[4], part, !!p[1]);
+  const add = (liste, annees, raw, extra) => {
+    const a = premierAuteur(liste); if(!a) return;
+    const fam = a.family.replace(/\s+/g, " ").replace(/[’']s$/, "");
+    if(!fam || fam.length < 2 || STOP.has(fam) || LIEUX.has(fam)) return;
+    for(const yr of anneesDe(annees)) found.push({family: fam, year: yr, raw: String(raw).replace(/\s+/g, " ").trim(), initial: a.initial, ...(extra || {})});
+  };
+  let m;
+  // 1. entre parenthèses : chaque segment séparé par « ; » ou par « cité par »
+  const reParen = /\(((?:[^()]|\[[^\]]*\]){2,200}?)\)/g;
+  while((m = reParen.exec(text))){
+    let dernier = null;
+    m[1].split(/\s*;\s*|,?\s+(?:cit[ée]e?s?\s+(?:par|dans|in)|cited\s+(?:in|by))\s+/).forEach(seg => {
+      seg = seg.trim().replace(RE_PREFIXE, "");
+      const p = seg.match(RE_PAREN_SEG);
+      if(p){ dernier = p[1]; add(p[1], p[2], seg); return; }
+      // « (Delbert Burkett, 2018) » : prénom écrit en entier
+      const pc = seg.match(RE_PAREN_PRENOM);
+      if(pc && !LIEUX.has(pc[1])){ dernier = pc[2]; add(pc[2], pc[3], seg); return; }
+      // « (Collins Cobuild English Language Dictionary, 1992) » : un dictionnaire cité par son titre
+      const dic = seg.match(RE_PAREN_DICO);
+      if(dic){ for(const yr of anneesDe(dic[2])) found.push({family: dic[1].replace(/\s+/g, " "), year: yr, raw: seg.replace(/\s+/g, " "), initial: false, titre: true}); return; }
+      // « (Bourdieu, 1979 ; 1982) » : une année seule reprend l’auteur qui précède
+      const y = dernier && seg.match(RE_ANNEES_SEULES);
+      if(y) add(dernier, y[1], `${dernier}, ${seg}`);
     });
   }
-  // « T. A. van Dijk (2008) » : la particule van / von fait partie du nom (pas « de », trop fréquent dans la phrase)
-  // (« Van Dijk (2008) » en début de phrase aussi)
-  const re2 = /((?:\p{Lu}\.[\s-]?)*)\s*((?:[vV][ao]n\s+)?\p{Lu}[\p{L}'’-]+)(?:\s+et\s+al\.?)?\s+\((1[5-9]\d{2}|20\d{2})([a-z]?)/gu;
-  while((m = re2.exec(text))){
-    // « DIOP, Cheikh Anta (1954). Nations… » : ligne d’une liste de références, pas une citation
-    const famAt = m.index + m[0].lastIndexOf(m[2], m[0].indexOf("("));
-    if(/^\s*\p{Lu}[\p{Lu}'’ -]+,\s+(?:\p{Lu}[\p{L}'’-]*\s+)*$/u.test(text.slice(text.lastIndexOf("\n", m.index) + 1, famAt))) continue;
-    add(m[2], m[3] + m[4], m[0], !!m[1]);
+  // 2. dans la phrase : « P. Bourdieu (1982, p. 64) », « Bourdieu et Passeron (1970) »
+  RE_RECIT.lastIndex = 0;
+  while((m = RE_RECIT.exec(text))){
+    // ligne d’une liste de références (« DIOP, Cheikh Anta (1954). », « Fowler, R., & Kress, G. (1979). ») : pas une citation
+    const debutLigne = text.lastIndexOf("\n", m.index) + 1;
+    if(/,\s*(?:\p{Lu}\.\s*)+(?:,|&|\(|$)/u.test(m[1]) || /^\s*\p{Lu}[\p{Lu}'’ -]+,\s+(?:\p{Lu}[\p{L}'’.-]*\s*)+$/u.test(text.slice(debutLigne, m.index + m[1].length))) continue;
+    if(/(?:ouvrage|œuvre|oeuvre|livre|roman|essai|recueil|pièce|book|novel|essay)(?:\s*,|\s+intitulée?|\s+entitled)\s*$/i.test(text.slice(Math.max(0, m.index - 40), m.index))) continue;
+    add(m[1], m[2], `${m[1]} (${m[2]}`);
+  }
+  // 3. notes de bas de page : « 1 P. Bourdieu, Ce que parler veut dire, Paris, Fayard, 1982, p. 64. »
+  for(const l of String(text).split(/\n/)){
+    const n = l.match(/^\s*(?:\d{1,3}|[¹²³⁴⁵⁶⁷⁸⁹⁰]{1,3})[\s.)]\s*(.{20,600})$/u); if(!n) continue;
+    const r = n[1].trim();
+    if(/^(?:ibid|idem|id\.|op\.?\s*cit|loc\.?\s*cit)/i.test(r) || /\bop\.\s*cit\b/i.test(r)) continue;
+    const a = r.match(/^((?:\p{Lu}\.[\s-]?){1,3}\s*|(?:\p{Lu}\p{Ll}+[\s-]){1,2})((?:(?:de|du|van|von|Le|Ben)\s+)?\p{Lu}[\p{L}’'\-]+)\s*,\s*([^,]+),/u);
+    if(!a || /^\s*(?:1[5-9]\d{2}|20\d{2})\b/.test(a[3])) continue; // « NOM Prénom, 1996, » : entrée de bibliographie, pas une note
+    const ans = [...r.matchAll(/(?<!\d)(1[5-9]\d{2}|20\d{2})(?!\d)/g)].map(x => x[1]); if(!ans.length) continue;
+    const fam = a[2].charAt(0) + (a[2] === a[2].toLocaleUpperCase("fr") ? a[2].slice(1).toLocaleLowerCase("fr") : a[2].slice(1));
+    add(`${a[1]}${fam}`, ans[ans.length - 1], r, {note: true, refNote: r});
   }
   // une entrée par auteur et année ; on retient si l’une des occurrences oublie l’initiale du prénom
   const seen = new Map();
   return found.filter(c => {
     const k = norm(c.family) + c.year, first = seen.get(k);
-    if(first){ if(!c.initial && first.initial){ first.initial = false; first.rawNoInitial = c.raw; } return false; }
+    if(first){ if(!c.initial && first.initial){ first.initial = false; first.rawNoInitial = c.raw; } if(c.refNote && !first.refNote) first.refNote = c.refNote; return false; }
     if(!c.initial) c.rawNoInitial = c.raw;
     seen.set(k, c); return true;
   });
+}
+/* Référence donnée en note de bas de page (histoire, droit, lettres) : l’année vient à la fin.
+   « P. Bourdieu, Ce que parler veut dire, Paris, Fayard, 1982, p. 64. »
+   « S. B. Diagne, « Islam et philosophie », Diogène, 202, 2003, p. 145-151. »
+   « P. Bourdieu et J.-C. Passeron, La Reproduction, Paris, Minuit, 1970, p. 12. » */
+const VILLES_NOTE = new Set(["Paris","London","Londres","New York","Oxford","Cambridge","Abidjan","Dakar","Bamako","Ouagadougou","Lomé","Cotonou","Yaoundé","Douala","Niamey","Conakry","Libreville","Kinshasa","Brazzaville","Bruxelles","Genève","Lausanne","Montréal","Québec","Lyon","Rennes","Bordeaux","Toulouse","Marseille","Lille","Grenoble","Nanterre","Berlin","Chicago","Boston","Princeton","New Haven","Amsterdam","Berne","Cham","Rabat","Alger","Tunis","Le Caire","Nairobi","Accra","Lagos","Johannesburg"]);
+function parseNote(ref){
+  let r = stripMarks(String(ref || "")).replace(/\s+/g, " ").trim().replace(/[.;]\s*$/, "");
+  const s = blank(); s.origin = "Note du document";
+  // auteurs : tout ce qui précède la première virgule (« P. Bourdieu et J.-C. Passeron »)
+  const v = r.indexOf(","); if(v < 2) return null;
+  const tete = r.slice(0, v), corps = r.slice(v + 1).trim();
+  s.authors = tete.split(/\s+(?:et|and|&)\s+|\s*;\s*/).map(x => {
+    const m = x.trim().match(/^((?:\p{Lu}\.[\s-]?)+|(?:\p{Lu}\p{Ll}+[\s-])+)?\s*(.+)$/u); if(!m) return null;
+    const fam = m[2].trim(); return {family: fam === fam.toLocaleUpperCase("fr") && fam.length > 2 ? fam.charAt(0) + fam.slice(1).toLocaleLowerCase("fr") : fam, given: (m[1] || "").trim()};
+  }).filter(a => a && a.family);
+  // pages citées en fin de note ; l’année est la dernière avant elles
+  let reste = corps.replace(/,?\s*(?:p{1,2}\.|pages?)\s*[\d\s–-]+$/i, m => { const pg = m.match(/(\d+\s*[–-]\s*\d+)/); if(pg) s.pages = pg[1].replace(/\s/g, ""); return ""; });
+  const an = [...reste.matchAll(/(?<!\d)(1[5-9]\d{2}|20\d{2})(?!\d)/g)].pop(); if(!an) return null;
+  s.year = an[1]; reste = (reste.slice(0, an.index) + reste.slice(an.index + 4)).replace(/,\s*,/g, ",").replace(/,\s*$/, "").trim();
+  const q = reste.match(/^[«“"]\s*([^»”"]+?)\s*[»”"]\s*,?\s*(.*)$/);
+  if(q){
+    s.title = q[1];
+    let suite = q[2].replace(/^in\s+/i, m => { s.type = "chapter"; return ""; });
+    if(s.type !== "chapter") s.type = "article";
+    const seg = suite.split(/\s*,\s*/).filter(Boolean);
+    s.container = (seg.shift() || "").replace(/[⟦⟧]/g, "");
+    const nums = seg.filter(x => /^(?:vol\.?\s*|n[°o]\.?\s*)?\d[\w/-]*$/i.test(x)).map(x => x.replace(/^(?:vol\.?|n[°o]\.?)\s*/i, ""));
+    if(nums[0]) s.volume = nums[0]; if(nums[1]) s.issue = nums[1];
+    const autres = seg.filter(x => !/^(?:vol\.?\s*|n[°o]\.?\s*)?\d[\w/-]*$/i.test(x));
+    if(s.type === "chapter"){ const ville = autres.findIndex(x => VILLES_NOTE.has(x)); if(ville >= 0){ s.city = autres[ville]; s.publisher = autres[ville + 1] || ""; } }
+    if(s.type === "article") s.pages = s.pages || "";
+  } else {
+    // ouvrage : titre, [trad.], [éd.], ville, éditeur — la ville est reconnue, l’éditeur la suit
+    const seg = reste.split(/\s*,\s*/).filter(Boolean);
+    let ville = seg.findIndex((x, i) => i > 0 && VILLES_NOTE.has(x.replace(/[⟦⟧]/g, "")));
+    if(ville < 0 && seg.length >= 3) ville = seg.length - 2;
+    s.type = "book";
+    s.title = seg.slice(0, ville > 0 ? ville : seg.length).join(", ").replace(/[⟦⟧]/g, "");
+    if(ville > 0){ s.city = seg[ville]; s.publisher = seg.slice(ville + 1).join(", "); }
+    s.pages = ""; // dans une note, la page citée n’entre pas dans la référence d’un ouvrage
+    const ed = s.title.match(/,\s*(\d+(?:e|ème|nde|re)\s*éd\.?)$/); if(ed){ s.edition = ed[1]; s.title = s.title.slice(0, ed.index); }
+  }
+  return s.title && s.authors.length ? villeEditeur(s) : null;
 }
 function verify(text, labeled){
   const cites = findCitations(text);
@@ -1293,4 +1398,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};

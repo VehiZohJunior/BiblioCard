@@ -415,6 +415,8 @@ $("#clearBtn").onclick = () => {
 /* ---------- lecture des fichiers ---------- */
 async function waitFor(name){ for(let i = 0; i < 60 && !window[name]; i++) await new Promise(r => setTimeout(r, 100)); return window[name]; }
 function htmlToMarked(html){
+  // notes de bas de page de Word : numérotées en tête de ligne (« 1 P. Bourdieu, … »), sans la flèche de retour
+  html = html.replace(/<li id="(?:foot|end)note-(\d+)"[^>]*>/g, "\n$1 ").replace(/<a href="#(?:foot|end)note-ref-\d+">\s*↑\s*<\/a>/g, "");
   return html.replace(/<(em|i)>([\s\S]*?)<\/\1>/g, (m, t, x) => "⟦" + x.replace(/<[^>]+>/g, "") + "⟧")
     .replace(/<\/(p|h\d|li|tr)>/g, "\n\n").replace(/<br\s*\/?>/g, "\n").replace(/<[^>]+>/g, "")
     .replace(/⟧(\s*)⟦/g, "$1").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
@@ -858,7 +860,12 @@ async function construireBiblio(nom, sansCommande){
   if(!sansCommande) post({role: "u", kind: "cmd", text: "Construire ma bibliographie"});
   if(!docs.length){ post({role: "a", kind: "error", text: "Dépose d’abord ton document (Word, PDF ou texte) avec le bouton + : je construis la bibliographie à partir des citations de son texte."}); return; }
   const L = labeled(), vus = new Set(), todo = [];
-  docs.forEach(f => { const body = stripMarks(f.body); apparierCitations(body, state.sources).missing.forEach(x => { const k = norm(x.c.family) + annee(x.c); if(vus.has(k)) return; vus.add(k); todo.push({c: x.c, ctx: contexteCitation(body, x.c.raw), file: f.name, pos: body.indexOf(x.c.raw)}); }); });
+  // une source citée en note de bas de page avec sa référence complète entre directement : pas de recherche en ligne
+  const deNotes = [];
+  docs.forEach(f => { const body = stripMarks(f.body); apparierCitations(body, state.sources).missing.forEach(x => { const k = norm(x.c.family) + annee(x.c); if(vus.has(k)) return; vus.add(k);
+    const n = x.c.refNote && parseNote(x.c.refNote); if(n){ n.file = f.name; deNotes.push(n); return; }
+    todo.push({c: x.c, ctx: contexteCitation(body, x.c.raw), file: f.name, pos: body.indexOf(x.c.raw)}); }); });
+  if(deNotes.length){ addSources(deNotes); post({role: "a", kind: "info", text: `${deNotes.length > 1 ? `${deNotes.length} sources citées en note de bas de page ont été reprises` : "Une source citée en note de bas de page a été reprise"} de leur note, sans recherche en ligne.`}); }
   todo.sort((a, b) => a.file === b.file ? a.pos - b.pos : 0); // dans l’ordre du texte
   if(!todo.length){ post({role: "a", kind: "info", text: "Toutes les citations de ton texte ont déjà leur référence dans la bibliographie."}); return; }
   // la discipline des documents : une œuvre d’une autre discipline n’est jamais proposée pour une citation
