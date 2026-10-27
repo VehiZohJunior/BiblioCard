@@ -1,0 +1,8 @@
+// Cloudflare Workers : le Worker « bibliocard » (relié à ce dépôt GitHub) publie le RELAIS des pages d’éditeurs,
+// et seulement lui. Le site lui-même reste sur GitHub Pages. Chaque mise à jour du dépôt redéploie le relais.
+{
+  "name": "bibliocard",
+  "main": "relais/relais-editeurs.js",
+  "compatibility_date": "2025-10-01",
+  "workers_dev": true
+}
