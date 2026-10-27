@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/" xmlns="http://catalogue.bnf.fr/namespaces/InterXMarc" xmlns:ixm="http://catalogue.bnf.fr/namespaces/InterXMarc" xmlns:mn="http://catalogue.bnf.fr/namespaces/motsnotices" xmlns:sd="http://www.loc.gov/zing/srw/diagnostic/">
+<srw:version>1.2</srw:version>
+<srw:echoedSearchRetrieveRequest>
+<srw:version>1.2</srw:version>
+<srw:query>bib.title all "postcolonie" and bib.author all "Mbembe"</srw:query>
+</srw:echoedSearchRetrieveRequest>
+<srw:numberOfRecords>2</srw:numberOfRecords>
+<srw:records>
+<srw:record>
+<srw:recordSchema>dc</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<oai_dc:dc xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc.xsd">   <dc:identifier>http://catalogue.bnf.fr/ark:/12148/cb37192327q</dc:identifier>   <dc:title>De la postcolonie : essai sur l'imagination politique dans l'Afrique contemporaine / Achille Mbembe</dc:title>   <dc:creator>Mbembe, Joseph-Achille (1957-....). Auteur du texte</dc:creator>   <dc:publisher>Éd. Karthala (Paris)</dc:publisher>   <dc:date>2000</dc:date>   <dc:description>Collection : Les Afriques</dc:description>   <dc:subject xml:lang="fre">Pratiques politiques -- Afrique subsaharienne</dc:subject>   <dc:subject xml:lang="fre">Pouvoir (sciences sociales) -- Afrique subsaharienne</dc:subject>   <dc:identifier>ISBN 2845860781</dc:identifier>   <dc:format>293 p. : couv. ill. en coul. ; 22 cm</dc:format>   <dc:language>fre</dc:language>   <dc:type xml:lang="fre">texte imprimé</dc:type>   <dc:type xml:lang="eng">printed text</dc:type>   <dc:type xml:lang="eng">text</dc:type>   <dc:rights xml:lang="fre">Catalogue en ligne de la Bibliothèque nationale de France</dc:rights>   <dc:rights xml:lang="eng">French National Library online Catalog</dc:rights>
+</oai_dc:dc>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb37192327q</srw:recordIdentifier>
+<srw:recordPosition>1</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20000912</ixm:attr>
+<ixm:attr name="LastModificationDate">20001101</ixm:attr>
+<mn:score>17.52621</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>dc</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<oai_dc:dc xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc.xsd">   <dc:identifier>http://catalogue.bnf.fr/ark:/12148/cb465217311</dc:identifier>   <dc:title>De la postcolonie : essai sur l'imagination politique dans l'Afrique contemporaine (2e éd.) Achille Mbembe ; préface inédite de Nadia Yala Kisukidi</dc:title>   <dc:creator>Mbembe, Joseph-Achille (1957-....). Auteur du texte</dc:creator>   <dc:contributor>Kisukidi, Nadia Yala (1978-....). Préfacier</dc:contributor>   <dc:publisher>la Découverte (Paris)</dc:publisher>   <dc:date>2020</dc:date>   <dc:description>Collection : La Découverte-poche. Essais</dc:description>   <dc:subject xml:lang="fre">Pratiques politiques -- Afrique subsaharienne</dc:subject>   <dc:subject xml:lang="fre">Pouvoir (sciences sociales) -- Afrique subsaharienne</dc:subject>   <dc:identifier>ISBN 9782348057502</dc:identifier>   <dc:description>Code à barres commercial : EAN 9782348057502</dc:description>   <dc:format>1 vol. (XVIII-334 p.) ; 20 cm</dc:format>   <dc:language>fre</dc:language>   <dc:type xml:lang="fre">texte imprimé</dc:type>   <dc:type xml:lang="eng">printed text</dc:type>   <dc:type xml:lang="eng">text</dc:type>   <dc:rights xml:lang="fre">Catalogue en ligne de la Bibliothèque nationale de France</dc:rights>   <dc:rights xml:lang="eng">French National Library online Catalog</dc:rights>
+</oai_dc:dc>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb465217311</srw:recordIdentifier>
+<srw:recordPosition>2</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20200218</ixm:attr>
+<ixm:attr name="LastModificationDate">20200901</ixm:attr>
+<mn:score>14.768033</mn:score>
+</srw:extraRecordData>
+</srw:record>
+</srw:records>
+</srw:searchRetrieveResponse>

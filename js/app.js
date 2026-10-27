@@ -145,7 +145,7 @@ function renderSheet(){
   ol.innerHTML = L.map(s => {
     const m = checks(s, state.style, state.sources); marks += m.length;
     const flag = isAuto(s) && !m.length ? `<span class="mark okm">À relire</span>` : "";
-    const enLigne = s._enligne && s._enligne.length ? `<span class="mark okm">Complété en ligne : ${esc(s._enligne.join(", "))}</span>` : "";
+    const enLigne = s._enligne && s._enligne.length ? `<span class="mark okm">Complété en ligne${s._sourcesLigne && s._sourcesLigne.length ? ` (${esc(s._sourcesLigne.join(", "))})` : ""} : ${esc(s._enligne.join(", "))}</span>` : "";
     return `<li class="entry"><div class="ref">${bibFor(s)}</div><div class="marks">${m.length ? m.map(x => `<button class="mark" data-fix="${s.id}" data-field="${x.f || ""}">${esc(x.t)}</button>`).join("") : flag || `<span class="mark okm">Conforme</span>`}${enLigne}${(state.comments || []).some(c => !c.done && c.target === "ref" && c.refKey === refKey(s)) ? `<button class="mark" data-cm="1">Commentaire de l’encadreur</button>` : ""}${(() => { const e = existFor(s); return !e ? "" : e.v === "suspect" ? `<button class="mark" data-exist="1">Référence suspecte</button>` : e.v === "found" ? `<span class="mark okm">Existe (${esc(e.best.src)})</span>` : e.v === "close" ? `<button class="mark" data-exist="1">Titre ou année à vérifier</button>` : ""; })()}</div></li>`;
   }).join("");
   ol.querySelectorAll("[data-fix]").forEach(b => b.onclick = () => openForm(state.sources.find(s => s.id === b.dataset.fix), b.dataset.field));
@@ -647,15 +647,15 @@ Texte :
 }
 /* ---------- vérification d’existence ---------- */
 const net = { blocked: false, running: false, done: 0, total: 0 };
-async function getJSON(url, ms = 10000){
+async function getJSON(url, ms = 10000, init, texte){
   // 300 à 500 sources : Open Library et CrossRef répondent « trop de demandes » (429) ou « surchargé » (503) ;
   // on attend un peu et on réessaie, au lieu de perdre la source
   for(let essai = 0; essai < 3; essai++){
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
     try{
-      const r = await fetch(url, {signal: ctl.signal});
+      const r = await fetch(url, {...(init || {}), signal: ctl.signal});
       if((r.status === 429 || r.status === 503) && essai < 2){ await new Promise(res => setTimeout(res, 1500 * (essai + 1) * (essai + 1))); continue; }
-      if(!r.ok) return {status: r.status}; return {data: await r.json()};
+      if(!r.ok) return {status: r.status}; return {data: texte ? await r.text() : await r.json()};
     }
     catch(e){ if(essai < 1 && e && e.name !== "AbortError"){ await new Promise(res => setTimeout(res, 1000)); continue; } return {error: true}; }
     finally { clearTimeout(t); }
@@ -849,17 +849,82 @@ function manquants(s){
   if((s.type === "article") && !s.volume) L.push("volume");
   return [...new Set(L)];
 }
+/* Sources officielles et gratuites des informations publiques d’un document, même payant : les données que
+   l’éditeur dépose avec le DOI (doi.org, toutes agences : CrossRef, DataCite, mEDRA…), le catalogue de la BnF
+   pour les livres, theses.fr et DataCite pour les thèses. Aucun relais tiers : SCIENTUS interroge directement
+   ces services publics, avec le titre et le nom d’auteur seulement. */
+const doiUrl = doi => "https://doi.org/" + String(doi).trim().split("/").map(encodeURIComponent).join("/");
+async function parDoi(doi){
+  const r = await getJSON(doiUrl(doi), 15000, {headers: {Accept: "application/vnd.citationstyles.csl+json"}});
+  return r.data ? fromCSL(r.data) : null;
+}
+const motsRequete = (t, n) => norm(t).split(" ").filter(w => w.length > 3 && !MOTS_VIDES.has(w)).slice(0, n).join(" ");
+async function parBnf(s){
+  const mots = motsRequete(String(s.title).split(/\s*[:.]\s+/)[0], 5), fam = norm(s.authors[0].family).split(" ").pop();
+  if(!mots || !fam) return [];
+  const q = `bib.title all "${mots}" and bib.author all "${fam}"`;
+  const r = await getJSON(`https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=${encodeURIComponent(q)}&recordSchema=dublincore&maximumRecords=10`, 15000, null, true);
+  return r.data ? lireBnf(r.data) : [];
+}
+async function parThesesFr(s){
+  const r = await getJSON(`https://theses.fr/api/v1/theses/recherche/?q=${encodeURIComponent(`${motsRequete(s.title, 6)} ${norm(s.authors[0].family)}`)}&nombre=5`, 15000);
+  return ((r.data && r.data.theses) || []).map(fromThesesFr).filter(Boolean);
+}
+async function parDataCite(s){
+  const r = await getJSON(`https://api.datacite.org/dois?query=${encodeURIComponent(`titles.title:(${motsRequete(s.title, 6)}) AND creators.familyName:${norm(s.authors[0].family).split(" ").pop()}`)}&page[size]=5`, 15000);
+  return ((r.data && r.data.data) || []).map(d => { const a = d.attributes || {};
+    return fromCSL({type: {Dissertation: "thesis", JournalArticle: "article-journal", Book: "book", BookChapter: "chapter", Report: "report"}[(a.types || {}).resourceTypeGeneral] || "report",
+      title: ((a.titles || [])[0] || {}).title, author: (a.creators || []).map(c => ({family: c.familyName || c.name || "", given: c.givenName || ""})),
+      issued: {"date-parts": [[a.publicationYear]]}, publisher: typeof a.publisher === "object" ? (a.publisher || {}).name : a.publisher, DOI: a.doi}); });
+}
 async function completerUne(s){
-  const avant = {...s, authors: s.authors.slice()};
+  const avant = {...s, authors: s.authors.slice()}, sources = new Set(s._sourcesLigne || []);
+  // ne remplit que les cases vides, et seulement si la fiche trouvée est bien la même œuvre (memeOeuvre)
+  const reprendre = (c, nom, anneeExacte) => {
+    if(!c || !memeOeuvre(s, c, anneeExacte)) return false;
+    let n = 0;
+    // « in Argumentation » lu comme un chapitre, alors que la fiche de l’éditeur dit : article de la revue Argumentation
+    if(s.type === "chapter" && c.type === "article" && c.container && simTitle(s.container, c.container) >= .85 && isAuto(s)){ s.type = "article"; n++; }
+    // un article ne porte ni éditeur commercial ni ville (« Springer Science and Business Media LLC ») : la revue suffit
+    const champs = Object.keys(CHAMPS_LIGNE).filter(k => !(s.type === "article" && (k === "publisher" || k === "city")));
+    champs.forEach(k => { if(!s[k] && c[k]){ s[k] = c[k]; n++; } });
+    // « Tübingen, Gunter Narr Verlag Tübingen » : la ville n’est pas répétée dans le nom de l’éditeur
+    if(s.city && s.publisher && norm(s.publisher).endsWith(" " + norm(s.city))) s.publisher = s.publisher.slice(0, s.publisher.length - s.city.length).replace(/[\s,]+$/, "");
+    if(!s.isbn && c.isbn) s.isbn = c.isbn;
+    if(s.etAl && c.authors.length > s.authors.length){ s.authors = c.authors.map(a => ({family: a.family, given: a.given || ""})); delete s.etAl; n++; }
+    if(n) sources.add(nom);
+    return true;
+  };
+  const manque = () => manquants(s).length || s.etAl;
+  // 1. DOI connu : les données déposées par l’éditeur, celles de la page de présentation du document
+  if(manque() && s.doi) reprendre(await parDoi(s.doi), "données de l’éditeur (DOI)");
   // une seule recherche CrossRef par référence, partagée par les champs et par la liste des auteurs
   let cr;
   const chercherCR = async () => {
     if(cr !== undefined) return cr;
     const r = await crFile(`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(`${s.title} ${s.authors[0].family}`.slice(0, 250))}&rows=3&select=DOI,title,author,issued,type,container-title,publisher,publisher-location,volume,issue,page`);
-    return cr = ((((r.data || {}).message || {}).items) || []).map(fromCrossref).find(c => simTitle(s.title, c.title) >= .85 && (!s.year || !c.year || Math.abs(+c.year - +s.year) <= 1) && c.authors.some(a => norm(a.family) === norm(s.authors[0].family))) || null;
+    return cr = ((((r.data || {}).message || {}).items) || []).map(fromCrossref).find(c => memeOeuvre(s, c)) || null;
   };
-  if((s.type === "book" || s.type === "thesis" || s.type === "chapter") && (!s.city || !s.publisher)){ await completerEdition(s, s.year); villeEditeur(s); }
-  if(manquants(s).length && s.type !== "book"){ const it = await chercherCR(); if(it) Object.keys(CHAMPS_LIGNE).forEach(k => { if(!s[k] && it[k]) s[k] = it[k]; }); }
+  // 2. livre, chapitre, thèse : l’édition de l’année citée (Open Library)
+  if((s.type === "book" || s.type === "thesis" || s.type === "chapter") && (!s.city || !s.publisher)){
+    const ed = {city: s.city, publisher: s.publisher}; await completerEdition(s, s.year); villeEditeur(s);
+    if(s.city && s.publisher && norm(s.publisher).endsWith(" " + norm(s.city))) s.publisher = s.publisher.slice(0, s.publisher.length - s.city.length).replace(/[\s,]+$/, "");
+    if(s.city !== ed.city || s.publisher !== ed.publisher) sources.add("Open Library");
+  }
+  // 3. livre : le catalogue de la BnF, édition de l’année citée exactement
+  if((s.type === "book" || s.type === "chapter") && (!s.city || !s.publisher) && s.authors.length){
+    const L = await parBnf(s); const c = L.find(x => memeOeuvre(s, x, true)); if(c) reprendre(c, "BnF", true);
+  }
+  // 4. article, chapitre, rapport : CrossRef, puis les données de l’éditeur sous le DOI retrouvé
+  if(manque() && s.type !== "book" && s.type !== "thesis"){
+    const it = await chercherCR();
+    if(it){ reprendre(it, "CrossRef"); if(manque() && it.doi) reprendre(await parDoi(it.doi), "données de l’éditeur (DOI)"); }
+  }
+  // 5. thèse ou mémoire : theses.fr (université de soutenance), puis DataCite (HAL, dépôts universitaires)
+  if(s.type === "thesis" && manque() && s.authors.length){
+    const t = (await parThesesFr(s)).find(x => memeOeuvre(s, x)); if(t) reprendre(t, "theses.fr");
+    if(manque()){ const d = (await parDataCite(s)).find(x => memeOeuvre(s, x)); if(d) reprendre(d, "DataCite"); }
+  }
   // « et al. » : on retrouve TOUS les auteurs, jusqu’au dernier (CrossRef, puis OpenAlex)
   if(s.etAl){
     const it = await chercherCR(); let auteurs = it && it.authors.length > s.authors.length ? it.authors : null;
@@ -870,23 +935,24 @@ async function completerUne(s){
       const f = w && fromOpenAlex(w);
       if(f && f.authors.length > s.authors.length && f.authors.some(a => norm(a.family) === norm(s.authors[0].family))) auteurs = f.authors;
     }
-    if(auteurs){ s.authors = auteurs.map(a => ({family: a.family, given: a.given || ""})); delete s.etAl; }
+    if(auteurs){ s.authors = auteurs.map(a => ({family: a.family, given: a.given || ""})); delete s.etAl; sources.add(it && it.authors.length > avant.authors.length ? "CrossRef" : "OpenAlex"); }
   }
   const ajoutes = Object.keys(CHAMPS_LIGNE).filter(k => !avant[k] && s[k]);
   if(s.authors.length > avant.authors.length) ajoutes.push("authors");
-  if(ajoutes.length) s._enligne = [...new Set([...(s._enligne || []), ...ajoutes.map(k => k === "authors" ? "auteurs" : CHAMPS_LIGNE[k])])];
+  if(ajoutes.length){ s._enligne = [...new Set([...(s._enligne || []), ...ajoutes.map(k => k === "authors" ? "auteurs" : CHAMPS_LIGNE[k])])]; s._sourcesLigne = [...sources]; }
   return ajoutes;
 }
 async function completerEnLigne(){
   const L = state.sources.filter(s => !s._essaiLigne && s.title && s.authors.length && (manquants(s).length || s.etAl));
   if(!L.length) return;
-  post({role: "a", kind: "info", text: `Je complète en ligne ${L.length > 1 ? `les ${L.length} références incomplètes` : "la référence incomplète"} : auteurs, éditeur, ville, revue, volume, numéro, pages…`}); think(true);
+  post({role: "a", kind: "info", text: `Je complète en ligne ${L.length > 1 ? `les ${L.length} références incomplètes` : "la référence incomplète"} : auteurs, éditeur, ville, revue, volume, numéro, pages… Sources : données publiques des éditeurs (DOI), CrossRef, catalogue de la BnF, Open Library, theses.fr, DataCite. Même pour un document payant, ces informations sont publiques ; le résumé n’est jamais repris.`}); think(true);
   let i = 0, n = 0; const champs = {};
   const travail = async () => { while(i < L.length){ const s = L[i++]; s._essaiLigne = 1;
     try{ const a = await completerUne(s); if(a.length){ n++; a.forEach(k => { const n = k === "authors" ? "auteurs" : CHAMPS_LIGNE[k]; champs[n] = (champs[n] || 0) + 1; }); } }catch(e){} } };
   await Promise.all([travail(), travail(), travail()]);
   think(false); save(); renderAll();
-  post({role: "a", kind: "complete", n, total: L.length, champs, reste: state.sources.filter(s => manquants(s).length || s.etAl).length});
+  const sources = {}; L.forEach(s => (s._sourcesLigne || []).forEach(x => sources[x] = (sources[x] || 0) + 1));
+  post({role: "a", kind: "complete", n, total: L.length, champs, sources, reste: state.sources.filter(s => manquants(s).length || s.etAl).length});
 }
 async function construireBiblio(nom, sansCommande){
   if(!exiger("biblio")) return;
@@ -1951,8 +2017,8 @@ function appBody(m){
         <div class="props">${m.items.map((x, i) => propCarte(m, x, i)).join("")}</div>
         ${sures ? `<div class="chips">${chip(sures > 1 ? `Ajouter les ${sures} références trouvées` : "Ajouter la référence trouvée", {t:"prop-all", m:m.id}, "pri")}</div>` : `<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}</div>`}`;
     }
-    case "complete": { const det = Object.entries(m.champs || {}).map(([k, v]) => `${k} (${v})`).join(", ");
-      return `<p>${m.n ? `J’ai complété en ligne <b>${plur(m.n, "référence", "références")}</b> sur ${m.total}${det ? ` : ${esc(det)}` : ""}. Les éléments ajoutés portent la mention « Complété en ligne » : relis-les.` : "Les bases ouvertes n’ont rien apporté de plus pour les références incomplètes."}${m.reste ? ` ${plur(m.reste, "référence reste incomplète", "références restent incomplètes")} : elles sont dans la liste À faire, à compléter à la main.` : ""}</p><div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${chip("Télécharger en Word", {t:"dl"})}</div>`; }
+    case "complete": { const det = Object.entries(m.champs || {}).map(([k, v]) => `${k} (${v})`).join(", "), src = Object.entries(m.sources || {}).map(([k, v]) => `${k} (${v})`).join(", ");
+      return `<p>${m.n ? `J’ai complété en ligne <b>${plur(m.n, "référence", "références")}</b> sur ${m.total}${det ? ` : ${esc(det)}` : ""}. ${src ? `Sources : ${esc(src)}. ` : ""}Les éléments ajoutés portent la mention « Complété en ligne » : relis-les.` : "Les bases ouvertes n’ont rien apporté de plus pour les références incomplètes."}${m.reste ? ` ${plur(m.reste, "référence reste incomplète", "références restent incomplètes")} : elles sont dans la liste À faire, à compléter à la main.` : ""}</p><div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"}, "pri")}${chip("Télécharger en Word", {t:"dl"})}</div>`; }
     case "added": return `<p>${m.ids.length ? `J’ai ajouté ${plur(m.ids.length, "référence", "références")}${m.dup ? `, ${plur(m.dup, "doublon écarté", "doublons écartés")}` : ""}.` : "Ces références sont déjà dans ta bibliographie."}</p>${previewIds(m.ids)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}</div>`;
     case "restyle": return `<p>C’est fait : toute la bibliographie est en <b>${esc((STYLES[m.style] || st).full)}</b>.</p>${previewIds(labeled().map(s => s.id), 3)}<div class="chips">${chip("Voir la bibliographie", {t:"side", v:"biblio"})}${chip("Télécharger en Word", {t:"dl"})}</div>`;
     case "exist": return `<p>Vérification d’existence terminée : <b>${m.found}</b> trouvée${m.found > 1 ? "s" : ""}, <b>${m.suspect}</b> suspecte${m.suspect > 1 ? "s" : ""}, ${m.close || 0} proche${m.close > 1 ? "s" : ""}, ${m.none} introuvable${m.none > 1 ? "s" : ""}.</p>${m.suspect ? previewIds(m.sus || []) : ""}<div class="chips">${chip("Voir le détail", {t:"side", v:"existence"}, m.suspect ? "warn" : "")}</div>`;

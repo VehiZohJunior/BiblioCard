@@ -34,7 +34,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   egal(S("art").container, "Journal of Communication", "ce que le chercheur a écrit n’est pas écrasé");
   egal(S("complet")._enligne, undefined, "référence déjà complète : rien n’est ajouté");
   egal(S("livre")._enligne.join(","), "éditeur,ville", "les ajouts sont marqués");
-  egal(/Complété en ligne : éditeur, ville/.test(d.querySelector("#biblio").textContent), true, "mention « Complété en ligne » dans la bibliographie");
+  egal(/Complété en ligne \(Open Library\) : éditeur, ville/.test(d.querySelector("#biblio").textContent), true, "mention « Complété en ligne » dans la bibliographie");
   egal(/J’ai complété en ligne/.test(d.querySelector("#thread").textContent), true, "bilan affiché");
   // « et al. » : tous les auteurs retrouvés en ligne et écrits jusqu’au dernier
   egal(S("etal").authors.map(a => a.family).join(","), "Fowler,Hodge,Kress,Trew", "et al. remplacé par la liste complète des auteurs");

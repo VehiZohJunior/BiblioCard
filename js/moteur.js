@@ -546,6 +546,10 @@ function parseRefHeuristic(line){
     s.container = rest.replace(/^[\s.,:;]+/, "").split(/,\s/)[0].replace(/^.*\.\s+(?=\p{Lu})/u, "").replace(/\s*[–-]\s*\p{L}+\s+\d{4}$/u, "").trim();
   }
   s.title = s.title.replace(/^(?:‘‘|''|[«“"‘])\s*/, ""); // guillemet ouvrant resté seul
+  // « …, in Argumentation. » : le point final de la référence n’appartient pas au nom de la revue
+  // (mais « Wiley & Co. » ou « Éd. » gardent leur point d’abréviation)
+  // (une revue abrégée garde le sien : « J Appl Ling. »)
+  ["container", "publisher", "city"].forEach(k => { if(k === "container" && /\b\p{Lu}\p{Ll}{0,3}\.$/u.test(s[k] || "")) return; s[k] = String(s[k] || "").replace(/(?<!\b(?:[A-Z]|al|Inc|Co|Ltd|Éd|Ed|eds?|dir|vol|n°))\s*[.,;:]+$/u, "").trim(); });
   if(s.url && !s.container && s.type === "book" && !s.publisher){ s.type = "webpage"; try{ s.container = new URL(s.url).hostname.replace(/^www\./,""); }catch(e){} }
   return retirerEtAl(s, raw);
 }
@@ -1140,6 +1144,66 @@ const VILLES_EDITEURS = [
   [/mit press|harvard university press/i, "Cambridge (MA)"], [/princeton university press/i, "Princeton"], [/yale university press/i, "New Haven"], [/university of chicago press/i, "Chicago"],
   [/john benjamins/i, "Amsterdam"], [/de gruyter|mouton/i, "Berlin"], [/peter lang/i, "Berne"], [/\bsage\b/i, "London"], [/palgrave/i, "London"], [/springer/i, "Cham"],
 ];
+/* INFORMATIONS PUBLIQUES DES ÉDITEURS. Même quand le document est payant, l’éditeur rend publiques ses données
+   bibliographiques : il les dépose avec le DOI (CrossRef, DataCite, mEDRA…) et ce sont elles qu’affiche la page de
+   présentation du document. Les livres sont décrits par la BnF, les thèses par theses.fr. Ces lecteurs ne
+   gardent QUE des champs de bibliographie : auteurs, titre, année, revue, volume, numéro, pages, éditeur, ville,
+   université, DOI, ISBN. Le résumé, les mots clés, la description ne sont jamais repris. */
+// fiche au format CSL, renvoyée par doi.org pour tout DOI (« Accept: application/vnd.citationstyles.csl+json »)
+function fromCSL(j){
+  if(!j || typeof j !== "object") return null;
+  const liste = v => Array.isArray(v) ? v : v ? [v] : [];
+  const type = {"article-journal": "journal-article", "article": "journal-article", "chapter": "book-chapter", "thesis": "dissertation", "paper-conference": "proceedings-article", "report": "report", "book": "book"}[j.type] || j.type;
+  const s = fromCrossref({...j, type, title: liste(j.title), "container-title": liste(j["container-title"]), ISBN: liste(j.ISBN),
+    author: liste(j.author).map(a => a.family ? a : {family: a.literal || a.name || "", given: ""}), "publisher-location": j["publisher-place"] || j["publisher-location"] || ""});
+  s.volume = String(s.volume || "").replace(/^(?:n[°o]\.?|vol\.?|volume)\s*/i, "");
+  s.issue = String(s.issue || "").replace(/^(?:n[°o]\.?|no\.?)\s*/i, "");
+  s.pages = String(s.pages || "").replace(/[–—]/g, "-");
+  s.origin = "Recherche en ligne";
+  return s;
+}
+// catalogue de la BnF (SRU, Dublin Core) : « Éd. Karthala (Paris) », « 2000 », « ISBN 2845860781 »
+function lireBnf(xml){
+  const champ = (r, k) => [...r.matchAll(new RegExp(`<dc:${k}[^>]*>([^<]*)</dc:${k}>`, "g"))].map(m => m[1].replace(/&amp;/g, "&").replace(/&apos;|&#39;/g, "’").replace(/&quot;/g, "\"").trim());
+  return String(xml || "").split(/<srw:record>/).slice(1).map(r => {
+    const s = blank(); s.type = "book"; s.origin = "Recherche en ligne";
+    s.title = (champ(r, "title")[0] || "").split(/\s+\/\s+/)[0].replace(/\s+:\s+/, ". ").replace(/\s*\[[^\]]*\]\s*$/, "").trim();
+    if(s.title) s.title = s.title.charAt(0) + s.title.slice(1);
+    s.authors = champ(r, "creator").filter(c => /auteur/i.test(c) || !/\.\s*(?:pr[ée]face|traduction|[ée]diteur|illustrat)/i.test(c)).map(c => { const m = c.replace(/\s*\([^)]*\)/g, "").replace(/\.\s*\S.*$/, "").split(/\s*,\s*/); return {family: (m[0] || "").trim(), given: (m[1] || "").trim()}; }).filter(a => a.family);
+    const ed = champ(r, "publisher")[0] || "", pm = ed.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+    s.publisher = (pm ? pm[1] : ed).replace(/^(?:[ÉE]d(?:\.|itions?)|Les [ÉE]ditions|Impr\.)\s+/i, "").replace(/^(?:la|le|les)\s+(?=\p{Lu})/u, m => m).trim();
+    s.city = pm ? pm[2].split(/\s*[;,]\s*/)[0].trim() : "";
+    s.year = (champ(r, "date")[0] || "").match(/\d{4}/)?.[0] || "";
+    s.isbn = ((champ(r, "identifier").find(x => /^ISBN/i.test(x)) || "").match(/[\dXx-]{10,17}/) || [""])[0];
+    return s;
+  }).filter(s => s.title);
+}
+// theses.fr : « etabSoutenanceN: Bordeaux 3 », « dateSoutenance: 01/01/2009 »
+function fromThesesFr(t){
+  if(!t || !t.titrePrincipal) return null;
+  const s = blank(); s.type = "thesis"; s.genre = "Thèse de doctorat"; s.origin = "Recherche en ligne";
+  s.title = String(t.titrePrincipal).trim();
+  const lst = v => { try{ return Array.isArray(v) ? v : JSON.parse(v || "[]"); }catch(e){ return []; } };
+  s.authors = lst(t.auteurs).map(a => ({family: a.nom || "", given: a.prenom || ""})).filter(a => a.family);
+  s.year = (String(t.dateSoutenance || "").match(/\d{4}/) || [""])[0];
+  const etab = String(t.etabSoutenanceN || "").trim();
+  s.publisher = !etab ? "" : /^(?:universit|[ée]cole|institut|sorbonne|ehess|epfl|inalco)/i.test(etab) ? etab : `Université ${etab}`;
+  if(t.doi) s.doi = String(t.doi);
+  return s;
+}
+/* Même œuvre ? Avant de reprendre une seule information, on vérifie que la fiche trouvée est bien la référence
+   incomplète : titre semblable (au moins 85 %), même premier auteur, année identique (à un an près pour un
+   article, qui paraît parfois en ligne l’année précédente). */
+function memeOeuvre(s, c, anneeExacte){
+  if(!s || !c || !c.title || !s.title) return false;
+  // titre principal seul (avant le sous-titre) : « De la postcolonie » = « De la postcolonie. Essai sur… »
+  const principal = t => String(t).split(/\s*[:.]\s+/)[0];
+  if(Math.max(simTitle(s.title, c.title), simTitle(principal(s.title), principal(c.title))) < .85) return false;
+  const fam = a => norm((a && a.family) || "").split(" ").pop();
+  if(s.authors.length && c.authors.length && !c.authors.some(a => fam(a) === fam(s.authors[0]))) return false;
+  if(s.year && c.year && (anneeExacte ? +s.year !== +c.year : Math.abs(+s.year - +c.year) > 1)) return false;
+  return true;
+}
 function villeEditeur(s){
   if(!s.city && s.publisher){ const v = VILLES_EDITEURS.find(([re]) => re.test(s.publisher)); if(v) s.city = v[1]; }
   return s;
@@ -1540,4 +1604,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {estFicheBibliographique, nettoyerSection, parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {fromCSL, lireBnf, fromThesesFr, memeOeuvre, estFicheBibliographique, nettoyerSection, parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
