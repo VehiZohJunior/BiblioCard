@@ -81,7 +81,7 @@ const shortTitle = s => String(s.title||"Sans titre").split(/[.:?!]/)[0].split("
 function apaAuthors(a){
   const f = a.map(x => x.given ? `${x.family}, ${initials(x.given)}` : x.family);
   if(f.length <= 1) return f.join("");
-  if(f.length > 20) return f.slice(0,19).join(", ") + ", … " + f[f.length-1];
+  // tous les auteurs jusqu’au dernier, jamais d’abréviation dans la bibliographie (règle SCIENTUS)
   return f.slice(0,-1).join(", ") + ", & " + f[f.length-1];
 }
 function apaBib(s){
@@ -119,7 +119,7 @@ function mlaAuthors(a){
   const first = a[0].given ? `${a[0].family}, ${a[0].given}` : a[0].family;
   if(a.length === 1) return first;
   if(a.length === 2) return `${first}, and ${fullName(a[1])}`;
-  return `${first}, et al`;
+  return `${first}, ${a.slice(1, -1).map(fullName).join(", ")}, and ${fullName(a[a.length - 1])}`; // tous les auteurs, jamais « et al. »
 }
 function mlaBib(s){
   const A = mlaAuthors(s.authors);
@@ -197,7 +197,7 @@ function isoCite(s, page){
 /* ---------- Vancouver (numérotée, sciences de la santé) ---------- */
 function vanAuthors(a){
   const f = a.map(x => x.given ? `${x.family} ${initials(x.given).replace(/[.\s-]/g, "")}` : x.family);
-  return f.length > 6 ? f.slice(0, 6).join(", ") + ", et al" : f.join(", ");
+  return f.join(", "); // tous les auteurs, jamais « et al » (règle SCIENTUS)
 }
 function vanBib(s){
   const A = vanAuthors(s.authors), n = s._num ? `${s._num}. ` : "";
@@ -286,6 +286,7 @@ function checks(s, styleKey, all){
   const st = STYLES[styleKey];
   // entrées générées depuis une citation : œuvre retrouvée en ligne avec un doute, ou rien trouvé du tout
   if(s.aConfirmer) m.push({f:"title", t:"Œuvre à confirmer"});
+  if(s.etAl) m.push({f:"authors", t:"Tous les auteurs à écrire (pas « et al. »)"});
   if(s.aCompleter) m.push({f:"title", t:"Introuvable en ligne : à compléter"});
   if(!s.title) m.push({f:"title", t:"Titre manquant"});
   if(!s.authors.length) m.push({f:"authors", t:"Auteur manquant"});
@@ -452,6 +453,16 @@ function parseRefHeuristic(line){
   }
   s.title = s.title.replace(/^(?:‘‘|''|[«“"‘])\s*/, ""); // guillemet ouvrant resté seul
   if(s.url && !s.container && s.type === "book" && !s.publisher){ s.type = "webpage"; try{ s.container = new URL(s.url).hostname.replace(/^www\./,""); }catch(e){} }
+  return retirerEtAl(s, raw);
+}
+/* « FOWLER Roger et al. » : « al » n’est pas un auteur. Dans une bibliographie, tous les auteurs sont écrits
+   jusqu’au dernier (règle de l’utilisateur, 2026-10-27) : la liste est marquée incomplète (etAl) pour être
+   complétée en ligne, et signalée tant qu’elle ne l’est pas. */
+const RE_ET_AL = /^(?:al|al\.|alii|autres|others|coll|coll\.)$/i;
+function retirerEtAl(s, raw){
+  const n = s.authors.length;
+  s.authors = s.authors.filter(a => !RE_ET_AL.test(String(a.family).trim()) && !(/^al\.?$/i.test(a.given) && !a.family));
+  if(s.authors.length < n || /\b(?:et|and|&)\s+al\b|\bet\s+coll\b|\band\s+others\b/i.test(String(raw || "").slice(0, 120))) s.etAl = true;
   return s;
 }
 function blank(){ return {id: "s" + Math.random().toString(36).slice(2,10), type:"article", authors:[], title:"", year:"", container:"", volume:"", issue:"", pages:"", city:"", publisher:"", edition:"", translator:"", editors:"", genre:"", url:"", doi:"", isbn:"", accessed:"", origin:"Saisie manuelle"}; }

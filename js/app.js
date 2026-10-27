@@ -814,27 +814,43 @@ function manquants(s){
   return [...new Set(L)];
 }
 async function completerUne(s){
-  const avant = {...s};
-  if((s.type === "book" || s.type === "thesis" || s.type === "chapter") && (!s.city || !s.publisher)){ await completerEdition(s, s.year); villeEditeur(s); }
-  if(manquants(s).length && s.type !== "book"){
+  const avant = {...s, authors: s.authors.slice()};
+  // une seule recherche CrossRef par référence, partagée par les champs et par la liste des auteurs
+  let cr;
+  const chercherCR = async () => {
+    if(cr !== undefined) return cr;
     const r = await crFile(`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(`${s.title} ${s.authors[0].family}`.slice(0, 250))}&rows=3&select=DOI,title,author,issued,type,container-title,publisher,publisher-location,volume,issue,page`);
-    const it = ((((r.data || {}).message || {}).items) || []).map(fromCrossref).find(c => simTitle(s.title, c.title) >= .85 && (!s.year || !c.year || Math.abs(+c.year - +s.year) <= 1) && c.authors.some(a => norm(a.family) === norm(s.authors[0].family)));
-    if(it) Object.keys(CHAMPS_LIGNE).forEach(k => { if(!s[k] && it[k]) s[k] = it[k]; });
+    return cr = ((((r.data || {}).message || {}).items) || []).map(fromCrossref).find(c => simTitle(s.title, c.title) >= .85 && (!s.year || !c.year || Math.abs(+c.year - +s.year) <= 1) && c.authors.some(a => norm(a.family) === norm(s.authors[0].family))) || null;
+  };
+  if((s.type === "book" || s.type === "thesis" || s.type === "chapter") && (!s.city || !s.publisher)){ await completerEdition(s, s.year); villeEditeur(s); }
+  if(manquants(s).length && s.type !== "book"){ const it = await chercherCR(); if(it) Object.keys(CHAMPS_LIGNE).forEach(k => { if(!s[k] && it[k]) s[k] = it[k]; }); }
+  // « et al. » : on retrouve TOUS les auteurs, jusqu’au dernier (CrossRef, puis OpenAlex)
+  if(s.etAl){
+    const it = await chercherCR(); let auteurs = it && it.authors.length > s.authors.length ? it.authors : null;
+    if(!auteurs){
+      const ac = await oaAutocomplete(s.title.replace(/[^\p{L}\p{N}\s'’-]/gu, " ").slice(0, 120));
+      const best = (ac.L || []).find(x => simTitle(s.title, x.title) >= .85);
+      const w = best && await oaOeuvre(best._oaId);
+      const f = w && fromOpenAlex(w);
+      if(f && f.authors.length > s.authors.length && f.authors.some(a => norm(a.family) === norm(s.authors[0].family))) auteurs = f.authors;
+    }
+    if(auteurs){ s.authors = auteurs.map(a => ({family: a.family, given: a.given || ""})); delete s.etAl; }
   }
   const ajoutes = Object.keys(CHAMPS_LIGNE).filter(k => !avant[k] && s[k]);
-  if(ajoutes.length) s._enligne = [...new Set([...(s._enligne || []), ...ajoutes.map(k => CHAMPS_LIGNE[k])])];
+  if(s.authors.length > avant.authors.length) ajoutes.push("authors");
+  if(ajoutes.length) s._enligne = [...new Set([...(s._enligne || []), ...ajoutes.map(k => k === "authors" ? "auteurs" : CHAMPS_LIGNE[k])])];
   return ajoutes;
 }
 async function completerEnLigne(){
-  const L = state.sources.filter(s => !s._essaiLigne && s.title && s.authors.length && manquants(s).length);
+  const L = state.sources.filter(s => !s._essaiLigne && s.title && s.authors.length && (manquants(s).length || s.etAl));
   if(!L.length) return;
-  post({role: "a", kind: "info", text: `Je complète en ligne ${L.length > 1 ? `les ${L.length} références incomplètes` : "la référence incomplète"} : éditeur, ville, revue, volume, numéro, pages…`}); think(true);
+  post({role: "a", kind: "info", text: `Je complète en ligne ${L.length > 1 ? `les ${L.length} références incomplètes` : "la référence incomplète"} : auteurs, éditeur, ville, revue, volume, numéro, pages…`}); think(true);
   let i = 0, n = 0; const champs = {};
   const travail = async () => { while(i < L.length){ const s = L[i++]; s._essaiLigne = 1;
-    try{ const a = await completerUne(s); if(a.length){ n++; a.forEach(k => champs[CHAMPS_LIGNE[k]] = (champs[CHAMPS_LIGNE[k]] || 0) + 1); } }catch(e){} } };
+    try{ const a = await completerUne(s); if(a.length){ n++; a.forEach(k => { const n = k === "authors" ? "auteurs" : CHAMPS_LIGNE[k]; champs[n] = (champs[n] || 0) + 1; }); } }catch(e){} } };
   await Promise.all([travail(), travail(), travail()]);
   think(false); save(); renderAll();
-  post({role: "a", kind: "complete", n, total: L.length, champs, reste: state.sources.filter(s => manquants(s).length).length});
+  post({role: "a", kind: "complete", n, total: L.length, champs, reste: state.sources.filter(s => manquants(s).length || s.etAl).length});
 }
 async function construireBiblio(nom, sansCommande){
   if(!exiger("biblio")) return;
@@ -867,7 +883,7 @@ async function ajouterChoix(x, doute){
 }
 function ajouterProvisoire(x){
   const s = blank(); s.type = "book"; s.authors = [{family: x.cite.family, given: ""}]; s.year = annee(x.cite); s.file = x.file;
-  s.origin = "Citation du texte"; s.aCompleter = true;
+  s.origin = "Citation du texte"; s.aCompleter = true; if(/\bet\s+al\b/i.test(x.cite.raw)) s.etAl = true;
   addSources([s]); x.etat = "ajoutee"; x.provisoire = true; x.id = (state.sources.find(o => o.id === s.id) || s).id;
 }
 function retirerSource(id){ const i = state.sources.findIndex(s => s.id === id); if(i >= 0) state.sources.splice(i, 1); }
