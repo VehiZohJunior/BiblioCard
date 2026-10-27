@@ -1204,6 +1204,20 @@ function memeOeuvre(s, c, anneeExacte){
   if(s.year && c.year && (anneeExacte ? +s.year !== +c.year : Math.abs(+s.year - +c.year) > 1)) return false;
   return true;
 }
+// fiche lue par le relais sur la page de présentation de l’éditeur (balises citation_*, Dublin Core, PRISM)
+function fromRelais(f){
+  if(!f || !f.titre) return null;
+  const s = blank(); s.origin = "Recherche en ligne";
+  s.title = String(f.titre).trim();
+  s.authors = (f.auteurs || []).map(a => { a = String(a).trim(); if(a.includes(",")){ const [fam, ...g] = a.split(/\s*,\s*/); return {family: fam, given: g.join(" ")}; } const m = a.match(/^(.*\S)\s+(\S+)$/); return m ? {family: m[2], given: m[1]} : {family: a, given: ""}; }).filter(a => a.family);
+  s.year = String(f.annee || ""); s.volume = String(f.volume || ""); s.issue = String(f.numero || ""); s.pages = String(f.pages || "");
+  s.doi = String(f.doi || ""); s.isbn = String(f.isbn || "");
+  if(f.revue){ s.type = "article"; s.container = String(f.revue); }
+  else if(f.ouvrage){ s.type = "chapter"; s.container = String(f.ouvrage); s.publisher = String(f.editeur || ""); }
+  else if(f.universite){ s.type = "thesis"; s.publisher = String(f.universite); }
+  else { s.type = "book"; s.publisher = String(f.editeur || ""); }
+  return s;
+}
 function villeEditeur(s){
   if(!s.city && s.publisher){ const v = VILLES_EDITEURS.find(([re]) => re.test(s.publisher)); if(v) s.city = v[1]; }
   return s;
@@ -1604,4 +1618,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {fromCSL, lireBnf, fromThesesFr, memeOeuvre, estFicheBibliographique, nettoyerSection, parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {fromRelais, fromCSL, lireBnf, fromThesesFr, memeOeuvre, estFicheBibliographique, nettoyerSection, parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};

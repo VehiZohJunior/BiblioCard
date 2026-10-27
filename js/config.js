@@ -17,4 +17,8 @@ window.BIBLIOCARD_CONFIG = {
   supabaseKey: "",
   payant: false,
   serveur: false,
+  // relaisEditeurs : adresse du relais Cloudflare du propriétaire (relais/relais-editeurs.js). Il lit, sur la page
+  // de présentation d’un document (même payant), les seules informations bibliographiques publiques de l’éditeur.
+  // Vide = pas de relais : SCIENTUS se contente des registres publics (doi.org, BnF, theses.fr…).
+  relaisEditeurs: "",
 };

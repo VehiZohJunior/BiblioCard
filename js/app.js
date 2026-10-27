@@ -877,6 +877,21 @@ async function parDataCite(s){
       title: ((a.titles || [])[0] || {}).title, author: (a.creators || []).map(c => ({family: c.familyName || c.name || "", given: c.givenName || ""})),
       issued: {"date-parts": [[a.publicationYear]]}, publisher: typeof a.publisher === "object" ? (a.publisher || {}).name : a.publisher, DOI: a.doi}); });
 }
+/* Relais du propriétaire (Cloudflare) : la page de présentation de l’éditeur, lue pour ses seules informations
+   bibliographiques publiques. Un éditeur qui protège sa page contre les robots n’est jamais contourné. */
+const relaisEditeurs = () => String((window.BIBLIOCARD_CONFIG || {}).relaisEditeurs || "").replace(/\/+$/, "");
+async function parRelais(q){
+  const base = relaisEditeurs(); if(!base) return null;
+  const r = await getJSON(`${base}/?${q.doi ? "doi=" + encodeURIComponent(q.doi) : "url=" + encodeURIComponent(q.url)}`, 20000);
+  return r.data && r.data.fiche ? fromRelais(r.data.fiche) : null;
+}
+// page de présentation d’une œuvre sans DOI : celle qu’OpenAlex a enregistrée (revues OJS, portails universitaires)
+async function pagePresentation(s){
+  const ac = await oaAutocomplete(titreRequete(s).slice(0, 120));
+  const best = (ac.L || []).find(x => simTitle(s.title, x.title) >= .85 && (!s.year || !x.year || Math.abs(+x.year - +s.year) <= 1));
+  const w = best && await oaOeuvre(best._oaId);
+  return (w && w.primary_location && w.primary_location.landing_page_url) || "";
+}
 async function completerUne(s){
   const avant = {...s, authors: s.authors.slice()}, sources = new Set(s._sourcesLigne || []);
   // ne remplit que les cases vides, et seulement si la fiche trouvée est bien la même œuvre (memeOeuvre)
@@ -919,6 +934,13 @@ async function completerUne(s){
   if(manque() && s.type !== "book" && s.type !== "thesis"){
     const it = await chercherCR();
     if(it){ reprendre(it, "CrossRef"); if(manque() && it.doi) reprendre(await parDoi(it.doi), "données de l’éditeur (DOI)"); }
+  }
+  // 4 bis. page de présentation de l’éditeur, par le relais du propriétaire (s’il est installé)
+  if(manque() && relaisEditeurs() && s.authors.length){
+    const doi = s.doi || (cr && cr.doi) || "";
+    const page = doi ? null : (s.url || await pagePresentation(s));
+    const c = doi ? await parRelais({doi}) : page && !/doi\.org/.test(page) ? await parRelais({url: page}) : page ? await parRelais({doi: page.replace(/^https?:\/\/(dx\.)?doi\.org\//i, "")}) : null;
+    if(c) reprendre(c, "page de l’éditeur", s.type === "book");
   }
   // 5. thèse ou mémoire : theses.fr (université de soutenance), puis DataCite (HAL, dépôts universitaires)
   if(s.type === "thesis" && manque() && s.authors.length){
