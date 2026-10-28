@@ -523,8 +523,9 @@ async function completerGeneration(nom){
   const docs = ui.files.filter(f => f.body && (f.mode === "biblio" || f.mode === "texte") && !(f.gen && f.gen.numerique) && (!nom || f.name === nom));
   if(docs.some(f => apparierCitations(stripMarks(f.body), state.sources).missing.length)) await construireBiblio(nom, true);
 }
-// texte rédigé = au moins une citation « Auteur (année) » ; une liste de références collée n’en contient aucune
-const estRedige = t => findCitations(stripMarks(t)).length >= 1;
+// texte rédigé qui cite des sources : citation « Auteur (année) », note de bas de page, ou appels numérotés [1]
+// avec leur liste (citeDesSources) ; une liste de références collée seule n’en contient aucun
+const estRedige = t => citeDesSources(t);
 async function genererDepuisTexte(text, nom){
   if(!exiger("biblio")) return;
   ui.files = ui.files.filter(x => x.name !== nom); // le même texte regénéré remplace la génération précédente
@@ -1283,8 +1284,12 @@ $("#addBtn").onclick = async () => {
     } else if(estRedige(raw)){
       $("#smart").value = ""; await genererDepuisTexte(raw, "Texte collé");
     } else {
-      const refs = d.kind === "many" ? d.lines : [d.text]; think(true);
-      const list = await parseMany(refs, {status:""});
+      // seules de vraies références entrent dans la bibliographie : un texte rédigé qui ne cite aucune source
+      // (« En 1990, le multipartisme est rétabli… ») n’en donne aucune
+      const refs = (d.kind === "many" ? d.lines : [d.text]).filter(estReference);
+      if(!refs.length){ $("#smart").value = ""; post({role: "a", kind: "info", text: "Ce texte ne cite aucune source : je n’y trouve ni citation « Auteur (année) », ni note de bas de page, ni appel numéroté [1] avec sa liste, ni référence bibliographique. Il n’y a donc pas de bibliographie à générer. Pour ajouter une référence, colle-la telle quelle (« BOURDIEU Pierre, 1982, Ce que parler veut dire, Paris, Fayard. »)."}); return; }
+      think(true);
+      const list = (await parseMany(refs, {status:""})).filter(estFicheBibliographique);
       think(false); const k = addSources(list); $("#smart").value = "";
       post({role: "a", kind: "added", ids: state.sources.filter(s => !before.has(s.id)).map(s => s.id), dup: list.length - k});
       await completerEnLigne();
@@ -2209,8 +2214,15 @@ function insertSpoken(raw){
   const ta = $("#draft"); let txt = raw;
   const del = /\b(efface ça|efface ca|supprime ça|annule ça)\b/i.test(raw);
   if(del){ undoLast(); return; }
-  const cm = raw.match(/\bcitation\s+([\p{L}'’-]+)(?:\s+(\d{4}))?/iu);
-  if(cm){ const s = findRef(cm[1], cm[2]); txt = raw.replace(cm[0], s ? stripHtml(STYLES[state.style].cite(s, "", "parenthese")) : cm[0]); if(!s) toast(`Aucune référence de ${cm[1]} dans ta bibliographie`); }
+  // « citation Bourdieu 1982 page 64 » : la référence de la bibliographie dans la norme choisie ; une œuvre pas
+  // encore dans la bibliographie est écrite « (Bourdieu, 1982, p. 64) », forme que la génération reconnaît ensuite
+  const cm = raw.match(/\bcitation\s+([\p{L}'’-]+)(?:\s+(\d{4}))?(?:\s+pages?\s+(\d+))?/iu);
+  if(cm){
+    const s = findRef(cm[1], cm[2]), nom = cm[1].charAt(0).toLocaleUpperCase("fr") + cm[1].slice(1);
+    if(s) txt = raw.replace(cm[0], stripHtml(STYLES[state.style].cite(s, cm[3] || "", "parenthese")));
+    else if(cm[2]){ txt = raw.replace(cm[0], `(${nom}, ${cm[2]}${cm[3] ? `, p.${NB}${cm[3]}` : ""})`); toast(`${nom} ${cm[2]} n’est pas encore dans ta bibliographie : la citation est écrite, l’œuvre y entrera quand tu généreras la bibliographie.`); }
+    else toast(`Aucune référence de ${nom} dans ta bibliographie : dis aussi l’année, par exemple « citation ${nom} 1982 ».`);
+  }
   let ins = applyVoice(txt); if(!ins) return;
   const pos = ta.selectionStart ?? ta.value.length, before = ta.value.slice(0, pos), after = ta.value.slice(pos);
   const prev = before.replace(/[ \t]+$/, "");
@@ -2276,6 +2288,32 @@ async function startWhisper(){
 async function startDictation(){ red.listening = true; micUi(); const ok = red.engine === "live" ? startLive() : await startWhisper(); if(!ok){ red.listening = false; $("#micBtn").classList.remove("on"); $("#micTitle").textContent = "Touche le micro pour dicter"; } else micUi(); }
 function stopDictation(){ red.listening = false; if(red.rec){ try{ red.rec.stop(); }catch(_){} red.rec = null; } if(red.stopWhisper){ red.stopWhisper(); red.stopWhisper = null; } $("#interim").textContent = ""; micUi(); }
 $("#micBtn").onclick = () => red.listening ? stopDictation() : exiger("dictee") && startDictation();
+/* TRANSCRIPTION D’UN ENREGISTREMENT (entretien, cours, réunion, fichier audio ou vidéo) : Whisper sur l’appareil,
+   rien n’est envoyé. Le son est décodé en 16 kHz, transcrit par tranches de 30 secondes, et le texte s’ajoute à la
+   suite de la Rédaction, fidèlement, sans aucune reformulation. */
+const duree = sec => { sec = Math.round(sec); const m = Math.floor(sec / 60), s = sec % 60; return m ? `${m} min${s ? ` ${String(s).padStart(2, "0")} s` : ""}` : `${s} s`; };
+async function transcrireEnregistrement(file){
+  if(red.listening) stopDictation();
+  try{ await loadWhisper(); }catch(e){ micUi("Whisper ne peut pas se charger ici. Il fonctionne sur la version installée sur ton site."); return 0; }
+  micUi(`Lecture de ${file.name}…`);
+  let data;
+  try{ const ac = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 16000}); const audio = await ac.decodeAudioData(await file.arrayBuffer()); data = audio.getChannelData(0); if(ac.close) ac.close(); }
+  catch(e){ micUi(`${file.name} : ce format audio n’est pas lisible par ce navigateur. Essaie un fichier MP3, M4A, WAV ou OGG.`); return 0; }
+  const TR = 30 * 16000, total = data.length / 16000, wl = (LANGS.find(l => l[0] === red.lang) || LANGS[0])[1], morceaux = [];
+  for(let i = 0; i * TR < data.length; i++){
+    micUi(`Transcription de ${file.name} : ${duree(i * 30)} sur ${duree(total)}…`); $("#interim").textContent = `Transcription : ${Math.round(100 * i * TR / data.length)} %`;
+    try{ const out = await red.asr(data.subarray(i * TR, (i + 1) * TR), {language: wl, task: "transcribe"}); const t = (out && out.text || "").trim(); if(t && !/^\[.*\]$/.test(t)) morceaux.push(t); }
+    catch(e){ toast(`Un passage de ${file.name} n’a pas pu être transcrit`); }
+  }
+  $("#interim").textContent = "";
+  const texte = tidy(morceaux.join(" "));
+  if(!texte){ micUi(`Aucune parole reconnue dans ${file.name}.`); return 0; }
+  const ta = $("#draft"); ta.value = ta.value.trimEnd() + (ta.value.trim() ? "\n\n" : "") + texte; saveDraft(); updateCount();
+  const n = wordsOf(texte).length; micUi(`${file.name} transcrit (${duree(total)}) : ${n} mots ajoutés à ton texte. Relis-le : la transcription est fidèle, sans reformulation.`);
+  return n;
+}
+$("#transBtn").onclick = () => exiger("dictee") && $("#transIn").click();
+$("#transIn").onchange = async e => { const f = e.target.files[0]; e.target.value = ""; if(f) await transcrireEnregistrement(f); };
 $("#undoSeg").onclick = undoLast;
 
 /* brouillon : enregistré avec le projet */
@@ -2342,28 +2380,48 @@ async function wikiText(title, lang){
   const r = await getJSON(`https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&titles=${encodeURIComponent(title)}&format=json&origin=*`);
   const pages = ((r.data || {}).query || {}).pages || {}; const pg = Object.values(pages)[0]; return pg && pg.extract || "";
 }
-async function runSimilarity(){
-  const text = $("#draft").value; const box = $("#simRes"); $("#simPanel").hidden = false;
+/* HAL : texte intégral des thèses (TEL), mémoires de master (DUMAS) et articles déposés. Une phrase de dix mots
+   retrouvée mot pour mot dans un document de HAL y signale le passage, avec le lien vers ce document. */
+async function halProbe(probe){
+  const r = await getJSON(`https://api.archives-ouvertes.fr/search/?q=${encodeURIComponent(`fulltext_t:"${probe.replace(/"/g, "")}"`)}&fl=title_s,uri_s,authFullName_s,producedDateY_i&rows=3&wt=json`, 15000);
+  if(r.error) return {error: true};
+  return {docs: (((r.data || {}).response || {}).docs || []).map(d => ({titre: [].concat(d.title_s || [""])[0], url: d.uri_s, auteur: [].concat(d.authFullName_s || [""])[0], annee: d.producedDateY_i}))};
+}
+/* CONTRÔLE ANTI-PLAGIAT : le texte de la Rédaction, ou un document Word ou PDF déposé pour le contrôle.
+   Comparé à tes documents, à HAL (thèses, mémoires, articles), à Wikipédia et aux résumés d’articles d’OpenAlex ;
+   les passages entre guillemets ou suivis de leur citation (« (Auteur, année) », [1], note) ne sont pas reprochés. */
+async function runSimilarity(texteDoc, nomDoc){
+  const text = texteDoc != null ? texteDoc : $("#draft").value; const box = $("#simRes"); $("#simPanel").hidden = false;
+  $("#simPanel").querySelector("h3").textContent = nomDoc ? `Contrôle des similitudes : ${nomDoc}` : "Contrôle des similitudes";
   if(wordsOf(text).length < 30){ box.innerHTML = `<p class="legend">Il faut au moins une trentaine de mots pour un contrôle utile.</p>`; return; }
   box.innerHTML = `<p class="legend"><span class="busy"></span> Comparaison avec tes documents…</p>`;
   const results = [];
-  const corpus = await IDB.all(); ui.files.forEach(f => { if(f.text && !corpus.some(c => c.name === f.name)) corpus.push({name: f.name, text: stripMarks(f.text)}); });
+  // jamais le document contrôlé lui-même (il est gardé sur l’appareil quand on le dépose)
+  const memeTexte = c => c.name === nomDoc || norm(String(c.text).slice(0, 4000)) === norm(text.slice(0, 4000));
+  const corpus = (await IDB.all()).filter(c => !memeTexte(c)); ui.files.forEach(f => { if(f.text && !corpus.some(c => c.name === f.name) && !memeTexte({name: f.name, text: stripMarks(f.text)})) corpus.push({name: f.name, text: stripMarks(f.text)}); });
   corpus.forEach(c => { const r = compareTexts(text, c.text, c.name); if(r.covered) results.push({...r, kind: "Tes documents"}); });
-  let online = true, oaLimite = false; const seen = new Set();
-  const probes = pickProbes(text, 10);
-  for(let i = 0; i < probes.length && online; i++){
-    box.innerHTML = `<p class="legend"><span class="busy"></span> Recherche en ligne : ${i + 1} sur ${probes.length}…</p>`;
-    for(const lang of ["fr", "en"]){
-      const w = await wikiProbe(probes[i], lang); if(w.error){ online = false; break; }
-      for(const t of w.titles){ const key = lang + ":" + t; if(seen.has(key)) continue; seen.add(key); const body = await wikiText(t, lang); const r = compareTexts(text, body, `Wikipédia (${lang}) : ${t}`); if(r.covered) results.push({...r, kind: "Wikipédia", url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(t)}`}); }
+  let online = true, oaLimite = false, halVu = false, wikiKo = false; const seen = new Set(), parHal = new Map();
+  const probes = pickProbes(text, nbSondes(text)); let fait = 0, i = 0;
+  const sonder = async () => { while(i < probes.length){ const probe = probes[i++];
+    // HAL : thèses, mémoires de master, articles en texte intégral
+    const h = await halProbe(probe);
+    if(!h.error){ halVu = true; for(const d of h.docs.slice(0, 2)){ const so = sondeDansTexte(text, probe); if(so.start < 0) continue;
+      let r = parHal.get(d.url); if(!r){ r = {label: `HAL : ${d.titre}${d.auteur ? ` (${d.auteur}${d.annee ? `, ${d.annee}` : ""})` : ""}`, url: d.url, kind: "HAL", flags: new Array(so.flags.length).fill(false), passages: []}; parHal.set(d.url, r); }
+      so.flags.forEach((f, k) => { if(f) r.flags[k] = true; }); r.passages.push({start: so.start, end: so.end, words: wordsOf(probe).length, text: text.slice(so.start, so.end), ...isQuotedOrCited(text, so.start, so.end)}); } }
+    // une source injoignable n’arrête pas les autres
+    if(!wikiKo) for(const lang of ["fr", "en"]){
+      const w = await wikiProbe(probe, lang); if(w.error){ wikiKo = true; break; }
+      for(const t of w.titles){ const key = lang + ":" + t; if(seen.has(key)) continue; seen.add(key); const body = await wikiText(t, lang); const r = compareTexts(text, body, `Wikipédia (${lang}) : ${t}`); if(r.covered) results.push({...r, kind: "Wikipédia", url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(t.replace(/ /g, "_"))}`}); }
     }
-    if(!online) break;
     // recherche dans les résumés : payante pour OpenAlex, sautée quand le budget du jour est épuisé
-    const oa = oaLimite ? {} : await oaJSON(`https://api.openalex.org/works?search=${encodeURIComponent(probes[i])}&per-page=3&select=id,display_name,abstract_inverted_index,doi`, true);
-    if(oa.error){ online = false; break; }
+    const oa = oaLimite ? {} : await oaJSON(`https://api.openalex.org/works?search=${encodeURIComponent(probe)}&per-page=3&select=id,display_name,abstract_inverted_index,doi`, true);
     if(oa.bloque) oaLimite = true;
-    ((oa.data || {}).results || []).forEach(wk => { if(seen.has(wk.id)) return; seen.add(wk.id); const ab = abstractFromIndex(wk.abstract_inverted_index); if(!ab) return; const r = compareTexts(text, ab, `Résumé d’article : ${wk.display_name}`); if(r.covered) results.push({...r, kind: "Articles scientifiques", url: wk.doi || wk.id}); });
-  }
+    ((oa.data || {}).results || []).forEach(wk => { if(seen.has(wk.id)) return; seen.add(wk.id); const ab = abstractFromIndex(wk.abstract_inverted_index); if(!ab) return; const r = compareTexts(text, ab, `Résumé d’article : ${wk.display_name}`); if(r.covered) results.push({...r, kind: "OpenAlex", url: wk.doi || wk.id}); });
+    fait++; box.innerHTML = `<p class="legend"><span class="busy"></span> Recherche en ligne (HAL, Wikipédia, OpenAlex) : ${fait} sondage${fait > 1 ? "s" : ""} sur ${probes.length}…</p>`;
+  } };
+  await Promise.all([sonder(), sonder(), sonder()]);
+  online = halVu || !wikiKo;
+  parHal.forEach(r => { const covered = r.flags.filter(Boolean).length; results.push({...r, covered, total: r.flags.length, pct: r.flags.length ? covered / r.flags.length : 0}); });
   const reps = internalRepeats(text), freq = frequentWords(text);
   // part totale du texte retrouvée ailleurs (sans double compte)
   const W = wordsOf(text); const all = new Array(W.length).fill(false); results.forEach(r => r.flags.forEach((f, i) => { if(f) all[i] = true; }));
@@ -2373,21 +2431,30 @@ async function runSimilarity(){
   red.sim = {pct, unflagged: unflagged.length, reps: reps.length, online, at: Date.now()};
   results.sort((a, b) => b.covered - a.covered);
   box.innerHTML = `<div class="simscore"><span class="big">${Math.round(100 * pct)}${NB}%</span><span class="legend" style="margin:0">du texte se retrouve dans d’autres documents.<br>${unflagged.length ? `<b style="color:var(--proof)">${unflagged.length} passage${unflagged.length > 1 ? "s" : ""} repris sans guillemets ni citation.</b>` : results.length ? "Tous les passages repris sont entre guillemets ou cités." : "Aucun passage repris n’a été trouvé."}</span></div>
-    ${online ? "" : `<p class="note">Comparaison en ligne indisponible sur cette page : seuls tes documents ont été comparés. Sur la version installée sur ton site, Lian’Z compare aussi avec Wikipédia et les résumés d’articles scientifiques.</p>`}
+    ${online ? "" : `<p class="note">Comparaison en ligne indisponible (pas de connexion Internet) : seuls tes documents ont été comparés. Relance le contrôle une fois connecté pour comparer aussi avec HAL, Wikipédia et les résumés d’articles.</p>`}
     ${unflagged.length ? `<div class="blk"><h3>À corriger : passages repris sans guillemets ni citation</h3>${unflagged.slice(0, 20).map(p => `<div class="pass">${esc(p.text.length > 320 ? p.text.slice(0, 320) + "…" : p.text)}<small>${p.words} mots identiques à ${esc(p.src)}. Mets-les entre guillemets avec la référence, ou reformule et cite la source.</small></div>`).join("")}</div>` : ""}
     ${results.length ? `<div class="blk"><h3>Sources retrouvées</h3><div class="bars">${results.slice(0, 10).map(r => `<div class="b"><span title="${esc(r.label)}">${esc(r.label.length > 26 ? r.label.slice(0, 26) + "…" : r.label)}</span><span class="t"><i style="width:${Math.max(3, Math.round(100 * r.pct))}%"></i></span><span class="n">${Math.round(100 * r.pct)}</span></div>`).join("")}</div>
       ${results.filter(r => r.url).slice(0, 6).map(r => `<p class="legend" style="margin:4px 0"><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label)}</a></p>`).join("")}</div>` : ""}
     ${reps.length ? `<div class="blk"><h3>Répétitions dans ton propre texte</h3>${reps.slice(0, 8).map(p => `<div class="pass rep">${esc(p.text.length > 240 ? p.text.slice(0, 240) + "…" : p.text)}<small>Passage de ${p.words} mots écrit deux fois.</small></div>`).join("")}</div>` : ""}
     ${freq.length ? `<div class="blk"><h3>Mots très répétés</h3><p class="legend">${freq.map(f => `« ${esc(f.word)} » ${f.n} fois (paragraphe ${f.para})`).join(", ")}.</p></div>` : ""}
-    <p class="legend" style="margin-top:12px">Lian’Z compare ton texte à tes documents, à Wikipédia et aux résumés d’articles d’OpenAlex. Il ne remplace pas un logiciel institutionnel qui dispose des thèses déjà déposées : c’est un contrôle préalable, avant de rendre.</p>`;
+    <p class="legend" style="margin-top:12px">Lian’Z compare ton texte à tes documents, au texte intégral des thèses, mémoires et articles déposés dans HAL (TEL, DUMAS), à Wikipédia et aux résumés d’articles d’OpenAlex, par ${probes.length} sondages en ligne. Il ne remplace pas un logiciel institutionnel qui dispose des copies déjà rendues dans ton université : c’est un contrôle préalable, avant de rendre.</p>`;
   if(oaLimite) box.insertAdjacentHTML("beforeend", `<p class="note">Les résumés d’articles d’OpenAlex n’ont pas été comparés : la limite gratuite du jour est atteinte pour ta connexion Internet. Relance le contrôle demain pour les inclure.</p>`);
   renderTasks();
 }
 $("#simBtn").onclick = () => exiger("plagiat") && runSimilarity();
+// contrôle anti-plagiat d’un mémoire ou d’une thèse en Word ou PDF, sans passer par la Rédaction
+$("#plagDocBtn").onclick = () => exiger("plagiat") && $("#plagDocIn").click();
+$("#plagDocIn").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+  setView("redac"); $("#simPanel").hidden = false; $("#simRes").innerHTML = `<p class="legend"><span class="busy"></span> Lecture de ${esc(f.name)}…</p>`;
+  let t = ""; try{ t = stripMarks(await extract(f, {status: ""})); }catch(err){ $("#simRes").innerHTML = `<p class="legend">${esc(f.name)} : lecture impossible.</p>`; return; }
+  // la bibliographie du document n’est pas son texte : seul le corps est contrôlé
+  const sec = findBibSection(t); await runSimilarity(sec ? sec.body : t, f.name);
+};
 // Rédaction : la bibliographie de ce que le chercheur a écrit ou dicté, générée à partir de ses citations
 $("#genRedac").onclick = async () => {
   const t = $("#draft").value;
-  if(!findCitations(t).length){ toast("Aucune citation repérée : cite tes sources sous la forme « Auteur (année) »"); return; }
+  if(!estRedige(t)){ toast("Aucune source citée dans ton texte : cite-les sous la forme « Auteur (année) », en note de bas de page, ou par appels numérotés [1] avec ta liste numérotée"); return; }
   setView("biblio"); post({role: "u", kind: "cmd", text: "Générer la bibliographie de mon texte"});
   await genererDepuisTexte(t, $("#draftTitle").value.trim() || "Mon texte");
 };

@@ -980,6 +980,14 @@ function findCitations(text){
     seen.set(k, c); return true;
   });
 }
+/* Un texte rédigé CITE-T-IL des sources ? Oui s’il contient une citation « Auteur (année) » ou une note de bas de
+   page, ou des appels numérotés [1] renvoyant à sa liste numérotée. Sinon il n’y a pas de bibliographie à générer. */
+function citeDesSources(t){
+  const x = stripMarks(String(t || ""));
+  if(findCitations(x).length) return true;
+  const sec = findBibSection(String(t || ""));
+  return !!(sec && sourcesNumerotees(stripMarks(sec.body), stripMarks(sec.section)));
+}
 /* Référence donnée en note de bas de page (histoire, droit, lettres) : l’année vient à la fin.
    « P. Bourdieu, Ce que parler veut dire, Paris, Fayard, 1982, p. 64. »
    « S. B. Diagne, « Islam et philosophie », Diogène, 202, 2003, p. 145-151. »
@@ -1585,7 +1593,9 @@ function isQuotedOrCited(text, a, b){
   const before = text.slice(Math.max(0, a - 400), a), after = text.slice(b, b + 160);
   const open = (before.match(/[«“"]/g) || []).length, close = (before.match(/[»”"]/g) || []).length;
   const inQuotes = before.lastIndexOf("«") > before.lastIndexOf("»") || before.lastIndexOf("“") > before.lastIndexOf("”") || (open > close && /[»”"]/.test(after.slice(0, 40)));
-  const cited = /\((?:[^()]{0,80}?)(1[5-9]\d{2}|20\d{2})[a-z]?(?:[,:]\s*p+\.\s*\d+[^()]*)?\)/.test(after.slice(0, 120)) || /\(\d{4}[^)]*\)/.test(text.slice(Math.max(0, a - 120), a));
+  // cité : « (Auteur, année) » juste après, « Auteur (année) » juste avant, ou un appel numéroté [1] / note ¹
+  const cited = /\((?:[^()]{0,80}?)(1[5-9]\d{2}|20\d{2})[a-z]?(?:[,:]\s*p+\.\s*\d+[^()]*)?\)/.test(after.slice(0, 120)) || /\(\d{4}[^)]*\)/.test(text.slice(Math.max(0, a - 120), a))
+    || /^[^.!?\n]{0,200}?(?:\[\d{1,3}(?:\s*[-–,]\s*\d{1,3})*(?:,\s*p+\.\s*[\d-]+)?\]|[¹²³⁴⁵⁶⁷⁸⁹⁰]+)/.test(after); // appel dans la même phrase
   return {inQuotes, cited};
 }
 function compareTexts(text, srcText, label){
@@ -1611,6 +1621,15 @@ function frequentWords(text){
   });
   return out.sort((a, b) => b.n - a.n).slice(0, 12);
 }
+// nombre de sondages en ligne : un pour 250 mots environ, entre 10 et 60 (une thèse de 100 pages : 60)
+const nbSondes = text => Math.max(10, Math.min(60, Math.ceil(wordsOf(text).length / 250)));
+// position d’une sonde (suite de mots) dans le texte : les mots à marquer quand elle est retrouvée ailleurs
+function sondeDansTexte(text, probe){
+  const W = wordsOf(text), P = wordsOf(probe).map(x => x.w), flags = new Array(W.length).fill(false);
+  if(!P.length) return {flags, start: -1, end: -1};
+  for(let i = 0; i + P.length <= W.length; i++) if(P.every((w, k) => W[i + k].w === w)){ for(let k = 0; k < P.length; k++) flags[i + k] = true; return {flags, start: W[i].s, end: W[i + P.length - 1].e}; }
+  return {flags, start: -1, end: -1};
+}
 function pickProbes(text, max = 12){
   const sents = text.split(/(?<=[.!?…])\s+|\n+/).map(x => x.trim()).filter(x => wordsOf(x).length >= 14);
   const step = Math.max(1, Math.floor(sents.length / max));
@@ -1618,4 +1637,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {fromRelais, fromCSL, lireBnf, fromThesesFr, memeOeuvre, estFicheBibliographique, nettoyerSection, parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {citeDesSources, nbSondes, sondeDansTexte, isQuotedOrCited, fromRelais, fromCSL, lireBnf, fromThesesFr, memeOeuvre, estFicheBibliographique, nettoyerSection, parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};

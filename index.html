@@ -16,7 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-<link rel="stylesheet" href="css/bibliocard.css?v=50">
+<link rel="stylesheet" href="css/bibliocard.css?v=51">
 
 </head>
 <body>
@@ -101,13 +101,18 @@
   <div class="wbar">
     <button class="btn small" id="wDoc">Exporter en Word</button>
     <button class="btn small" id="wPdf">Exporter en PDF</button>
+    <button class="btn small" id="transBtn">Transcrire un enregistrement</button>
+    <input type="file" id="transIn" class="sr" aria-label="Enregistrement à transcrire" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,.aac">
+    <button class="btn small" id="plagDocBtn">Contrôle anti-plagiat d’un document</button>
+    <input type="file" id="plagDocIn" class="sr" aria-label="Document à contrôler" accept=".docx,.pdf,.txt">
     <button class="btn small" id="corpusBtn">Ajouter des documents de comparaison</button>
     <input type="file" id="corpusIn" class="sr" aria-label="Documents de comparaison" multiple accept=".docx,.pdf,.txt">
   </div>
   <details class="panel2"><summary>Commandes vocales</summary><div class="in prose">
     <p><b>Ponctuation</b> : virgule, point (en fin de phrase), point-virgule, deux-points, point d’interrogation, point d’exclamation, points de suspension.</p>
     <p><b>Mise en page</b> : à la ligne, point à la ligne, nouveau paragraphe.</p>
-    <p><b>Citations</b> : ouvrez les guillemets, fermez les guillemets, ouvrez la parenthèse, fermez la parenthèse. « Citation » suivi du nom d’un auteur de ta bibliographie insère sa référence dans la norme choisie, par exemple « citation Diagne ».</p>
+    <p><b>Citations</b> : ouvrez les guillemets, fermez les guillemets, ouvrez la parenthèse, fermez la parenthèse. « Citation » suivi du nom d’un auteur de ta bibliographie insère sa référence dans la norme choisie, par exemple « citation Diagne ». Avec l’année et la page, « citation Bourdieu 1982 page 64 » écrit « (Bourdieu, 1982, p. 64) » même si l’œuvre n’est pas encore dans ta bibliographie : elle y entrera quand tu généreras la bibliographie de ton texte.</p>
+    <p><b>Enregistrement</b> : « Transcrire un enregistrement » transcrit un fichier audio ou vidéo (entretien, cours, réunion) avec Whisper, sur ton appareil, sans rien envoyer, et ajoute le texte à la suite du tien.</p>
     <p><b>Correction</b> : « efface ça » supprime la dernière phrase dictée.</p>
   </div></details>
   <details class="panel2" id="voixPanel"><summary>Contribuer à la dictée en langues ivoiriennes</summary><div class="in prose" id="voixBox"></div></details>
@@ -350,10 +355,10 @@
 <dialog id="dlg"></dialog>
 <div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastAct" hidden data-notr="1"></button></div>
 
-<script src="js/config.js?v=50"></script>
-<script src="js/i18n-en.js?v=50"></script>
-<script src="js/moteur.js?v=50"></script>
-<script src="js/app.js?v=50"></script>
+<script src="js/config.js?v=51"></script>
+<script src="js/i18n-en.js?v=51"></script>
+<script src="js/moteur.js?v=51"></script>
+<script src="js/app.js?v=51"></script>
 
 <script>
 if("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
