@@ -1021,3 +1021,16 @@ header.topbar,.appnav,.cbox,.side,.stop,dialog,.vhead{background:var(--verre)!im
 @media (prefers-reduced-motion:reduce){ .dropzone{animation:none} }
 .dropzone{background:linear-gradient(var(--surface),var(--surface)) padding-box,conic-gradient(from var(--angle),#12C8E0,#5B3BEE,#A99CFF,#12C8E0) border-box!important}
 .eyebrow::before{content:none}
+
+/* ===== Apparence : bouton soleil / lune de la barre du haut (js/theme.js) =====
+   En mode sombre on montre le soleil (passer en clair), en mode clair la lune (passer en sombre). */
+#themeBtn .ic-soleil{display:none}
+:root[data-theme="dark"] #themeBtn .ic-soleil{display:block}
+:root[data-theme="dark"] #themeBtn .ic-lune{display:none}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) #themeBtn .ic-soleil{display:block}
+  :root:not([data-theme="light"]) #themeBtn .ic-lune{display:none}
+}
+/* mode sombre : le rouge d’alerte y est clair (#F0907A) ; le texte posé dessus passe en encre foncée (contraste AA) */
+:root[data-theme="dark"] .badge,:root[data-theme="dark"] .cb.on{color:#0E1022}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .badge,:root:not([data-theme="light"]) .cb.on{color:#0E1022} }

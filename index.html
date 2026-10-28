@@ -16,7 +16,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-<link rel="stylesheet" href="css/bibliocard.css?v=51">
+<script src="js/theme.js?v=52"></script>
+<link rel="stylesheet" href="css/bibliocard.css?v=52">
 
 </head>
 <body>
@@ -25,6 +26,7 @@
   <div class="bar">
     <button class="tb" id="dashBtn" aria-label="Ouvrir le menu"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><path d="M4 7h18M4 13h14M4 19h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     <button class="tbtitle" id="projBtn" aria-haspopup="dialog"></button>
+    <button class="tb" id="themeBtn" type="button" aria-label="Passer en mode clair"><svg class="ic-soleil" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><svg class="ic-lune" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
     <button class="tb" id="todoBtn" aria-label="Ouvrir les résultats"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14 4.5v15" stroke="currentColor" stroke-width="1.8"/></svg><span class="badge" id="dashBadge" hidden></span></button>
   </div>
 </header>
@@ -253,6 +255,8 @@
     <section class="dsec" id="dt-norme">
       <h3>Langue de l’interface</h3>
       <div class="seg" role="group" aria-label="Langue" id="uiLangSeg" data-notr="1" style="margin:4px 0 18px"><button data-l="fr">Français</button><button data-l="en">English</button></div>
+      <h3>Apparence</h3>
+      <div class="seg" role="group" aria-label="Apparence" id="themeSeg" style="margin:4px 0 18px"><button data-th="light">Clair</button><button data-th="dark">Sombre</button><button data-th="auto">Automatique</button></div>
       <h3>Norme de la bibliographie</h3>
       <p class="legend">Toute la bibliographie se remet en forme dès que tu changes.</p>
       <div class="seg" role="group" aria-label="Norme" id="styleSeg"></div>
@@ -355,10 +359,10 @@
 <dialog id="dlg"></dialog>
 <div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastAct" hidden data-notr="1"></button></div>
 
-<script src="js/config.js?v=51"></script>
-<script src="js/i18n-en.js?v=51"></script>
-<script src="js/moteur.js?v=51"></script>
-<script src="js/app.js?v=51"></script>
+<script src="js/config.js?v=52"></script>
+<script src="js/i18n-en.js?v=52"></script>
+<script src="js/moteur.js?v=52"></script>
+<script src="js/app.js?v=52"></script>
 
 <script>
 if("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

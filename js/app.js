@@ -2504,6 +2504,17 @@ new MutationObserver(ms => { ms.forEach(m => {
   }); })
   .observe(document.body, {subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["placeholder","aria-label","title"]});
 document.querySelectorAll("#uiLangSeg button").forEach(b => b.onclick = () => { state.uiLang = b.dataset.l; save(); applyLang(); renderAll(); });
+/* apparence : clair, sombre ou automatique (js/theme.js) */
+function marquerTheme(){
+  const T = window.SCIENTUS_THEME; if(!T) return;
+  const choix = T.lire(), eff = T.effectif();
+  document.querySelectorAll("#themeSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.th === choix ? "true" : "false"));
+  const btn = $("#themeBtn"); if(btn){ const l = eff === "dark" ? "Passer en mode clair" : "Passer en mode sombre"; btn.setAttribute("aria-label", tr(l)); btn.title = tr(l); }
+}
+document.querySelectorAll("#themeSeg button").forEach(b => b.onclick = () => { if(window.SCIENTUS_THEME) window.SCIENTUS_THEME.choisir(b.dataset.th); });
+$("#themeBtn").onclick = () => { const T = window.SCIENTUS_THEME; if(T) T.choisir(T.effectif() === "dark" ? "light" : "dark"); };
+document.addEventListener("scientus-theme", marquerTheme);
+marquerTheme();
 try{ const langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""]); if(!localStorage.getItem(LS) && /^en/i.test(langs[0] || "") && !langs.some(l => /^fr/i.test(l))) state.uiLang = "en"; }catch(e){}
 
 /* ---------- démarrage ---------- */

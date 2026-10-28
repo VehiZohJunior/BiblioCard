@@ -1,8 +1,8 @@
 // SCIENTUS : fonctionnement hors connexion
 // À chaque mise à jour : incrémenter CACHE ET le « ?v= » des styles et scripts dans les pages (même numéro ;
 // tests/test-version.js le vérifie). Le « ?v= » oblige même un ancien service worker à charger les bons fichiers.
-const CACHE = "bibliocard-v51";
-const CORE = ["./", "./index.html", "./accueil.html", "./confidentialite.html", "./cgu.html", "./cgv.html", "./css/bibliocard.css", "./js/config.js", "./js/i18n-en.js", "./js/moteur.js", "./js/app.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./logo-c.png"];
+const CACHE = "bibliocard-v52";
+const CORE = ["./", "./index.html", "./accueil.html", "./confidentialite.html", "./cgu.html", "./cgv.html", "./css/bibliocard.css", "./js/config.js", "./js/theme.js", "./js/i18n-en.js", "./js/moteur.js", "./js/app.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./logo-c.png"];
 const LIBS = [
   "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",

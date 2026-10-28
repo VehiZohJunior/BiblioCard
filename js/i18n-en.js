@@ -31,7 +31,7 @@ const exact = {
 "Repérés par le contrôle des similitudes de ta rédaction.":"Found by the similarity check of your writing.",
 "Références validées":"References approved","Année corrigée":"Year corrected","Commentaire traité":"Comment done",
 // Norme et profils
-"Norme":"Style","Langue de l’interface":"Interface language","Norme de la bibliographie":"Bibliography style","Toute la bibliographie se remet en forme dès que tu changes.":"The whole bibliography is reformatted as soon as you switch.",
+"Norme":"Style","Langue de l’interface":"Interface language","Apparence":"Appearance","Clair":"Light","Sombre":"Dark","Automatique":"Automatic","Passer en mode clair":"Switch to light mode","Passer en mode sombre":"Switch to dark mode","Norme de la bibliographie":"Bibliography style","Toute la bibliographie se remet en forme dès que tu changes.":"The whole bibliography is reformatted as soon as you switch.",
 "NORCAMES/LSH : la norme des revues et universités du CAMES.":"NORCAMES/LSH: the standard of CAMES journals and universities.",
 "APA 7e édition : psychologie, éducation, sciences sociales.":"APA 7th edition: psychology, education, social sciences.",
 "ISO 690 auteur-date : très utilisée dans les universités françaises.":"ISO 690 author-date: widely used in French universities.",
