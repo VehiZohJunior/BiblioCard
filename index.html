@@ -16,8 +16,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-<script src="js/theme.js?v=53"></script>
-<link rel="stylesheet" href="css/bibliocard.css?v=53">
+<script src="js/theme.js?v=54"></script>
+<link rel="stylesheet" href="css/bibliocard.css?v=54">
 
 </head>
 <body>
@@ -26,6 +26,7 @@
   <div class="bar">
     <button class="tb" id="dashBtn" aria-label="Ouvrir le menu"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><path d="M4 7h18M4 13h14M4 19h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     <button class="tbtitle" id="projBtn" aria-haspopup="dialog"></button>
+    <button class="cnxpill" id="cnxPill" type="button" hidden>Hors ligne</button>
     <button class="tb" id="themeBtn" type="button" aria-label="Passer en mode clair"><svg class="ic-soleil" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><svg class="ic-lune" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
     <button class="tb" id="todoBtn" aria-label="Ouvrir les résultats"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M14 4.5v15" stroke="currentColor" stroke-width="1.8"/></svg><span class="badge" id="dashBadge" hidden></span></button>
   </div>
@@ -35,6 +36,7 @@
   <a class="an-brand" href="accueil.html" aria-label="Découvrir SCIENTUS"><span class="wordmark" data-notr="1"><span class="sr">SCIENTUS</span><span aria-hidden="true">S<img class="wm-c" src="logo-c.png" alt="">IENTUS</span></span></a>
   <button class="an-new" id="anNew" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Nouveau projet</button>
   <p class="an-h">Modules</p>
+  <button type="button" data-nav="projets" class="an-projets"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Mes projets</span></button>
   <button type="button" data-nav="biblio"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg><span class="l">Bibliographie</span><span class="s" aria-hidden="true">Biblio</span></button>
   <button type="button" data-nav="plan"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12h-8"/><path d="M21 6H8"/><path d="M21 18h-8"/><path d="M3 6v4c0 1.1.9 2 2 2h3"/><path d="M3 10v6c0 1.1.9 2 2 2h3"/></svg><span class="l">Plan et lectures</span><span class="s" aria-hidden="true">Plan</span></button>
   <button type="button" data-nav="redac"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg><span class="l">Rédaction et dictée</span><span class="s" aria-hidden="true">Rédaction</span></button>
@@ -125,6 +127,18 @@
   <section class="panel2" style="padding:14px 16px" id="simPanel" hidden><h3 style="margin:0 0 6px;font-size:15px">Contrôle des similitudes</h3><div id="simRes"></div></section>
 </div>
 
+<!-- étagère « Mes projets » : chaque projet est rangé sous pli quand on quitte la page -->
+<div id="viewProjets" class="redac etag">
+  <h1>Mes projets</h1>
+  <p class="lead">Chaque bibliographie est rangée dans son projet. Quand tu quittes la page, ton projet est enregistré, fermé et rangé ici : rouvre-le pour continuer exactement où tu en étais.</p>
+  <form class="pli-new" id="pliNew">
+    <label class="sr" for="pliNom">Nom du nouveau projet</label><input id="pliNom" name="name" placeholder="Nom du nouveau projet (ex. Thèse, chapitre 2)" required>
+    <label class="sr" for="pliType">Type</label><select id="pliType" name="kind"><option value="memoire">Mémoire de master</option><option value="these">Thèse de doctorat</option><option value="article">Article scientifique</option><option value="communication">Communication</option><option value="rapport">Rapport</option><option value="autre">Autre</option></select>
+    <button class="btn primary">Créer le projet</button>
+  </form>
+  <div class="etagere" id="etagere"></div>
+  <p class="demo"><button class="link" id="pliManage" type="button">Renommer ou supprimer un projet</button></p>
+</div>
 <div id="viewPlan" class="redac plantrav">
   <button class="back2" id="planBack">← Bibliographie</button>
   <h1>Plan et lectures</h1>
@@ -259,6 +273,9 @@
     <section class="dsec" id="dt-norme">
       <h3>Langue de l’interface</h3>
       <div class="seg" role="group" aria-label="Langue" id="uiLangSeg" data-notr="1" style="margin:4px 0 18px"><button data-l="fr">Français</button><button data-l="en">English</button></div>
+      <h3>Connexion</h3>
+      <p class="legend">Hors ligne, SCIENTUS continue de lire tes documents, de générer et de mettre en forme ta bibliographie. Les recherches sur Internet reprennent toutes seules au retour de la connexion.</p>
+      <div class="seg" role="group" aria-label="Connexion" id="cnxSeg" style="margin:4px 0 18px"><button data-cx="auto">Automatique</button><button data-cx="on">En ligne</button><button data-cx="off">Hors ligne</button></div>
       <h3>Apparence</h3>
       <div class="seg" role="group" aria-label="Apparence" id="themeSeg" style="margin:4px 0 18px"><button data-th="light">Clair</button><button data-th="dark">Sombre</button><button data-th="auto">Automatique</button></div>
       <h3>Norme de la bibliographie</h3>
@@ -363,10 +380,10 @@
 <dialog id="dlg"></dialog>
 <div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastAct" hidden data-notr="1"></button></div>
 
-<script src="js/config.js?v=53"></script>
-<script src="js/i18n-en.js?v=53"></script>
-<script src="js/moteur.js?v=53"></script>
-<script src="js/app.js?v=53"></script>
+<script src="js/config.js?v=54"></script>
+<script src="js/i18n-en.js?v=54"></script>
+<script src="js/moteur.js?v=54"></script>
+<script src="js/app.js?v=54"></script>
 
 <script>
 if("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

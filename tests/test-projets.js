@@ -12,19 +12,19 @@ w.HTMLDialogElement.prototype.close = function(){ this.open = false; this.dispat
 (async () => {
   await new Promise(r => setTimeout(r, 150)); const d = w.document;
   console.log("Migration →", d.querySelector("#projBtn").textContent.trim(), "|", d.querySelectorAll(".entry").length, "réf. | brouillon:", d.querySelector("#draft").value);
-  d.querySelector("#projBtn").click();
+  d.querySelector("#pliManage").click(); // « Renommer ou supprimer un projet » : la fenêtre de gestion
   const f = d.querySelector("#newProj"); f.querySelector("[name=name]").value = "Article Diogène"; f.querySelector("[name=kind]").value = "article";
   f.dispatchEvent(new w.Event("submit", {cancelable:true}));
   console.log("Nouveau projet →", d.querySelector("#projBtn").textContent.trim(), "|", d.querySelectorAll(".entry").length, "réf. | brouillon vide:", d.querySelector("#draft").value === "");
   d.querySelector("#demoBtn").click(); await new Promise(r => setTimeout(r, 400));
   d.querySelector("#draft").value = "Texte de l’article."; d.querySelector("#draft").dispatchEvent(new w.Event("input")); await new Promise(r => setTimeout(r, 700));
   console.log("Dans l’article :", d.querySelectorAll(".entry").length, "réf.");
-  d.querySelector("#projBtn").click();
+  d.querySelector("#pliManage").click(); // « Renommer ou supprimer un projet » : la fenêtre de gestion
   console.log("Liste :", [...d.querySelectorAll(".pitem")].map(x => x.querySelector("h5").textContent.trim() + " [" + x.querySelector(".meta").textContent + "]").join(" || "));
   d.querySelector("[data-open]").click();
   console.log("Retour →", d.querySelector("#projBtn").textContent.trim(), "|", d.querySelectorAll(".entry").length, "réf. | brouillon:", d.querySelector("#draft").value);
   // renommer
-  d.querySelector("#projBtn").click(); d.querySelector("[data-ren]").click(); const inp = d.querySelector(".pitem input"); inp.value = "Thèse VEHI"; d.querySelector("[data-ok]").click();
+  d.querySelector("#pliManage").click(); // « Renommer ou supprimer un projet » : la fenêtre de gestion d.querySelector("[data-ren]").click(); const inp = d.querySelector(".pitem input"); inp.value = "Thèse VEHI"; d.querySelector("[data-ok]").click();
   console.log("Renommé →", d.querySelector("#projBtn").textContent.trim());
   // supprimer l'autre (double clic)
   const del = [...d.querySelectorAll("[data-delp]")].find(b => true); const name = del.closest(".pitem").querySelector("h5").textContent; del.click(); console.log("Bouton armé :", del.textContent); del.click();

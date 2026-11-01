@@ -24,7 +24,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   d.querySelector("#dash").close();
   d.querySelector("#appNav .an-plus").click(); await wait(10);
   egal(d.querySelector("#dash").open && d.querySelector("#dt-home").classList.contains("on"), true, "Plus ouvre le menu");
-  egal(d.querySelectorAll("#appNav [data-nav]").length, 4, "4 modules");
+  egal(d.querySelectorAll("#appNav [data-nav]").length, 5, "5 modules (dont Mes projets)");
   egal(/nouveaux outils|new writing tools/i.test(d.querySelector(".an-soon").textContent), true, "place réservée aux futurs modules");
   console.log(errs.length ? errs.join("\n") + `\nerreurs : ${errs.length}` : "erreurs : aucune");
 })();

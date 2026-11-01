@@ -253,9 +253,27 @@ const STYLES = {
 
 /* ---------- tri, désambiguïsation, contrôles ---------- */
 const familyKey = s => norm(s.authors.map(a => a.family).join(" ")) || norm(s.title);
-function sortSources(list){
-  return [...list].sort((a,b) => familyKey(a).localeCompare(familyKey(b), "fr") || String(a.year||"").localeCompare(String(b.year||"")) || norm(a.title).localeCompare(norm(b.title), "fr"));
+/* ORDRE ALPHABÉTIQUE de la bibliographie (règles de classement des bibliothèques) :
+   1. nom du premier auteur, sans accents ni ponctuation (Al-Azzawi après Alami, N’Guessan après Nabi), sans la
+      particule française de, d’, du, des (de Certeau sous C) ; « Le Goff » reste sous L ; une œuvre sans auteur
+      se classe à son titre ;
+   2. même nom, personnes différentes : le prénom (Diop A. avant Diop C. A.) ;
+   3. même auteur : ses œuvres seules d’abord, puis celles écrites avec d’autres, dans l’ordre des coauteurs ;
+   4. puis l’année, de la plus ancienne à la plus récente (sans date en dernier), puis le titre.
+   Les normes numériques (Vancouver) gardent l’ordre d’apparition dans le texte : c’est leur règle. */
+const cleClassement = t => norm(String(t || "").replace(/^(?:de|du|des)\s+(?=\p{Lu})|^d[’']\s*(?=\p{Lu})/u, "")).replace(/[^a-z0-9]/g, "");
+function comparerSources(a, b){
+  const A = a.authors || [], B = b.authors || [];
+  const tete = (x, L) => L.length ? cleClassement(L[0].family) : cleClassement(x.title);
+  const prenom = L => L.length ? norm(L[0].given || "") : "";
+  const an = x => /^\d{4}/.test(String(x.year || "")) ? String(x.year) : "9999";
+  let d = tete(a, A).localeCompare(tete(b, B), "fr"); if(d) return d;
+  d = prenom(A).localeCompare(prenom(B), "fr"); if(d) return d;
+  d = Math.min(A.length, 2) - Math.min(B.length, 2); if(d) return d;
+  for(let i = 1; i < Math.max(A.length, B.length); i++){ d = cleClassement((A[i] || {}).family).localeCompare(cleClassement((B[i] || {}).family), "fr"); if(d) return d; }
+  return an(a).localeCompare(an(b)) || String(a.year || "").localeCompare(String(b.year || "")) || norm(a.title).localeCompare(norm(b.title), "fr");
 }
+function sortSources(list){ return [...list].sort(comparerSources); }
 function numberSources(list, texts){
   const pos = {};
   (texts || []).forEach(t => { const W = norm(t); list.forEach(s => { const fam = s.authors[0] ? norm(s.authors[0].family) : ""; if(!fam || pos[s.id] !== undefined) return; const re = new RegExp("\\b" + fam.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b.{0,60}?\\b" + (s.year || "") + "\\b"); const m = W.match(re); if(m) pos[s.id] = m.index; }); });
@@ -1637,4 +1655,4 @@ function pickProbes(text, max = 12){
   return [...new Set(probes)].slice(0, max);
 }
 function abstractFromIndex(inv){ if(!inv) return ""; const arr = []; Object.entries(inv).forEach(([w, pos]) => pos.forEach(p => arr[p] = w)); return arr.join(" "); }
-if(typeof module !== "undefined") module.exports = {citeDesSources, nbSondes, sondeDansTexte, isQuotedOrCited, fromRelais, fromCSL, lireBnf, fromThesesFr, memeOeuvre, estFicheBibliographique, nettoyerSection, parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};
+if(typeof module !== "undefined") module.exports = {comparerSources, cleClassement, citeDesSources, nbSondes, sondeDansTexte, isQuotedOrCited, fromRelais, fromCSL, lireBnf, fromThesesFr, memeOeuvre, estFicheBibliographique, nettoyerSection, parseEntreeNumerotee, listeNumerotee, appelsNumeriques, sourcesNumerotees, parseNote, coAuteursCites, domaineTexte, domaineFiche, estReference, partReferences, apparierCitations, nomsProches, fromCrossrefRecherche, fromOAAutocomplete, MODELES_PLAN, requeteLectures, requetesLectures, classerLectures, planDepuisTexte, fromHal, contexteCitation, fromOpenAlex, fromOpenLibrary, appliquerEdition, scoreCandidat, classerCandidats, fusionFiches, FORMULES, BESOIN, formuleEnVigueur, pdfPagesToText, checkArticleStructure, numberSources, findNumericCites, verifyNumeric, applyVoice, tidy, compareTexts, internalRepeats, frequentWords, pickProbes, abstractFromIndex, wordsOf, CAMES_PROFILES, camesBib, snapshot, evalRecords, evalStats, simTitle, judge, conformity, analyze, findBibSection, splitReferences, stripMarks, STYLES, parseAuthor, parseRefHeuristic, parseBibtex, parseRis, toBibtex, toRis, sortSources, withLabels, checks, verify, findCitations, fromCrossref, blank, stripHtml, authorToInput};

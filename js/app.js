@@ -47,17 +47,25 @@ function loadLocal(){
   ensureProjects();
 }
 let saveTimer, dbUid = null, dbH = null;
+/* Écriture sur l’appareil. Le projet ouvert est déjà rangé dans state.projects (syncCurrent) : sa copie de travail
+   (sources, fil, brouillon…) n’est pas écrite une seconde fois, ce qui double la place disponible pour les projets. */
+function ecrireLocal(){
+  syncCurrent();
+  const o = {}; Object.keys(state).forEach(k => { if(!PKEYS.includes(k)) o[k] = state[k]; });
+  const txt = JSON.stringify(o);
+  try{ localStorage.setItem(LS, txt); return true; }catch(e){
+    // la mémoire des réponses en ligne n’est qu’un raccourci : elle cède la place à la bibliographie
+    try{ Object.keys(localStorage).filter(k => k.startsWith("bibliocard.oa:")).forEach(k => localStorage.removeItem(k)); localStorage.removeItem("bibliocard.oa.index"); localStorage.setItem(LS, txt); return true; }
+    catch(e2){ setStatus("Mémoire de l’appareil pleine : télécharge une copie de secours"); return false; }
+  }
+}
+// enregistrement immédiat (quitter la page, changer de projet) : rien ne se perd dans le délai de 600 ms
+function saveNow(){ clearTimeout(saveTimer); state.updatedAt = Date.now(); return ecrireLocal(); }
 function save(){
   state.updatedAt = Date.now(); setStatus("Enregistrement…", true);
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    syncCurrent();
-    const txt = JSON.stringify(state);
-    try{ localStorage.setItem(LS, txt); }catch(e){
-      // la mémoire des réponses en ligne n’est qu’un raccourci : elle cède la place à la bibliographie
-      try{ Object.keys(localStorage).filter(k => k.startsWith("bibliocard.oa:")).forEach(k => localStorage.removeItem(k)); localStorage.removeItem("bibliocard.oa.index"); localStorage.setItem(LS, txt); }
-      catch(e2){ setStatus("Mémoire de l’appareil pleine : télécharge une copie de secours"); return; }
-    }
+    if(!ecrireLocal()) return;
     if(dbH){
       try{
         const meta = {}; GKEYS.filter(k => k !== "projects").forEach(k => meta[k] = state[k]);
@@ -380,7 +388,7 @@ $("#todoBtn").onclick = () => $("#side").hidden ? openSide("biblio") : closeSide
 $("#sideClose").onclick = closeSide;
 document.querySelectorAll("#stabs button").forEach(b => b.onclick = () => openSide(b.dataset.st));
 document.addEventListener("keydown", e => { if(e.key === "Escape" && !$("#side").hidden && !document.querySelector("dialog[open]")) closeSide(); });
-$("#newProjBtn").onclick = () => { $("#dash").close(); projectDialog(); setTimeout(() => { const i = document.querySelector("#newProj [name=name]"); if(i) i.focus(); }, 60); };
+$("#newProjBtn").onclick = () => { $("#dash").close(); setView("projets"); setTimeout(() => { const i = $("#pliNom"); if(i) i.focus(); }, 60); };
 $("#backBiblio").onclick = () => setView("biblio");
 $("#dashBtn").onclick = () => openDash();
 // navigation des modules (barre latérale ou barre du bas) : mêmes chemins que le menu
@@ -389,7 +397,8 @@ document.querySelectorAll("#appNav [data-nav]").forEach(b => b.onclick = () => {
   closeSide(); setView(b.dataset.nav);
 });
 document.querySelectorAll("#appNav [data-dash]").forEach(b => b.onclick = () => openDash(b.dataset.dash));
-$("#anNew").onclick = () => $("#newProjBtn").click();
+// « Nouveau projet » : l’étagère, le nom du projet à écrire
+$("#anNew").onclick = () => { closeSide(); setView("projets"); setTimeout(() => { const i = $("#pliNom"); if(i) i.focus(); }, 60); };
 function marquerNav(){
   const v = document.body.dataset.view, ctl = !$("#side").hidden && $('#stabs [data-st="controle"]').getAttribute("aria-pressed") === "true";
   document.querySelectorAll("#appNav [data-nav]").forEach(b => { const on = ctl ? b.dataset.nav === "controle" : b.dataset.nav === v; on ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"); });
@@ -648,7 +657,19 @@ Texte :
 }
 /* ---------- vérification d’existence ---------- */
 const net = { blocked: false, running: false, done: 0, total: 0 };
+/* CONNEXION : SCIENTUS travaille hors ligne comme en ligne.
+   - « auto » (par défaut) : suit la connexion de l’appareil ;
+   - « off » : hors ligne, au choix de l’utilisateur (données mobiles chères, réseau instable) : aucune requête sortante ;
+   - « on » : cherche toujours en ligne, même si l’appareil se croit déconnecté.
+   Hors ligne, tout le travail sur l’appareil continue : lecture des documents, génération à partir des citations
+   et des listes, ordre alphabétique, mise en forme, export Word, dictée (Whisper une fois chargé), comparaison avec
+   tes documents. Ce qui demande Internet (œuvres absentes de ta liste, compléments, vérification d’existence) est
+   mis de côté et reprend tout seul au retour de la connexion (reprendreEnLigne). */
+const CNX = "scientus.connexion";
+const modeConnexion = () => { try{ const v = localStorage.getItem(CNX); return v === "off" || v === "on" ? v : "auto"; }catch(e){ return "auto"; } };
+const enLigne = () => modeConnexion() === "on" || (modeConnexion() === "auto" && navigator.onLine !== false);
 async function getJSON(url, ms = 10000, init, texte){
+  if(!enLigne()) return {error: true, horsLigne: true};
   // 300 à 500 sources : Open Library et CrossRef répondent « trop de demandes » (429) ou « surchargé » (503) ;
   // on attend un peu et on réessaie, au lieu de perdre la source
   for(let essai = 0; essai < 3; essai++){
@@ -687,6 +708,7 @@ function oaMemoEcrire(url, data){
 // payant : l’appel est décompté du budget du jour (les appels gratuits passent même quand il est épuisé)
 async function oaJSON(url, payant, ms = 10000){
   const m = oaMemoLire(url); if(m) return {data: m};
+  if(!enLigne()) return {error: true, horsLigne: true};
   if(payant && oaBloque()) return {status: 429, bloque: true};
   for(let essai = 0; essai < 2; essai++){
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
@@ -771,6 +793,7 @@ async function checkOne(s){
 function existFor(s){ const e = state.exist[s.id]; return e && e.stamp === norm(s.title) + "|" + s.year + "|" + norm(s.doi) ? e : null; }
 async function runExistence(manual){
   if(net.running) return;
+  if(!enLigne()){ if(manual) post({role: "a", kind: "info", text: "Hors ligne : la vérification d’existence se fera dès le retour de la connexion."}); return; }
   const todo = state.sources.filter(s => s.title && !existFor(s));
   if(!todo.length){ if(manual) toast("Toutes les références ont déjà été vérifiées"); renderAll(); return; }
   net.running = true; net.done = 0; net.total = todo.length; net.plusTard = 0; renderExist();
@@ -968,6 +991,8 @@ async function completerUne(s){
 async function completerEnLigne(){
   const L = state.sources.filter(s => !s._essaiLigne && s.title && s.authors.length && (manquants(s).length || s.etAl));
   if(!L.length) return;
+  // hors ligne : rien n’est marqué « essayé », tout sera complété au retour de la connexion
+  if(!enLigne()){ post({role: "a", kind: "info", text: `Hors ligne : ${L.length > 1 ? `les ${L.length} références incomplètes seront complétées` : "la référence incomplète sera complétée"} en ligne dès le retour de la connexion.`}); return; }
   post({role: "a", kind: "info", text: `Je complète en ligne ${L.length > 1 ? `les ${L.length} références incomplètes` : "la référence incomplète"} : auteurs, éditeur, ville, revue, volume, numéro, pages… Sources : données publiques des éditeurs (DOI), CrossRef, catalogue de la BnF, Open Library, theses.fr, DataCite. Même pour un document payant, ces informations sont publiques ; le résumé n’est jamais repris.`}); think(true);
   let i = 0, n = 0; const champs = {};
   const travail = async () => { while(i < L.length){ const s = L[i++]; s._essaiLigne = 1;
@@ -1015,7 +1040,7 @@ async function construireBiblio(nom, sansCommande){
     faites++; suivi.text = rechercheTexte(faites, items.length); bientot(); } };
   await Promise.all([travail(), travail(), travail()]);
   think(false); save(); renderAll();
-  if(horsLigne === items.length){ post({role: "a", kind: "error", text: `Je n’arrive pas à joindre les bases en ligne. ${items.length > 1 ? `Les ${items.length} œuvres citées ont` : "L’œuvre citée a"} quand même leur entrée (auteur, année) ; la recherche reprendra à ta prochaine connexion.`}); return; }
+  if(horsLigne === items.length){ post({role: "a", kind: enLigne() ? "error" : "info", text: `${enLigne() ? "Je n’arrive pas à joindre les bases en ligne." : "Hors ligne :"} ${items.length > 1 ? `Les ${items.length} œuvres citées ont` : "L’œuvre citée a"} quand même leur entrée (auteur, année) ; la recherche reprendra à ta prochaine connexion.`}); return; }
   /* La bibliographie générée contient TOUTES les sources citées : la meilleure œuvre trouvée est ajoutée
      d’office (marquée « Œuvre à confirmer » s’il reste un doute, avec les autres possibilités à un geste), et
      une citation introuvable en ligne garde son entrée (auteur, année), marquée « à compléter ».
@@ -1239,6 +1264,7 @@ function renderExist(){
 }
 
 async function crossref(doi){
+  if(!enLigne()) return {blocked: true, horsLigne: true};
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 8000);
   try{
     const r = await fetch("https://api.crossref.org/works/" + encodeURIComponent(doi), {signal: ctl.signal});
@@ -1540,8 +1566,30 @@ $("#anInstall").onclick = installer;
 $("#welInstall").onclick = installer;
 boutonsInstaller();
 if(location.hash === "#installer") setTimeout(installer, 600);
-window.addEventListener("offline", () => { setStatus("Hors connexion : tout fonctionne sauf la vérification en ligne"); });
-window.addEventListener("online", () => { setStatus("De nouveau en ligne"); if(net.blocked){ net.blocked = false; } });
+/* reprise automatique de tout ce qui attendait Internet */
+let reprise = false;
+async function reprendreEnLigne(){
+  if(reprise || !enLigne()) return; reprise = true;
+  try{
+    net.blocked = false;
+    if(state.sources.some(s => s._cite)) await construireBiblio(null, true);
+    await completerEnLigne();
+    if(state.sources.some(s => s.title && !existFor(s))) runExistence(false);
+  } finally { reprise = false; }
+}
+function marquerConnexion(){
+  const m = modeConnexion(), ok = enLigne();
+  document.querySelectorAll("#cnxSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.cx === m ? "true" : "false"));
+  const p = $("#cnxPill"); if(p){ p.hidden = ok; p.textContent = tr(m === "off" ? "Hors ligne (choisi)" : "Hors ligne"); }
+  setStatus(tr(ok ? "En ligne" : "Hors ligne : le travail continue sur l’appareil"));
+}
+document.querySelectorAll("#cnxSeg button").forEach(b => b.onclick = () => {
+  try{ if(b.dataset.cx === "auto") localStorage.removeItem(CNX); else localStorage.setItem(CNX, b.dataset.cx); }catch(e){}
+  marquerConnexion(); toast(tr(enLigne() ? "En ligne : les recherches reprennent" : "Hors ligne : aucune recherche sur Internet")); reprendreEnLigne();
+});
+if($("#cnxPill")) $("#cnxPill").onclick = () => openDash("norme");
+window.addEventListener("offline", marquerConnexion);
+window.addEventListener("online", () => { marquerConnexion(); reprendreEnLigne(); });
 
 /* traduit un rapport généré, sans toucher aux références bibliographiques */
 function translateHtml(html){
@@ -1611,7 +1659,7 @@ function renderProjBtn(){
 }
 function switchProject(pid){
   if(pid === state.current) return;
-  syncCurrent(); ui.filesBy = ui.filesBy || {}; ui.filesBy[state.current] = ui.files;
+  saveNow(); ui.filesBy = ui.filesBy || {}; ui.filesBy[state.current] = ui.files;
   loadProject(pid); ui.files = ui.filesBy[pid] || []; ui.dismissed = new Set(); if(typeof red !== "undefined") red.sim = null;
   refreshDraftUi(); save(); renderAll(); toast(`Projet ouvert : ${state.projects[pid].name}`);
 }
@@ -1648,7 +1696,39 @@ function projectDialog(){
   };
   if(!dlg.open) dlg.showModal();
 }
-$("#projBtn").onclick = projectDialog;
+$("#projBtn").onclick = () => setView("projets");
+
+/* ================= MES PROJETS (étagère) =================
+   Un projet = une bibliographie et tout son travail (références, norme, fil, brouillon, plan, commentaires).
+   Quand l’utilisateur QUITTE la page (fermeture, rechargement, autre adresse), le projet ouvert est enregistré
+   aussitôt, fermé et rangé sous pli. À la visite suivante, SCIENTUS ouvre l’étagère « Mes projets » : chaque pli
+   montre son nom, son type, ses références et sa dernière modification ; « Continuer » le rouvre tel qu’il était.
+   Passer un instant sur une autre application ne ferme rien : le projet est seulement enregistré. */
+const dateHeure = t => { try{ return new Date(t).toLocaleString(state.uiLang === "en" ? "en-GB" : "fr-FR", {day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"}); }catch(e){ return ""; } };
+const projetUtilise = p => !!(p && ((p.sources || []).length || (p.thread || []).length || (p.draft && p.draft.text)));
+function renderEtagere(){
+  const box = $("#etagere"); if(!box) return;
+  const list = Object.values(state.projects).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  box.innerHTML = list.map(p => { const n = (p.sources || []).length, st = STYLES[p.style] || STYLES.cames;
+    return `<article class="pli">
+      <div class="pli-ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+      <div class="pli-tx"><h3 data-notr="1">${esc(p.name)}</h3>
+        <p>${esc(tr(KINDS[p.kind] || ""))} · ${n} ${tr(n > 1 ? "références" : "référence")} · ${esc(st.name)}</p>
+        <p class="pli-d">${tr("Modifié le")} ${esc(dateHeure(p.updatedAt))}</p></div>
+      <button class="btn small primary" data-cont="${p.id}">${tr("Continuer")}</button>
+    </article>`; }).join("");
+  box.querySelectorAll("[data-cont]").forEach(b => b.onclick = () => { switchProject(b.dataset.cont); setView("biblio"); });
+}
+$("#pliNew").onsubmit = e => {
+  e.preventDefault(); const fd = new FormData(e.target); const nom = String(fd.get("name") || "").trim();
+  if(!nom){ e.target.querySelector("[name=name]").focus(); return; }
+  const p = blankProject(nom, fd.get("kind")); p.style = state.style; p.profile = state.profile; state.projects[p.id] = p;
+  e.target.reset(); switchProject(p.id); setView("biblio");
+};
+$("#pliManage").onclick = projectDialog;
+function fermerProjet(){ const p = state.projects[state.current]; if(p){ syncCurrent(); p.fermeLe = Date.now(); } saveNow(); }
+window.addEventListener("pagehide", fermerProjet);
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "hidden") saveNow(); });
 
 /* ================= SYNCHRONISATION ENTRE APPAREILS ================= */
 const LSS = "bibliocard.session";
@@ -2220,6 +2300,7 @@ function setView(v){
   try{ localStorage.setItem("bibliocard.view", v); }catch(e){}
   if(v === "redac") updateCount();
   if(v === "plan") renderPlan();
+  if(v === "projets") renderEtagere();
   marquerNav();
 }
 document.querySelectorAll("#modeSeg button").forEach(b => b.onclick = () => setView(b.dataset.view));
@@ -2541,5 +2622,5 @@ try{ const langs = (navigator.languages && navigator.languages.length ? navigato
 
 /* ---------- démarrage ---------- */
 document.body.classList.toggle("in-claude", !!(window.claude && window.claude.use)); // textes propres à la démonstration dans Claude
-loadLocal(); compte.init(); refreshDraftUi(); renderAll(); applyLang(); setTimeout(() => { if(state.sources.some(s => s._cite) && navigator.onLine !== false) construireBiblio(null, true); }, 2500); setTimeout(() => sync.pull(), 400); setView((() => { try{ return localStorage.getItem("bibliocard.view") || "biblio"; }catch(e){ return "biblio"; } })()); micUi(); updateCount();
+loadLocal(); compte.init(); refreshDraftUi(); renderAll(); applyLang(); marquerConnexion(); setTimeout(reprendreEnLigne, 2500); setTimeout(() => sync.pull(), 400); setView(Object.values(state.projects).some(projetUtilise) ? "projets" : (() => { try{ const v = localStorage.getItem("bibliocard.view"); return v && v !== "projets" ? v : "biblio"; }catch(e){ return "biblio"; } })()); micUi(); updateCount();
 setStatus(state.sources.length ? "Enregistré sur cet appareil" : "Prêt");

@@ -1037,7 +1037,7 @@ header.topbar,.appnav,.cbox,.side,.stop,dialog,.vhead{background:var(--verre)!im
 
 /* ===== Rangement du panneau central (2026-10-28) ===== */
 /* accueil : le logo est déjà dans la barre latérale sur ordinateur ; démo et installation sur une seule ligne */
-@media (min-width:1024px){ .welcome .brandmark{display:none} }
+@media (min-width:1000px){ .welcome .brandmark{display:none} }
 .welcome .demo{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 18px;margin:16px 0 0}
 .welcome .demo [hidden]{display:none}
 .parcours{margin-top:18px;font-size:13px}
@@ -1066,3 +1066,22 @@ header.topbar,.appnav,.cbox,.side,.stop,dialog,.vhead{background:var(--verre)!im
 /* téléphone : la barre de saisie occupe le bas de l’écran ; les trois étapes (la zone de dépôt dit déjà quoi
    faire) s’effacent pour que le lien « Essayer avec un mémoire d’exemple » reste visible sans défiler */
 @media (max-width:520px){ .parcours{display:none} .welcome .demo{margin-top:12px} }
+/* pastille « Hors ligne » de la barre du haut : visible seulement sans connexion ; un geste ouvre le choix */
+.cnxpill{border:1px solid var(--line-strong);background:var(--sunk);color:var(--muted);font:inherit;font-size:12px;font-weight:600;border-radius:99px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+.cnxpill::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--proof);margin-right:6px;vertical-align:1px}
+.cnxpill[hidden]{display:none}
+/* ===== Étagère « Mes projets » ===== */
+body[data-view="projets"] #viewBiblio, body[data-view="projets"] #viewRedac, body[data-view="projets"] #viewPlan, body[data-view="projets"] .composer, body[data-view="projets"] .dock{display:none!important}
+body:not([data-view="projets"]) #viewProjets{display:none}
+.pli-new{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 20px;padding:12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+.pli-new input{flex:1 1 240px;min-width:0;font:inherit;padding:9px 12px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg);color:var(--ink)}
+.pli-new select{flex:0 1 200px;font:inherit;padding:9px 10px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg);color:var(--ink)}
+.etagere{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.pli{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:start;padding:14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);box-shadow:var(--shadow-sm)}
+.pli-ic{grid-row:span 2;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--brass-soft);color:var(--brass)}
+.pli-tx h3{margin:0 0 2px;font-size:16px;font-weight:600;overflow-wrap:anywhere}
+.pli-tx p{margin:0;font-size:13px;color:var(--muted)}
+.pli-tx .pli-d{font-size:12px;margin-top:2px}
+.pli .btn{grid-column:2;justify-self:start;margin-top:8px}
+/* téléphone : la barre du bas garde ses cinq modules ; l’étagère s’ouvre par le nom du projet, en haut */
+@media (max-width:999px){ .appnav .an-projets{display:none} }
