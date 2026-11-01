@@ -1034,3 +1034,35 @@ header.topbar,.appnav,.cbox,.side,.stop,dialog,.vhead{background:var(--verre)!im
 /* mode sombre : le rouge d’alerte y est clair (#F0907A) ; le texte posé dessus passe en encre foncée (contraste AA) */
 :root[data-theme="dark"] .badge,:root[data-theme="dark"] .cb.on{color:#0E1022}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .badge,:root:not([data-theme="light"]) .cb.on{color:#0E1022} }
+
+/* ===== Rangement du panneau central (2026-10-28) ===== */
+/* accueil : le logo est déjà dans la barre latérale sur ordinateur ; démo et installation sur une seule ligne */
+@media (min-width:1024px){ .welcome .brandmark{display:none} }
+.welcome .demo{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 18px;margin:16px 0 0}
+.welcome .demo [hidden]{display:none}
+.parcours{margin-top:18px;font-size:13px}
+@media (max-width:520px){ .parcours{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:6px 14px} }
+/* fil : messages anciens repliés sur leur première phrase */
+.msg.a.replie .atext > *:not(:first-child):not(.deplier){display:none}
+.msg.a.replie .atext > :first-child{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--muted)}
+.msg.a .deplier{background:none;border:0;padding:2px 0;font:inherit;font-size:13.5px;font-weight:600;color:var(--brass);cursor:pointer}
+.msg.a .deplier:hover{text-decoration:underline}
+/* explications secondaires d’un message */
+.msg.a details.plus{margin:2px 0 8px}
+.msg.a details.plus > summary{cursor:pointer;font-size:13.5px;font-weight:600;color:var(--brass);list-style:none;display:inline-flex;align-items:center;gap:6px}
+.msg.a details.plus > summary::-webkit-details-marker{display:none}
+.msg.a details.plus > summary::before{content:"";width:6px;height:6px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(-45deg);transition:transform var(--dur) var(--ease)}
+.msg.a details.plus[open] > summary::before{transform:rotate(45deg)}
+.msg.a details.plus > p{margin:6px 0 0;font-size:14.5px;color:var(--muted)}
+/* texte collé : la bulle n’affiche que le début */
+.msg.u .bubble:not(:has(.fchip)){display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+/* Rédaction : une action principale, puis trois familles d’outils nommées */
+.wprim{margin-top:14px}
+.outils{display:grid;grid-template-columns:repeat(3,auto);justify-content:start;gap:10px 22px;margin-top:12px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface)}
+.outils .grp{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.outils .gl{flex-basis:100%;font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+@media (max-width:860px){ .outils{grid-template-columns:1fr} .outils .grp + .grp{border-top:1px solid var(--line);padding-top:10px} }
+@media (max-width:520px){ .outils .btn.small{flex:1 1 auto} }
+/* téléphone : la barre de saisie occupe le bas de l’écran ; les trois étapes (la zone de dépôt dit déjà quoi
+   faire) s’effacent pour que le lien « Essayer avec un mémoire d’exemple » reste visible sans défiler */
+@media (max-width:520px){ .parcours{display:none} .welcome .demo{margin-top:12px} }

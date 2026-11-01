@@ -16,8 +16,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-<script src="js/theme.js?v=52"></script>
-<link rel="stylesheet" href="css/bibliocard.css?v=52">
+<script src="js/theme.js?v=53"></script>
+<link rel="stylesheet" href="css/bibliocard.css?v=53">
 
 </head>
 <body>
@@ -55,7 +55,6 @@
   <div class="thread" id="thread" aria-live="polite"></div>
   <section class="welcome" id="welcome" aria-labelledby="h1">
     <div class="brandmark"><span class="wordmark" data-notr="1"><span class="sr">SCIENTUS</span><span aria-hidden="true">S<img class="wm-c" src="logo-c.png" alt="">IENTUS</span></span></div>
-    <p class="eyebrow">Mémoires · thèses · articles · rapports</p>
     <h1 id="h1">Ta bibliographie, tirée de ton texte</h1>
     <p class="hello">Dépose ton document : SCIENTUS retrouve chaque œuvre que tu cites et la met en forme selon ta norme.</p>
     <button class="dropzone" id="dropZone" type="button" aria-describedby="dzSub">
@@ -64,14 +63,12 @@
       <span class="dz-sub" id="dzSub">Word, PDF ou texte. Ou touche pour choisir un fichier.</span>
       <span class="dz-safe"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Ton document reste sur ton appareil</span>
     </button>
-    <div class="normpick" role="group" aria-labelledby="normPickL"><span class="np-l" id="normPickL">Norme</span><div class="np" id="normPick"></div></div>
     <ol class="parcours" aria-label="En trois étapes">
       <li><span class="pnum">1</span><span>Dépose ton document</span></li>
       <li><span class="pnum">2</span><span>Valide les références trouvées</span></li>
       <li><span class="pnum">3</span><span>Télécharge ta bibliographie</span></li>
     </ol>
-    <p class="demo" id="demoLine"><button class="link" id="demoBtn">Essayer avec un mémoire d’exemple</button></p>
-    <p class="demo"><button class="link" id="welInstall">Installer SCIENTUS sur cet appareil</button></p>
+    <p class="demo"><span id="demoLine"><button class="link" id="demoBtn">Essayer avec un mémoire d’exemple</button></span><button class="link" id="welInstall">Installer sur cet appareil</button></p>
     <p class="acctline" id="acctLine" hidden></p>
   </section>
 </div>
@@ -79,7 +76,7 @@
 <div id="viewRedac" class="redac">
   <button class="back2" id="backBiblio">← Bibliographie</button>
   <h1>Rédige en parlant</h1>
-  <p class="lead">Lian’Z transcrit fidèlement ce que tu dis, sans rien reformuler. Dis « virgule », « point » ou « nouveau paragraphe » pour ponctuer, et « citation Amin » pour insérer une référence de ta bibliographie.</p>
+  <p class="lead">Lian’Z transcrit fidèlement ce que tu dis, sans rien reformuler. Les commandes vocales sont expliquées plus bas.</p>
   <div class="mic">
     <button class="micbtn" id="micBtn" aria-label="Commencer la dictée"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>
     <div class="micmeta"><b id="micTitle">Touche le micro pour dicter</b><span id="micSub"></span></div>
@@ -93,22 +90,29 @@
     <label class="sr" for="draftTitle">Titre</label><input id="draftTitle" placeholder="Titre de ton travail">
     <label class="sr" for="draft">Texte</label><textarea id="draft" placeholder="Ton texte apparaît ici pendant que tu parles. Tu peux aussi écrire ou corriger au clavier."></textarea>
   </div>
-  <div class="wbar">
-    <button class="btn small" id="citeIns">Insérer une citation</button>
-    <button class="btn small" id="undoSeg">Annuler la dernière dictée</button>
+  <!-- une action principale, puis les outils rangés en trois familles -->
+  <div class="wbar wprim">
     <button class="btn small primary" id="genRedac">Générer la bibliographie de mon texte</button>
-    <button class="btn small" id="simBtn">Vérifier les similitudes</button>
     <span class="cnt" id="wcount"></span>
   </div>
-  <div class="wbar">
-    <button class="btn small" id="wDoc">Exporter en Word</button>
-    <button class="btn small" id="wPdf">Exporter en PDF</button>
-    <button class="btn small" id="transBtn">Transcrire un enregistrement</button>
-    <input type="file" id="transIn" class="sr" aria-label="Enregistrement à transcrire" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,.aac">
-    <button class="btn small" id="plagDocBtn">Contrôle anti-plagiat d’un document</button>
-    <input type="file" id="plagDocIn" class="sr" aria-label="Document à contrôler" accept=".docx,.pdf,.txt">
-    <button class="btn small" id="corpusBtn">Ajouter des documents de comparaison</button>
-    <input type="file" id="corpusIn" class="sr" aria-label="Documents de comparaison" multiple accept=".docx,.pdf,.txt">
+  <div class="outils">
+    <div class="grp" role="group" aria-labelledby="gEcr"><span class="gl" id="gEcr">Écrire</span>
+      <button class="btn small" id="citeIns">Insérer une citation</button>
+      <button class="btn small" id="undoSeg">Annuler la dernière dictée</button>
+      <button class="btn small" id="transBtn">Transcrire un enregistrement</button>
+      <input type="file" id="transIn" class="sr" aria-label="Enregistrement à transcrire" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.opus,.webm,.mp4,.aac">
+    </div>
+    <div class="grp" role="group" aria-labelledby="gCtl"><span class="gl" id="gCtl">Contrôler</span>
+      <button class="btn small" id="simBtn">Anti-plagiat de mon texte</button>
+      <button class="btn small" id="plagDocBtn">Anti-plagiat d’un document</button>
+      <input type="file" id="plagDocIn" class="sr" aria-label="Document à contrôler" accept=".docx,.pdf,.txt">
+      <button class="btn small" id="corpusBtn">Documents de comparaison</button>
+      <input type="file" id="corpusIn" class="sr" aria-label="Documents de comparaison" multiple accept=".docx,.pdf,.txt">
+    </div>
+    <div class="grp" role="group" aria-labelledby="gExp"><span class="gl" id="gExp">Exporter</span>
+      <button class="btn small" id="wDoc">Word</button>
+      <button class="btn small" id="wPdf">PDF</button>
+    </div>
   </div>
   <details class="panel2"><summary>Commandes vocales</summary><div class="in prose">
     <p><b>Ponctuation</b> : virgule, point (en fin de phrase), point-virgule, deux-points, point d’interrogation, point d’exclamation, points de suspension.</p>
@@ -359,10 +363,10 @@
 <dialog id="dlg"></dialog>
 <div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastAct" hidden data-notr="1"></button></div>
 
-<script src="js/config.js?v=52"></script>
-<script src="js/i18n-en.js?v=52"></script>
-<script src="js/moteur.js?v=52"></script>
-<script src="js/app.js?v=52"></script>
+<script src="js/config.js?v=53"></script>
+<script src="js/i18n-en.js?v=53"></script>
+<script src="js/moteur.js?v=53"></script>
+<script src="js/app.js?v=53"></script>
 
 <script>
 if("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

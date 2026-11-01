@@ -113,9 +113,9 @@ function renderNorm(){
   $("#styleSeg").innerHTML = Object.entries(STYLES).map(([k,v]) => `<button aria-pressed="${k === state.style}" data-style="${k}">${esc(v.name)}</button>`).join("");
   $("#styleSeg").querySelectorAll("button").forEach(b => b.onclick = () => { state.style = b.dataset.style; save(); renderAll(); toast(`Bibliographie remise en forme : ${STYLES[state.style].name}`); });
   // sélecteur de l’accueil : les normes disponibles, puis la place réservée aux suivantes
-  $("#normPick").innerHTML = Object.entries(STYLES).map(([k, v]) => `<button type="button" class="npb" aria-pressed="${k === state.style}" data-np="${k}" title="${esc(v.full)}">${esc(v.name)}</button>`).join("")
+  const np = $("#normPick"); if(np){ np.innerHTML = Object.entries(STYLES).map(([k, v]) => `<button type="button" class="npb" aria-pressed="${k === state.style}" data-np="${k}" title="${esc(v.full)}">${esc(v.name)}</button>`).join("")
     + `<span class="npb bientot" title="Norme en préparation">IEEE<small>bientôt</small></span>`;
-  $("#normPick").querySelectorAll("[data-np]").forEach(b => b.onclick = () => { if(b.dataset.np === state.style) return; state.style = b.dataset.np; save(); renderAll(); toast(`Norme choisie : ${STYLES[state.style].full}`); });
+  np.querySelectorAll("[data-np]").forEach(b => b.onclick = () => { if(b.dataset.np === state.style) return; state.style = b.dataset.np; save(); renderAll(); toast(`Norme choisie : ${STYLES[state.style].full}`); }); }
   $("#camesOpts").style.display = state.style === "cames" ? "block" : "none";
   renderProfiles();
   $("#normNote").textContent = NOTES[state.style];
@@ -1023,9 +1023,10 @@ async function construireBiblio(nom, sansCommande){
   post({role: "a", kind: "propositions", items: items.filter(x => x.provisoire || x.verdict !== "sure"), auto: true, total: items.length, sures: items.filter(x => !x.provisoire && x.verdict === "sure").length, plusTard: horsLigne});
 }
 const rechercheTexte = (n, t) => `Recherche en ligne des œuvres citées (OpenAlex, Open Library, CrossRef) : ${n} sur ${t}. Chaque œuvre a déjà son entrée dans la bibliographie ; elle est remplacée dès que l’œuvre est retrouvée.`;
-// affichage regroupé : une mise à jour au plus toutes les 800 ms, même pour 500 sources
-let bientotT = null;
-function bientot(){ if(bientotT) return; bientotT = setTimeout(() => { bientotT = null; save(); renderAll(); }, 800); }
+// affichage regroupé : une mise à jour au plus toutes les 800 ms, et jamais plus souvent que trois fois sa propre
+// durée (500 sources : un affichage complet coûte plus d’une seconde ; sans cela, la page ne fait plus que se redessiner)
+let bientotT = null, coutRendu = 0;
+function bientot(){ if(bientotT) return; bientotT = setTimeout(() => { bientotT = null; const t = performance.now(); save(); renderAll(); coutRendu = performance.now() - t; }, Math.max(800, 3 * coutRendu)); }
 async function remplacerProvisoire(x, prov, doute){
   const s = {...x.choix[x.pick], id: prov.id, file: prov.file};
   if(s.type === "book"){ s.year = annee(x.cite); if(!s.city || !s.publisher) await completerEdition(s, s.year); }
@@ -2007,7 +2008,7 @@ const plur = (n, a, b) => `${n} ${n > 1 ? b : a}`;
 function post(m){ state.thread = (state.thread || []).concat({id: "m" + Date.now().toString(36) + Math.random().toString(36).slice(2,5), at: Date.now(), ...m}).slice(-100); save(); renderThread(true); }
 let thinking = false;
 function think(on){ thinking = on; renderThread(on); }
-function previewIds(ids, max = 4){
+function previewIds(ids, max = 3){
   const L = labeled().filter(s => (ids || []).includes(s.id)); if(!L.length) return "";
   return `<ol class="prev">${L.slice(0, max).map(s => `<li class="ref">${bibFor(s)}</li>`).join("")}${L.length > max ? `<li class="more">et ${L.length - max} autre${L.length - max > 1 ? "s" : ""}</li>` : ""}</ol>`;
 }
@@ -2063,10 +2064,31 @@ function renderThread(scroll){
   const T = state.thread || []; document.body.classList.toggle("talk", T.length > 0 || thinking);
   box.innerHTML = T.map(m => m.role === "u"
     ? `<div class="msg u"><div class="bubble">${m.kind === "file" ? `<div class="fchip"><span class="ic">${esc(m.ext || "DOC")}</span><div><span data-notr="1">${esc(m.name)}</span>${(() => { const f = ui.files.find(x => x.id === m.fid); return f && f.busy ? `<small>${esc(f.status)}</small>` : ""; })()}</div></div>` : `<span data-notr="1">${esc(m.text)}</span>`}</div></div>`
-    : `<div class="msg a"><div class="av">${AV}</div><div class="atext${m.kind === "error" ? " err" : ""}">${appBody(m)}</div></div>`).join("") +
+    : `<div class="msg a" data-id="${m.id}"><div class="av">${AV}</div><div class="atext${m.kind === "error" ? " err" : ""}">${appBody(m)}</div></div>`).join("") +
     (thinking ? `<div class="msg a"><div class="av">${AV}</div><div class="atext typing" aria-label="Analyse en cours"><span></span><span></span><span></span></div></div>` : "");
+  ranger(box);
   box.querySelectorAll("[data-act]").forEach(b => b.onclick = () => runAct(JSON.parse(b.dataset.act)));
   if(scroll) setTimeout(() => window.scrollTo({top: document.body.scrollHeight, behavior: "smooth"}), 30);
+}
+/* RANGEMENT DU FIL : l’essentiel visible, le reste à un geste.
+   - seuls les deux derniers messages de SCIENTUS restent ouverts ; les plus anciens se replient sur leur première
+     phrase (« Afficher » les rouvre) ;
+   - dans un message, au-delà de deux paragraphes, les explications secondaires passent dans un pli « Détails »
+     (les références et les boutons d’action restent visibles). */
+const ouverts = new Set();
+function ranger(box){
+  const A = [...box.querySelectorAll(".msg.a[data-id]")];
+  A.forEach((el, i) => {
+    const at = el.querySelector(".atext"); if(!at) return;
+    const ps = [...at.children].filter(c => c.tagName === "P");
+    if(ps.length > 2){ const d = document.createElement("details"); d.className = "plus"; d.innerHTML = `<summary>${tr("Détails")}</summary>`; ps[2].before(d); ps.slice(2).forEach(p => d.appendChild(p)); }
+    if(i < A.length - 2 && !ouverts.has(el.dataset.id)){
+      el.classList.add("replie");
+      const b = document.createElement("button"); b.type = "button"; b.className = "deplier"; b.textContent = tr("Afficher");
+      b.onclick = () => { ouverts.add(el.dataset.id); el.classList.remove("replie"); b.remove(); };
+      at.appendChild(b);
+    }
+  });
 }
 async function runAct(a){
   if(a.t === "side") openSide(a.v);
