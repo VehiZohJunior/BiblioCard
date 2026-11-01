@@ -72,6 +72,17 @@ const DOC = `${remplissage(12)} Nous observons que ${COPIEE} et que cette tendan
   egal(/memoire\.docx/.test([...d.querySelectorAll("#simRes .b span")].map(e => e.textContent).join(" ")), false, "anti-plagiat : le document ne se compare pas à lui-même");
   egal(appels.filter(u => /fulltext_t:/.test(u)).length, w.eval("pickProbes")(DOC, w.eval("nbSondes")(DOC)).length, "anti-plagiat : chaque sondage interroge HAL");
   egal(w.eval("nbSondes")(remplissage(1200)), 60, "anti-plagiat : une thèse longue reçoit 60 sondages");
+  // rapport téléchargeable, à remettre à l’encadreur
+  let rapport = null, nomFichier = ""; w.saveWord = (nom, html) => { nomFichier = nom; rapport = html; };
+  egal(!!d.querySelector("#simRapport"), true, "rapport : bouton « Télécharger le rapport (Word) »");
+  d.querySelector("#simRapport").click();
+  const rt = (rapport || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " "); if(process.argv[2] === "detail") console.log("RAPPORT " + rt.slice(0, 900));
+  egal(nomFichier, "rapport-anti-plagiat-memoire-docx", "rapport : nommé d’après le document contrôlé");
+  egal(/Rapport de contrôle des similitudes/.test(rt) && /Document contrôlé memoire\.docx/.test(rt) && /Date du contrôle/.test(rt), true, "rapport : titre, document et date");
+  egal(/largement contribué à la polarisation/.test(rt) && /HAL : La presse ivoirienne et la crise/.test(rt), true, "rapport : le passage à corriger avec sa source");
+  egal(/correctement cités ou entre guillemets \d+/.test(rt) && !/durci les clivages/.test(rt), true, "rapport : les passages cités sont comptés à part, sans reproche");
+  egal(/Méthode/.test(rt) && /Limites/.test(rt) && /reformulation proche n’est pas détectée/.test(rt), true, "rapport : méthode et limites dites honnêtement");
+  egal(rt.includes(DOC.slice(0, 200)), false, "rapport : jamais le texte entier du document");
 
   errs.forEach(e => console.log("ÉCHEC " + e));
   console.log(errs.length ? `erreurs : ${errs.length}` : "erreurs : aucune");

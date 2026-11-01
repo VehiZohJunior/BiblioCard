@@ -2542,7 +2542,42 @@ async function runSimilarity(texteDoc, nomDoc){
     ${freq.length ? `<div class="blk"><h3>Mots très répétés</h3><p class="legend">${freq.map(f => `« ${esc(f.word)} » ${f.n} fois (paragraphe ${f.para})`).join(", ")}.</p></div>` : ""}
     <p class="legend" style="margin-top:12px">Lian’Z compare ton texte à tes documents, au texte intégral des thèses, mémoires et articles déposés dans HAL (TEL, DUMAS), à Wikipédia et aux résumés d’articles d’OpenAlex, par ${probes.length} sondages en ligne. Il ne remplace pas un logiciel institutionnel qui dispose des copies déjà rendues dans ton université : c’est un contrôle préalable, avant de rendre.</p>`;
   if(oaLimite) box.insertAdjacentHTML("beforeend", `<p class="note">Les résumés d’articles d’OpenAlex n’ont pas été comparés : la limite gratuite du jour est atteinte pour ta connexion Internet. Relance le contrôle demain pour les inclure.</p>`);
+  // rapport à remettre (encadreur, jury) : exactement ce qui vient d’être affiché, dans un document Word
+  red.rapportSim = {nom: nomDoc || $("#draftTitle").value.trim() || "Texte de la Rédaction", date: Date.now(), mots: W.length, pct, unflagged,
+    cites: results.reduce((n, r) => n + r.passages.filter(p => p.inQuotes || p.cited).length, 0),
+    sources: results.map(r => ({label: r.label, url: r.url || "", pct: r.pct, kind: r.kind})), reps: reps.length, freq, sondages: probes.length, online, oaLimite, documents: corpus.length};
+  box.insertAdjacentHTML("beforeend", `<div class="chips" style="margin-top:12px"><button class="chip pri" type="button" id="simRapport">Télécharger le rapport (Word)</button></div>`);
+  $("#simRapport").onclick = telechargerRapportSim;
   renderTasks();
+}
+/* RAPPORT DE CONTRÔLE DES SIMILITUDES : document Word daté, à remettre à l’encadreur. Il dit ce qui a été comparé,
+   comment, ce qui a été trouvé (passages à corriger avec leur source, sources retrouvées, passages correctement
+   cités), et les limites du contrôle. Il ne contient que des extraits du texte contrôlé, jamais le texte entier. */
+function telechargerRapportSim(){
+  const R = red.rapportSim; if(!R) return;
+  const date = new Date(R.date).toLocaleString("fr-FR", {day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"});
+  const h = t => `<p style="font-size:13pt;font-weight:bold">${esc(t)}</p>`, ligne = (a, b) => `<tr><td><b>${esc(a)}</b></td><td>${esc(b)}</td></tr>`;
+  const pc = x => `${Math.round(100 * x)} %`;
+  const comparees = [`${R.documents} document${R.documents > 1 ? "s" : ""} de comparaison déposé${R.documents > 1 ? "s" : ""} sur l’appareil`].concat(R.online
+    ? ["texte intégral des thèses (TEL), mémoires de master (DUMAS) et articles déposés dans HAL", "Wikipédia (français et anglais)", R.oaLimite ? "résumés d’articles d’OpenAlex : non comparés (limite gratuite du jour atteinte)" : "résumés d’articles scientifiques d’OpenAlex"]
+    : ["comparaison en ligne non faite : pas de connexion Internet au moment du contrôle"]);
+  const html = `<html><head><meta charset="utf-8"><title>Rapport de contrôle des similitudes</title></head><body style="font-family:'Times New Roman',serif;font-size:12pt">
+    <p style="font-size:18pt;font-weight:bold">Rapport de contrôle des similitudes</p>
+    <table>${ligne("Document contrôlé", R.nom)}${ligne("Date du contrôle", date)}${ligne("Longueur", `${R.mots} mots`)}${ligne("Outil", "SCIENTUS (WayDayZ), module anti-plagiat")}</table>
+    ${h("Résultat")}
+    <table>${ligne("Part du texte retrouvée ailleurs", pc(R.pct))}${ligne("Passages à corriger (repris sans guillemets ni citation)", String(R.unflagged.length))}${ligne("Passages retrouvés mais correctement cités ou entre guillemets", String(R.cites))}${ligne("Passages répétés dans le texte lui-même", String(R.reps))}</table>
+    ${h("Passages à corriger")}
+    ${R.unflagged.length ? R.unflagged.map((x, i) => `<p style="text-align:justify"><b>${i + 1}.</b> « ${esc(x.text.length > 400 ? x.text.slice(0, 400) + "…" : x.text)} » (${x.words} mots identiques à : ${esc(x.src)})</p>`).join("") : `<p>Aucun passage repris sans guillemets ni citation n’a été trouvé.</p>`}
+    ${h("Sources retrouvées")}
+    ${R.sources.length ? R.sources.map(x => `<li>${esc(x.label)} : ${pc(x.pct)} du texte${x.url ? ` (${esc(x.url)})` : ""}</li>`).join("") : `<p>Aucune.</p>`}
+    ${h("Méthode")}
+    <p style="text-align:justify">Le texte est comparé par séquences de 8 mots identiques (accents et ponctuation ignorés) aux sources ci-dessous ; en ligne, ${R.sondages} phrases de 10 mots, réparties dans tout le texte, sont recherchées mot pour mot. Un passage entre guillemets, ou suivi de sa citation (« (Auteur, année) », appel numéroté [1] ou note), n’est pas reproché.</p>
+    ${comparees.map(x => `<li>${esc(x)}</li>`).join("")}
+    ${h("Limites")}
+    <p style="text-align:justify">Ce contrôle détecte les reprises mot pour mot ; une reformulation proche n’est pas détectée. Il ne dispose pas des copies déjà rendues dans les universités, que seuls les logiciels institutionnels possèdent. C’est un contrôle préalable : chaque passage signalé est à apprécier par l’encadreur.</p>
+  </body></html>`;
+  saveWord(`rapport-anti-plagiat-${R.nom.replace(/[^\p{L}\p{N}]+/gu, "-").slice(0, 40)}`, html);
+  toast("Rapport anti-plagiat téléchargé");
 }
 $("#simBtn").onclick = () => exiger("plagiat") && runSimilarity();
 // contrôle anti-plagiat d’un mémoire ou d’une thèse en Word ou PDF, sans passer par la Rédaction

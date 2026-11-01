@@ -7,14 +7,14 @@
 <meta name="description" content="Politique de confidentialité de SCIENTUS : quelles données sont traitées, où, pourquoi, combien de temps, et tes droits.">
 <link rel="icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
-<script src="js/theme.js?v=54"></script>
-<link rel="stylesheet" href="css/bibliocard.css?v=54">
+<script src="js/theme.js?v=55"></script>
+<link rel="stylesheet" href="css/bibliocard.css?v=55">
 </head>
 <body class="legal">
 <header class="lhead"><div class="in"><span class="wordmark" data-notr="1"><span class="sr">SCIENTUS</span><span aria-hidden="true">S<img class="wm-c" src="logo-c.png" alt="">IENTUS</span></span><a class="back" href="./">Retour à SCIENTUS</a></div></header>
 <main>
 <h1>Politique de confidentialité</h1>
-<p class="maj">Dernière mise à jour : 26 octobre 2026</p>
+<p class="maj">Dernière mise à jour : 1<sup>er</sup> novembre 2026</p>
 
 <div class="resume">
   <p><b>L’essentiel</b></p>
@@ -37,8 +37,11 @@
   <li>tes projets, tes références et tes réglages, tant que tu n’actives pas la synchronisation ;</li>
   <li>les documents que tu ajoutes pour le contrôle des similitudes ;</li>
   <li>les réponses d’OpenAlex (notices bibliographiques publiques), gardées 30 jours pour éviter de refaire les mêmes recherches ;</li>
-  <li>les enregistrements de voix de la collecte pour les langues ivoiriennes. Ils ne quittent l’appareil que si tu télécharges toi-même le fichier qui les contient.</li>
+  <li>les enregistrements de voix de la collecte pour les langues ivoiriennes. Ils ne quittent l’appareil que si tu télécharges toi-même le fichier qui les contient ;</li>
+  <li>les enregistrements audio ou vidéo que tu fais transcrire : ils sont transcrits par Whisper sur ton appareil, sans être envoyés ni conservés ; le modèle Whisper, téléchargé une fois, reste sur l’appareil ;</li>
+  <li>tes choix d’apparence (clair, sombre) et de connexion (automatique, en ligne, hors ligne).</li>
 </ul>
+<p>Quand tu quittes la page, ton projet ouvert est enregistré sur ton appareil, fermé et rangé dans « Mes projets ».</p>
 <p>Effacer les données du site dans ton navigateur supprime tout cela. Pense à télécharger une copie de secours avant.</p>
 
 <h2>3. Ce que nous enregistrons en ligne, et pourquoi</h2>
@@ -59,12 +62,15 @@
   <tr><td>Supabase (hébergement de la base, serveurs en Union européenne)</td><td>Les données du point 3</td><td>Quand tu es connecté</td></tr>
   <tr><td>PayDunya (paiement)</td><td>Ton adresse e-mail, la formule et le montant</td><td>Quand tu choisis une formule</td></tr>
   <tr><td>OpenAlex, Open Library, CrossRef</td><td>Le nom de l’auteur cité et l’année de la citation, jamais ton texte</td><td>Quand tu construis ta bibliographie à partir des citations</td></tr>
+  <tr><td>doi.org (agences d’enregistrement des DOI : CrossRef, DataCite, mEDRA…), CrossRef, Bibliothèque nationale de France, Open Library, theses.fr, DataCite, OpenAlex</td><td>Le titre, le nom de l’auteur, l’année et le DOI d’une référence incomplète, jamais ton texte</td><td>Quand SCIENTUS complète une référence (éditeur, ville, revue, volume, numéro, pages, université)</td></tr>
+  <tr><td>Relais de WayDayZ, hébergé par Cloudflare (Workers)</td><td>Le DOI ou l’adresse de la page de présentation publique d’un document. Le relais lit cette page chez l’éditeur et ne renvoie que ses informations bibliographiques. Cloudflare voit ton adresse IP</td><td>Quand une référence reste incomplète après les registres publics</td></tr>
   <tr><td>OpenAlex, HAL</td><td>Le sujet de ton travail et les intitulés de ton plan, jamais ton texte</td><td>Quand tu demandes des lectures pour une partie de ton plan</td></tr>
   <tr><td>OpenAlex, HAL, CrossRef</td><td>Le titre, l’année et le DOI d’une référence, jamais ton texte</td><td>Quand tu lances la vérification d’existence</td></tr>
-  <tr><td>Wikipédia, OpenAlex</td><td>De courts extraits d’environ dix mots de ton texte</td><td>Quand tu lances le contrôle des similitudes</td></tr>
+  <tr><td>HAL (thèses, mémoires et articles en texte intégral), Wikipédia, OpenAlex</td><td>De courts extraits d’environ dix mots de ton texte ou du document contrôlé, jamais le texte entier</td><td>Quand tu lances le contrôle anti-plagiat</td></tr>
   <tr><td>Service de reconnaissance vocale de ton navigateur (Google ou Apple)</td><td>Le son de ta voix</td><td>Seulement avec le moteur de dictée « Direct ». Le moteur Whisper reste sur l’appareil</td></tr>
   <tr><td>Hébergeur du site, Google Fonts, cdnjs, jsDelivr, Hugging Face</td><td>Ton adresse IP, comme pour tout site web, au chargement des pages, des polices, des bibliothèques et du modèle Whisper</td><td>Au chargement</td></tr>
 </table>
+<p>En mode « Hors ligne » (menu, rubrique Connexion), SCIENTUS n’envoie aucune de ces demandes : tout le travail se fait sur ton appareil, et ce qui demande Internet attend que tu repasses en mode automatique ou en ligne.</p>
 <p>Certains de ces services sont situés hors de Côte d’Ivoire, en particulier dans l’Union européenne et aux États-Unis. Ces transferts sont encadrés par la loi n° 2013-450 <mark class="acompleter">[formalités auprès de l’ARTCI à accomplir avant l’ouverture au public]</mark>.</p>
 
 <h2>5. Tes droits</h2>
