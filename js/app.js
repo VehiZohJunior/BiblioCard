@@ -2494,6 +2494,7 @@ async function halProbe(probe){
    Comparé à tes documents, à HAL (thèses, mémoires, articles), à Wikipédia et aux résumés d’articles d’OpenAlex ;
    les passages entre guillemets ou suivis de leur citation (« (Auteur, année) », [1], note) ne sont pas reprochés. */
 async function runSimilarity(texteDoc, nomDoc){
+  setView("plagiat"); // les résultats s’affichent sur la page du test, d’où que le contrôle soit lancé
   const text = texteDoc != null ? texteDoc : $("#draft").value; const box = $("#simRes"); $("#simPanel").hidden = false;
   $("#simPanel").querySelector("h3").textContent = nomDoc ? `Contrôle des similitudes : ${nomDoc}` : "Contrôle des similitudes";
   if(wordsOf(text).length < 30){ box.innerHTML = `<p class="legend">Il faut au moins une trentaine de mots pour un contrôle utile.</p>`; return; }
@@ -2580,11 +2581,15 @@ function telechargerRapportSim(){
   toast("Rapport anti-plagiat téléchargé");
 }
 $("#simBtn").onclick = () => exiger("plagiat") && runSimilarity();
+// page « Test anti-plagiat » : les mêmes actions que dans la Rédaction
+$("#plagDocBtn2").onclick = () => $("#plagDocBtn").click();
+$("#corpusBtn2").onclick = () => $("#corpusBtn").click();
+$("#plagTexteBtn").onclick = () => { if(wordsOf($("#draft").value).length < 30){ toast("Ta Rédaction est vide ou trop courte : écris ou colle ton texte dans Rédaction, ou contrôle un document Word ou PDF"); return; } $("#simBtn").click(); };
 // contrôle anti-plagiat d’un mémoire ou d’une thèse en Word ou PDF, sans passer par la Rédaction
 $("#plagDocBtn").onclick = () => exiger("plagiat") && $("#plagDocIn").click();
 $("#plagDocIn").onchange = async e => {
   const f = e.target.files[0]; e.target.value = ""; if(!f) return;
-  setView("redac"); $("#simPanel").hidden = false; $("#simRes").innerHTML = `<p class="legend"><span class="busy"></span> Lecture de ${esc(f.name)}…</p>`;
+  setView("plagiat"); $("#simPanel").hidden = false; $("#simRes").innerHTML = `<p class="legend"><span class="busy"></span> Lecture de ${esc(f.name)}…</p>`;
   let t = ""; try{ t = stripMarks(await extract(f, {status: ""})); }catch(err){ $("#simRes").innerHTML = `<p class="legend">${esc(f.name)} : lecture impossible.</p>`; return; }
   // la bibliographie du document n’est pas son texte : seul le corps est contrôlé
   const sec = findBibSection(t); await runSimilarity(sec ? sec.body : t, f.name);

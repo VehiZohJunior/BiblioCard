@@ -1085,3 +1085,16 @@ body:not([data-view="projets"]) #viewProjets{display:none}
 .pli .btn{grid-column:2;justify-self:start;margin-top:8px}
 /* téléphone : la barre du bas garde ses cinq modules ; l’étagère s’ouvre par le nom du projet, en haut */
 @media (max-width:999px){ .appnav .an-projets{display:none} }
+/* ===== Page « Test anti-plagiat » ===== */
+body[data-view="plagiat"] #viewBiblio, body[data-view="plagiat"] #viewRedac, body[data-view="plagiat"] #viewPlan, body[data-view="plagiat"] #viewProjets, body[data-view="plagiat"] .composer, body[data-view="plagiat"] .dock{display:none!important}
+body:not([data-view="plagiat"]) #viewPlagiat{display:none}
+body[data-view="plagiat"] main.simple{padding-bottom:calc(40px + var(--nav-h) + env(safe-area-inset-bottom,0px))}
+@media (min-width:1000px){ body[data-view="plagiat"] main.simple{padding-bottom:60px} }
+.plag-choix{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:18px 0 12px}
+.plag-carte{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:18px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;box-shadow:var(--shadow-sm)}
+.plag-carte b{font-size:16px}
+.plag-carte span{font-size:13.5px;color:var(--muted)}
+.plag-carte:hover{border-color:var(--line-strong)}
+.plag-carte.pri{background:var(--grad-action);border-color:transparent;color:#fff;box-shadow:var(--glow)}
+.plag-carte.pri span{color:rgba(255,255,255,.88)}
+#viewPlagiat #simPanel{margin-top:16px}
