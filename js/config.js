@@ -20,5 +20,8 @@ window.BIBLIOCARD_CONFIG = {
   // relaisEditeurs : adresse du relais Cloudflare du propriétaire (relais/relais-editeurs.js). Il lit, sur la page
   // de présentation d’un document (même payant), les seules informations bibliographiques publiques de l’éditeur.
   // Vide = pas de relais : SCIENTUS se contente des registres publics (doi.org, BnF, theses.fr…).
+  // serveurScientus : adresse du serveur Django de WayDayZ (dossier serveur/). Vide = pas de sauvegarde en ligne
+  // ni de base des mémoires déposés : l’application fonctionne seule, sur l’appareil.
+  serveurScientus: "",
   relaisEditeurs: "https://bibliocard.classos-api.workers.dev",
 };

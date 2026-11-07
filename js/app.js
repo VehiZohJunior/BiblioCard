@@ -28,7 +28,11 @@ const NOTES = {
 function setStatus(t, saving){ $("#statusText").textContent = t; $("#status").classList.toggle("saving", !!saving); }
 function newPid(){ return "j" + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
 function blankProject(name, kind){ return {id: newPid(), name, kind, createdAt: Date.now(), updatedAt: Date.now(), sources: [], style: "cames", profile: "norcames", citeMode: "parenthese", exist: {}, comments: [], draft: {title:"", text:""}, thread: [], plan: planVide()}; }
-function syncCurrent(){ const p = state.projects[state.current]; if(!p) return; PKEYS.forEach(k => p[k] = state[k]); p.updatedAt = Date.now(); }
+// l’heure de modification ne bouge que si le contenu du projet a vraiment changé : c’est elle qui départage deux
+// appareils (sauvegarde en ligne), un simple enregistrement ne doit pas rendre « plus récente » une copie ancienne
+// (empreinte du contenu, car le projet et la copie de travail partagent les mêmes données en mémoire)
+const empreinteContenu = () => { const t = JSON.stringify(PKEYS.map(k => state[k])); let h = 5381; for(let i = 0; i < t.length; i++) h = (h * 33 + t.charCodeAt(i)) | 0; return t.length + ":" + h; };
+function syncCurrent(){ const p = state.projects[state.current]; if(!p) return; PKEYS.forEach(k => p[k] = state[k]); const e = empreinteContenu(); if(e !== p._empreinte || !p.updatedAt){ p._empreinte = e; p.updatedAt = Date.now(); } }
 function loadProject(pid){ const p = state.projects[pid]; if(!p) return; state.current = pid; PKEYS.forEach(k => { if(p[k] !== undefined) state[k] = JSON.parse(JSON.stringify(p[k])); }); state.comments = state.comments || []; state.thread = state.thread || []; state.draft = state.draft || {title:"", text:""}; if(!p.plan) state.plan = planVide(); }
 function ensureProjects(){
   if(!state.anonId) state.anonId = "u" + Math.random().toString(36).slice(2, 12);
@@ -66,6 +70,7 @@ function save(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     if(!ecrireLocal()) return;
+    nuagePlanifier();
     if(dbH){
       try{
         const meta = {}; GKEYS.filter(k => k !== "projects").forEach(k => meta[k] = state[k]);
@@ -1575,6 +1580,7 @@ async function reprendreEnLigne(){
     if(state.sources.some(s => s._cite)) await construireBiblio(null, true);
     await completerEnLigne();
     if(state.sources.some(s => s.title && !existFor(s))) runExistence(false);
+    nuageSynchroniser();
   } finally { reprise = false; }
 }
 function marquerConnexion(){
@@ -1687,6 +1693,7 @@ function projectDialog(){
     const p = state.projects[b.dataset.delp];
     if(b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = `Confirmer (${p.sources.length} réf.)`; b.style.color = "var(--proof)"; return; }
     delete state.projects[p.id]; if(dbH) dbH.projs.doc(p.id).delete().catch(() => {});
+    nuageAppel("DELETE", `/api/projets/${encodeURIComponent(p.id)}`, {maj: Date.now()});
     if(p.id === state.current){ loadProject(Object.keys(state.projects)[0]); ui.files = []; refreshDraftUi(); }
     save(); renderAll(); projectDialog(); toast("Projet supprimé");
   });
@@ -1697,6 +1704,100 @@ function projectDialog(){
   if(!dlg.open) dlg.showModal();
 }
 $("#projBtn").onclick = () => setView("projets");
+
+/* ================= SAUVEGARDE EN LIGNE (serveur SCIENTUS, Django) =================
+   Facultative : l’application fonctionne sans compte et hors ligne. Avec un compte, chaque projet enregistré sur
+   l’appareil est aussi copié sur le serveur quelques secondes plus tard ; au démarrage et au retour de la connexion,
+   les deux côtés se mettent d’accord : la version la plus récente de chaque projet gagne. Le jeton de connexion est
+   gardé sur l’appareil ; le mot de passe, jamais. */
+const NUAGE_CLE = "scientus.nuage";
+const nuageAdresse = () => String((window.BIBLIOCARD_CONFIG || {}).serveurScientus || "").replace(/\/+$/, "");
+const nuage = { lire(){ try{ return JSON.parse(localStorage.getItem(NUAGE_CLE) || "null"); }catch(e){ return null; } },
+  ecrire(v){ try{ v ? localStorage.setItem(NUAGE_CLE, JSON.stringify(v)) : localStorage.removeItem(NUAGE_CLE); }catch(e){} },
+  connecte(){ const v = this.lire(); return !!(nuageAdresse() && v && v.jeton); } };
+async function nuageAppel(methode, chemin, corps){
+  if(!nuageAdresse()) return {status: 0, data: null};
+  if(!enLigne()) return {status: 0, horsLigne: true, data: null};
+  const v = nuage.lire(), ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
+  try{
+    const r = await fetch(nuageAdresse() + chemin, {method: methode, signal: ctl.signal, headers: {"Content-Type": "application/json", ...(v && v.jeton ? {Authorization: "Bearer " + v.jeton} : {})}, body: corps === undefined ? undefined : JSON.stringify(corps)});
+    let data = null; try{ data = await r.json(); }catch(e){}
+    if(r.status === 401 && v && v.jeton){ nuage.ecrire(null); renderNuage(); toast(tr("Ta connexion à la sauvegarde en ligne a expiré : reconnecte-toi")); }
+    return {status: r.status, data};
+  }catch(e){ return {status: 0, data: null}; } finally { clearTimeout(t); }
+}
+// un projet vers le serveur ; si le serveur a plus récent (autre appareil), c’est sa version qui est reprise
+async function nuageEnvoyer(p){
+  if(!p || !nuage.connecte()) return false;
+  const r = await nuageAppel("PUT", `/api/projets/${encodeURIComponent(p.id)}`, {nom: p.name, maj: p.updatedAt || Date.now(), contenu: p});
+  if(r.status === 409 && r.data && r.data.projet){ nuageReprendre(r.data.projet); return true; }
+  return r.status === 200;
+}
+function nuageReprendre(sp){
+  if(sp.supprime){ return; }
+  const p = {...sp.contenu, id: sp.pid, updatedAt: sp.maj};
+  state.projects[sp.pid] = p;
+  if(sp.pid === state.current){ loadProject(sp.pid); refreshDraftUi(); toast(tr("Version plus récente reprise d’un autre appareil")); }
+}
+let nuageT = null, nuageEnCours = false;
+function nuagePlanifier(){ if(!nuage.connecte()) return; clearTimeout(nuageT); nuageT = setTimeout(() => nuageEnvoyer(state.projects[state.current]).then(ok => { if(ok){ const v = nuage.lire(); if(v){ v.derniere = Date.now(); nuage.ecrire(v); renderNuage(); } } }), 3000); }
+async function nuageSynchroniser(){
+  if(nuageEnCours || !nuage.connecte() || !enLigne()) return; nuageEnCours = true;
+  try{
+    syncCurrent(); // ne change l’heure que si le projet ouvert a vraiment été modifié
+    const r = await nuageAppel("GET", "/api/projets"); if(r.status !== 200 || !r.data) return;
+    const distants = new Map(r.data.projets.map(x => [x.pid, x]));
+    let change = false;
+    for(const d of distants.values()){
+      const local = state.projects[d.pid];
+      if(d.supprime){ if(local && (local.updatedAt || 0) <= d.maj && Object.keys(state.projects).length > 1){ delete state.projects[d.pid]; if(d.pid === state.current){ loadProject(Object.keys(state.projects)[0]); refreshDraftUi(); } change = true; } continue; }
+      if(!local || d.maj > (local.updatedAt || 0)){ const g = await nuageAppel("GET", `/api/projets/${encodeURIComponent(d.pid)}`); if(g.status === 200 && g.data){ nuageReprendre(g.data); change = true; } }
+    }
+    for(const p of Object.values(state.projects)){ const d = distants.get(p.id); if(!d || (!d.supprime && (p.updatedAt || 0) > d.maj)) await nuageEnvoyer(p); }
+    const v = nuage.lire(); if(v){ v.derniere = Date.now(); nuage.ecrire(v); }
+    if(change){ saveNow(); renderAll(); }
+    renderNuage();
+  } finally { nuageEnCours = false; }
+}
+function renderNuage(){
+  const box = $("#nuageBox"); if(!box) return;
+  box.hidden = !nuageAdresse(); if(box.hidden) return;
+  const v = nuage.lire();
+  if(v && v.jeton){
+    box.innerHTML = `<h4 class="mhead">${tr("Sauvegarde en ligne")}</h4><p class="legend">${tr("Connecté")} : <b data-notr="1">${esc(v.email)}</b>. ${v.derniere ? `${tr("Dernière sauvegarde")} : ${esc(dateHeure(v.derniere))}.` : ""}</p>
+      <div class="row"><button class="btn small" id="nuageSync" type="button">${tr("Sauvegarder maintenant")}</button><button class="btn small" id="nuageQuit" type="button">${tr("Se déconnecter")}</button><button class="btn small" id="nuageSuppr" type="button">${tr("Supprimer mon compte")}</button></div>`;
+    $("#nuageSync").onclick = async () => { await nuageSynchroniser(); toast(tr(enLigne() ? "Projets sauvegardés en ligne" : "Hors ligne : la sauvegarde se fera au retour de la connexion")); };
+    $("#nuageQuit").onclick = async () => { await nuageAppel("POST", "/api/comptes/deconnexion"); nuage.ecrire(null); renderNuage(); toast(tr("Déconnecté : tes projets restent sur cet appareil")); };
+    $("#nuageSuppr").onclick = () => {
+      box.insertAdjacentHTML("beforeend", `<form class="nuage-f" id="nuageSupprF"><p class="legend">${tr("Ton compte et tous tes projets sauvegardés en ligne seront effacés du serveur. Tes projets restent sur cet appareil.")}</p><input type="password" name="mdp" autocomplete="current-password" placeholder="${tr("Mot de passe")}" required><button class="btn small" type="submit">${tr("Supprimer définitivement")}</button></form>`);
+      $("#nuageSupprF").onsubmit = async e => { e.preventDefault(); const r = await nuageAppel("DELETE", "/api/comptes/moi", {mot_de_passe: e.target.querySelector("[name=mdp]").value});
+        if(r.status === 200){ nuage.ecrire(null); renderNuage(); toast(tr("Compte supprimé")); } else toast(tr((r.data && r.data.erreur) || "Suppression impossible pour l’instant")); };
+    };
+    return;
+  }
+  box.innerHTML = `<h4 class="mhead">${tr("Sauvegarde en ligne")}</h4>
+    <p class="legend">${tr("Facultative. Crée un compte pour retrouver tes projets sur un autre appareil, ou après avoir vidé ton navigateur. Tes documents Word et PDF ne sont jamais envoyés.")}</p>
+    <form class="nuage-f" id="nuageF">
+      <input type="email" name="email" autocomplete="email" placeholder="${tr("Adresse e-mail")}" required>
+      <input type="password" name="mdp" autocomplete="current-password" placeholder="${tr("Mot de passe (8 caractères au moins)")}" minlength="8" required>
+      <div class="row"><button class="btn small primary" type="submit" data-m="connexion">${tr("Me connecter")}</button><button class="btn small" type="submit" data-m="inscription">${tr("Créer mon compte")}</button></div>
+      <p class="legend" id="nuageMsg" role="status"></p>
+    </form>`;
+  const f = $("#nuageF"); let mode = "connexion";
+  f.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { mode = b.dataset.m; });
+  const msg = f.querySelector("#nuageMsg");
+  f.onsubmit = async e => {
+    e.preventDefault();
+    if(f.dataset.envoi) return; // un seul envoi à la fois
+    if(!enLigne()){ msg.textContent = tr("Hors ligne : la connexion à la sauvegarde demande Internet."); return; }
+    msg.textContent = "…"; f.dataset.envoi = "1";
+    const r = await nuageAppel("POST", `/api/comptes/${mode}`, {email: f.querySelector("[name=email]").value, mot_de_passe: f.querySelector("[name=mdp]").value, appareil: navigator.userAgent.slice(0, 100)});
+    if((r.status === 200 || r.status === 201) && r.data && r.data.jeton){
+      nuage.ecrire({jeton: r.data.jeton, email: r.data.compte.email}); renderNuage(); await nuageSynchroniser();
+      toast(tr(mode === "inscription" ? "Compte créé : tes projets sont sauvegardés en ligne" : "Connecté : tes projets sont synchronisés"));
+    } else { delete f.dataset.envoi; msg.textContent = r.status ? ((r.data && (r.data.details ? r.data.details.join(" ") : r.data.erreur)) || tr("Échec")) : tr("Le serveur ne répond pas. Réessaie plus tard."); }
+  };
+}
 
 /* ================= MES PROJETS (étagère) =================
    Un projet = une bibliographie et tout son travail (références, norme, fil, brouillon, plan, commentaires).
@@ -2525,6 +2626,16 @@ async function runSimilarity(texteDoc, nomDoc){
   } };
   await Promise.all([sonder(), sonder(), sonder()]);
   online = halVu || !wikiKo;
+  // base SCIENTUS : mémoires et thèses déposés par les établissements (serveur), mêmes phrases de 10 mots
+  let deposesCompares = 0;
+  if(nuageAdresse() && enLigne() && probes.length){
+    const rs = await nuageAppel("POST", "/api/corpus/sondes", {sondes: probes});
+    if(rs.status === 200 && rs.data){ deposesCompares = rs.data.documents_compares || 0;
+      rs.data.resultats.forEach(x => { const so = sondeDansTexte(text, probes[x.sonde]); if(so.start < 0) return;
+        x.documents.forEach(d => { const cle = "depot:" + d.id; let r = parHal.get(cle);
+          if(!r){ r = {label: `${d.type} déposé : ${d.titre} (${d.auteur}${d.annee ? `, ${d.annee}` : ""})${d.etablissement ? `, ${d.etablissement}` : ""}`, url: "", kind: "Mémoires déposés", flags: new Array(so.flags.length).fill(false), passages: []}; parHal.set(cle, r); }
+          so.flags.forEach((f, k) => { if(f) r.flags[k] = true; }); r.passages.push({start: so.start, end: so.end, words: wordsOf(probes[x.sonde]).length, text: text.slice(so.start, so.end), ...isQuotedOrCited(text, so.start, so.end)}); }); }); }
+  }
   parHal.forEach(r => { const covered = r.flags.filter(Boolean).length; results.push({...r, covered, total: r.flags.length, pct: r.flags.length ? covered / r.flags.length : 0}); });
   const reps = internalRepeats(text), freq = frequentWords(text);
   // part totale du texte retrouvée ailleurs (sans double compte)
@@ -2546,7 +2657,7 @@ async function runSimilarity(texteDoc, nomDoc){
   // rapport à remettre (encadreur, jury) : exactement ce qui vient d’être affiché, dans un document Word
   red.rapportSim = {nom: nomDoc || $("#draftTitle").value.trim() || "Texte de la Rédaction", date: Date.now(), mots: W.length, pct, unflagged,
     cites: results.reduce((n, r) => n + r.passages.filter(p => p.inQuotes || p.cited).length, 0),
-    sources: results.map(r => ({label: r.label, url: r.url || "", pct: r.pct, kind: r.kind})), reps: reps.length, freq, sondages: probes.length, online, oaLimite, documents: corpus.length};
+    sources: results.map(r => ({label: r.label, url: r.url || "", pct: r.pct, kind: r.kind})), reps: reps.length, freq, sondages: probes.length, online, oaLimite, documents: corpus.length, deposes: deposesCompares};
   box.insertAdjacentHTML("beforeend", `<div class="chips" style="margin-top:12px"><button class="chip pri" type="button" id="simRapport">Télécharger le rapport (Word)</button></div>`);
   $("#simRapport").onclick = telechargerRapportSim;
   renderTasks();
@@ -2559,7 +2670,7 @@ function telechargerRapportSim(){
   const date = new Date(R.date).toLocaleString("fr-FR", {day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"});
   const h = t => `<p style="font-size:13pt;font-weight:bold">${esc(t)}</p>`, ligne = (a, b) => `<tr><td><b>${esc(a)}</b></td><td>${esc(b)}</td></tr>`;
   const pc = x => `${Math.round(100 * x)} %`;
-  const comparees = [`${R.documents} document${R.documents > 1 ? "s" : ""} de comparaison déposé${R.documents > 1 ? "s" : ""} sur l’appareil`].concat(R.online
+  const comparees = [`${R.documents} document${R.documents > 1 ? "s" : ""} de comparaison déposé${R.documents > 1 ? "s" : ""} sur l’appareil`].concat(R.deposes ? [`${R.deposes} mémoires, thèses et articles déposés par les établissements dans la base SCIENTUS`] : []).concat(R.online
     ? ["texte intégral des thèses (TEL), mémoires de master (DUMAS) et articles déposés dans HAL", "Wikipédia (français et anglais)", R.oaLimite ? "résumés d’articles d’OpenAlex : non comparés (limite gratuite du jour atteinte)" : "résumés d’articles scientifiques d’OpenAlex"]
     : ["comparaison en ligne non faite : pas de connexion Internet au moment du contrôle"]);
   const html = `<html><head><meta charset="utf-8"><title>Rapport de contrôle des similitudes</title></head><body style="font-family:'Times New Roman',serif;font-size:12pt">
@@ -2662,5 +2773,5 @@ try{ const langs = (navigator.languages && navigator.languages.length ? navigato
 
 /* ---------- démarrage ---------- */
 document.body.classList.toggle("in-claude", !!(window.claude && window.claude.use)); // textes propres à la démonstration dans Claude
-loadLocal(); compte.init(); refreshDraftUi(); renderAll(); applyLang(); marquerConnexion(); setTimeout(reprendreEnLigne, 2500); setTimeout(() => sync.pull(), 400); setView(Object.values(state.projects).some(projetUtilise) ? "projets" : (() => { try{ const v = localStorage.getItem("bibliocard.view"); return v && v !== "projets" ? v : "biblio"; }catch(e){ return "biblio"; } })()); micUi(); updateCount();
+loadLocal(); compte.init(); refreshDraftUi(); renderAll(); applyLang(); marquerConnexion(); renderNuage(); setTimeout(reprendreEnLigne, 2500); setTimeout(() => sync.pull(), 400); setView(Object.values(state.projects).some(projetUtilise) ? "projets" : (() => { try{ const v = localStorage.getItem("bibliocard.view"); return v && v !== "projets" ? v : "biblio"; }catch(e){ return "biblio"; } })()); micUi(); updateCount();
 setStatus(state.sources.length ? "Enregistré sur cet appareil" : "Prêt");

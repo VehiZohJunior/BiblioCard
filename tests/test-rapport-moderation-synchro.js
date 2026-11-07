@@ -14,7 +14,7 @@ function mk(opts){
   // 1. RAPPORT EN ANGLAIS
   const A = mk({}); await wait(150);
   A.d.querySelector("#demoBtn").click(); await wait(500);
-  A.w.eval("state").uiLang = "en"; A.w.applyLang(); A.w.downloadReport(); await wait(300);
+  A.w.eval("state").uiLang = "en"; A.w.applyLang(); A.w.downloadReport(); for(let i = 0; i < 100 && !A.outs.some(o => o.blob); i++) await wait(100); // le rapport peut tarder sous charge
   const blob = A.outs.find(o => o.blob).blob; const z = await JSZip.loadAsync(Buffer.from(await blob.arrayBuffer()));
   const txt = (await z.file("word/document.xml").async("string")).replace(/<\/w:p>/g, "\n").replace(/<[^>]+>/g, "");
   console.log("1. Rapport :", A.outs.find(o => o.name).name); txt.split("\n").filter(Boolean).slice(0, 14).forEach(l => console.log("   ", l.slice(0, 120)));
