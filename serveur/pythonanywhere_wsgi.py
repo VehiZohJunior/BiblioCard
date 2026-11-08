@@ -14,6 +14,8 @@ if str(_serveur) not in sys.path:
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scientus_serveur.settings")
 os.environ["SCIENTUS_SECRET_KEY"] = (_maison / ".scientus-secret").read_text().strip()
 os.environ["SCIENTUS_HOSTS"] = f"{_maison.name}.pythonanywhere.com,{_maison.name}.eu.pythonanywhere.com"
+# HTTPS : assuré par PythonAnywhere (onglet Web, « Force HTTPS »), pas par une redirection de Django
+os.environ.setdefault("SCIENTUS_SSL_REDIRECT", "0")
 
 from django.core.wsgi import get_wsgi_application  # noqa: E402
 

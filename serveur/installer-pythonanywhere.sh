@@ -16,7 +16,7 @@ git -C "$DEPOT" pull --ff-only
 
 echo "== 2. Environnement Python (Django 6.1)"
 if [ ! -x "$ENV/bin/python" ]; then
-  PY="$(command -v python3.13 || command -v python3.12)"
+  PY="$(command -v python3.12 || command -v python3.13)"
   [ -z "$PY" ] && { echo "Python 3.12 ou 3.13 introuvable sur ce compte."; exit 1; }
   "$PY" -m venv "$ENV"
 fi
@@ -32,6 +32,7 @@ echo "== 4. Base de données et fichiers de l’administration"
 cd "$SERVEUR"
 export SCIENTUS_SECRET_KEY="$(cat "$HOME/.scientus-secret")"
 export SCIENTUS_HOSTS="$UTILISATEUR.pythonanywhere.com,$UTILISATEUR.eu.pythonanywhere.com"
+export SCIENTUS_SSL_REDIRECT=0
 "$ENV/bin/python" manage.py migrate --noinput
 "$ENV/bin/python" manage.py collectstatic --noinput -v 0
 "$ENV/bin/python" manage.py check --deploy --fail-level ERROR
@@ -45,6 +46,8 @@ cat <<FIN
                          exec(open("$SERVEUR/pythonanywhere_wsgi.py").read())
    Static files        : URL  /static/
                          Directory  $SERVEUR/staticfiles
+   Security            : « Force HTTPS » sur Enabled
+   Python              : la version de l’environnement : $("$ENV/bin/python" --version)
 
 Puis clique sur le bouton vert « Reload ».
 Adresse du serveur : https://$UTILISATEUR.pythonanywhere.com
