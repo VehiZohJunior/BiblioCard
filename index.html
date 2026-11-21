@@ -3,21 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SCIENTUS</title>
+<title>SCIENTUS · Bibliographie, dictée et anti-plagiat pour chercheurs</title>
 <meta name="description" content="Ta bibliographie, tirée de tes documents, et Lian’Z pour rédiger en parlant : NORCAMES, APA, ISO 690, Chicago, MLA, Vancouver, notes ; contrôle, vérification d’existence, similitudes, relecture par l’encadreur.">
+<link rel="canonical" href="https://vehizohjunior.github.io/BiblioCard/">
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SCIENTUS">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:url" content="https://vehizohjunior.github.io/BiblioCard/">
+<meta property="og:title" content="SCIENTUS · Bibliographie, dictée et anti-plagiat pour chercheurs">
+<meta property="og:description" content="Ta bibliographie, tirée de tes documents, et Lian’Z pour rédiger en parlant : NORCAMES, APA, ISO 690, Chicago, MLA, Vancouver, notes ; contrôle, vérification d’existence, similitudes, relecture par l’encadreur.">
+<meta property="og:image" content="https://vehizohjunior.github.io/BiblioCard/og-scientus.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="SCIENTUS : ta bibliographie construite à partir de ton texte, dans la norme exigée.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <meta name="theme-color" content="#F7F8FC" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0E1022" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-<script src="js/theme.js?v=58"></script>
-<link rel="stylesheet" href="css/bibliocard.css?v=58">
+<script src="js/theme.js?v=59"></script>
+<link rel="stylesheet" href="css/bibliocard.css?v=59">
 
 </head>
 <body>
@@ -39,6 +51,7 @@
   <button type="button" data-nav="projets" class="an-projets"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Mes projets</span></button>
   <button type="button" data-nav="biblio"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg><span class="l">Bibliographie</span><span class="s" aria-hidden="true">Biblio</span></button>
   <button type="button" data-nav="plan"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12h-8"/><path d="M21 6H8"/><path d="M21 18h-8"/><path d="M3 6v4c0 1.1.9 2 2 2h3"/><path d="M3 10v6c0 1.1.9 2 2 2h3"/></svg><span class="l">Plan et lectures</span><span class="s" aria-hidden="true">Plan</span></button>
+  <button type="button" data-nav="carnet"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z"/><path d="M6 3v18"/><path d="M3 7h3M3 12h3M3 17h3"/><path d="M10 8h6M10 12h6M10 16h3"/></svg><span class="l">Carnet de recherche</span><span class="s" aria-hidden="true">Carnet</span></button>
   <button type="button" data-nav="redac"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg><span class="l">Rédaction et dictée</span><span class="s" aria-hidden="true">Rédaction</span></button>
   <button type="button" data-nav="plagiat"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"/><path d="M14 3v5h5v3"/><circle cx="16.5" cy="16.5" r="3"/><path d="M18.7 18.7 21 21"/></svg><span class="l">Test anti-plagiat</span><span class="s" aria-hidden="true">Plagiat</span></button>
   <button type="button" data-nav="controle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg><span class="l">Contrôles</span><span class="s" aria-hidden="true">Contrôles</span></button>
@@ -82,6 +95,8 @@
   <p class="lead">Lian’Z transcrit fidèlement ce que tu dis, sans rien reformuler. Les commandes vocales sont expliquées plus bas.</p>
   <!-- MA RÉDACTION : objectif, cible du jour, anti-procrastination (js/ma-redaction-ui.js) -->
   <section class="mr" id="maRedac" aria-label="Ma rédaction"></section>
+  <!-- dossier de la partie en cours de rédaction : les fiches du carnet, prêtes à insérer -->
+  <section class="cdossier" id="carnetDossier" aria-label="Mes fiches pour cette partie" hidden></section>
   <div class="mic">
     <button class="micbtn" id="micBtn" aria-label="Commencer la dictée"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>
     <div class="micmeta"><b id="micTitle">Touche le micro pour dicter</b><span id="micSub"></span></div>
@@ -90,6 +105,13 @@
       <label class="sr" for="langSel">Langue</label><select id="langSel"></select>
     </div>
   </div>
+  <div class="micniveau" aria-hidden="true"><i id="micNiveau"></i></div>
+  <details class="panel2 micregl"><summary>Réglage du micro</summary><div class="in">
+    <label class="f">Sensibilité du micro <input type="range" id="micSens" min="1" max="5" step="1" value="3" aria-describedby="micSensAide"></label>
+    <p class="legend" id="micSensAide">1 : pièce bruyante · 3 : normale · 5 : voix faible ou micro éloigné.</p>
+    <button class="btn small" type="button" id="micCalibrer">Mesurer le bruit de la pièce</button> <span class="legend" id="micEtat" role="status"></span>
+    <p class="legend">Parle à 20 ou 30 cm du micro, d’une voix posée. Un écouteur avec micro capte mieux qu’un ordinateur portable. Le réglage sert au moteur Whisper ; le moteur Direct règle le micro lui-même.</p>
+  </div></details>
   <div class="interim" id="interim" aria-live="polite"></div>
   <div class="paper">
     <label class="sr" for="draftTitle">Titre</label><input id="draftTitle" placeholder="Titre de ton travail">
@@ -146,12 +168,14 @@
   <h1>Test anti-plagiat</h1>
   <p class="lead">Dépose ton mémoire ou ta thèse : SCIENTUS repère les passages repris sans guillemets ni citation, avec leur source, et te remet un rapport à joindre à ton dépôt.</p>
   <div class="plag-choix">
-    <button class="plag-carte pri" id="plagDocBtn2" type="button"><b>Contrôler un document</b><span>Word ou PDF : ton mémoire, ta thèse, ton article</span></button>
-    <button class="plag-carte" id="plagTexteBtn" type="button"><b>Contrôler le texte de ma Rédaction</b><span>Ce que tu as écrit ou dicté dans Lian’Z</span></button>
+    <button class="plag-carte pri" id="plagDocBtn2" type="button"><span class="pci m-rose" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><circle cx="11" cy="14" r="3"/><path d="m13.5 16.5 2 2"/></svg></span><b>Contrôler un document</b><span>Word ou PDF : ton mémoire, ta thèse, ton article</span></button>
+    <button class="plag-carte" id="plagTexteBtn" type="button"><span class="pci m-indigo" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span><b>Contrôler le texte de ma Rédaction</b><span>Ce que tu as écrit ou dicté dans Lian’Z</span></button>
   </div>
   <p class="legend">Comparé à tes documents de comparaison, au texte intégral des thèses, mémoires et articles de HAL (TEL, DUMAS), à Wikipédia et aux résumés d’articles d’OpenAlex. Les passages entre guillemets ou suivis de leur citation ne sont pas reprochés. <button class="link" id="corpusBtn2" type="button">Ajouter des documents de comparaison</button></p>
   <section class="panel2" style="padding:14px 16px" id="simPanel" hidden><h3 style="margin:0 0 6px;font-size:15px">Contrôle des similitudes</h3><div id="simRes"></div></section>
 </div>
+<!-- CARNET DE RECHERCHE : lectures, fiches, thèmes, préparation de la rédaction (js/carnet.js, js/carnet-ui.js) -->
+<div id="viewCarnet" class="redac carnet"><section id="carnet" aria-label="Carnet de recherche"></section></div>
 <div id="viewPlan" class="redac plantrav">
   <button class="back2" id="planBack">← Bibliographie</button>
   <h1>Plan et lectures</h1>
@@ -272,6 +296,7 @@
         <button data-go="biblio"><span class="mi"><svg width="20" height="20" viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="5" width="22" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="17" r="1.8" fill="var(--brass)"/><path d="M6 9h14M6 12h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>Bibliographie</button>
         <button data-go="redac"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10v4M8.5 7v10M12 4v16M15.5 7v10M19 10v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Rédaction Lian’Z</button>
         <button data-go="plagiat"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"/><path d="M14 3v5h5v3"/><circle cx="16.5" cy="16.5" r="3"/><path d="M18.7 18.7 21 21"/></svg></span>Test anti-plagiat</button>
+        <button data-go="carnet"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z"/><path d="M6 3v18"/><path d="M3 7h3M3 12h3M3 17h3"/><path d="M10 8h6M10 12h6M10 16h3"/></svg></span>Carnet de recherche</button>
         <button data-go="plan"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M8 10h11M8 15h11M5 20h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="10" r="1.2" fill="currentColor"/><circle cx="5" cy="15" r="1.2" fill="currentColor"/></svg></span>Plan et lectures</button>
         <button data-dt="norme"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>Norme, profil et langue</button>
         <button data-dt="fiches"><span class="mi"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z M9 10h7M9 14h7M9 18h4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg></span>Références et catalogue</button>
@@ -281,7 +306,7 @@
       <h4 class="mhead">Projets récents</h4>
       <div id="projList"></div>
       <div class="dfooter"><div class="status" id="status"><span class="dot"></span><span id="statusText">Prêt</span></div><button class="iconbtn" id="installBtn">Installer l’application</button></div>
-      <nav class="dlegal" aria-label="Informations légales"><a href="accueil.html">Découvrir SCIENTUS</a><a href="confidentialite.html">Confidentialité</a><a href="cgu.html">Conditions d’utilisation</a><a href="cgv.html">Conditions de vente</a></nav>
+      <nav class="dlegal" aria-label="Informations légales"><a href="accueil.html">Découvrir SCIENTUS</a><a href="confidentialite.html">Confidentialité</a><a href="cgu.html">Conditions d’utilisation</a><a href="cgv.html">Conditions de vente</a><a href="#" data-consentement>Gérer mes choix</a></nav>
     </section>
     
 
@@ -395,12 +420,15 @@
 <dialog id="dlg"></dialog>
 <div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastAct" hidden data-notr="1"></button></div>
 
-<script src="js/config.js?v=58"></script>
-<script src="js/i18n-en.js?v=58"></script>
-<script src="js/moteur.js?v=58"></script>
-<script src="js/ma-redaction.js?v=58"></script>
-<script src="js/app.js?v=58"></script>
-<script src="js/ma-redaction-ui.js?v=58"></script>
+<script src="js/config.js?v=59"></script>
+<script src="js/i18n-en.js?v=59"></script>
+<script src="js/moteur.js?v=59"></script>
+<script src="js/ma-redaction.js?v=59"></script>
+<script src="js/app.js?v=59"></script>
+<script src="js/ma-redaction-ui.js?v=59"></script>
+<script src="js/carnet.js?v=59"></script>
+<script src="js/carnet-ui.js?v=59"></script>
+<script src="js/audience.js?v=59"></script>
 
 <script>
 if("serviceWorker" in navigator && location.protocol === "https:") window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

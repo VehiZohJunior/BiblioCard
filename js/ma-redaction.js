@@ -244,10 +244,115 @@ function serie(objectif, journal, aujourdhui){
   return {jours: n, en_suspens: enSuspens};
 }
 
+// ================= SESSIONS AGRÉABLES : félicitations, rythme, rendez-vous, agenda, Excel, micro =================
+
+/* Félicitations à chaque petit pas : ce qui vient d’être franchi entre deux états de la session.
+   etat = {session: mots écrits pendant la session, jour: mots du jour, cible: cible du jour, total: mots depuis le début}.
+   Retourne la liste des pas franchis, dans l’ordre (jamais de message négatif : un pas non franchi ne dit rien). */
+function pasFranchis(avant, apres){
+  const out = [], a = {session: 0, jour: 0, cible: 0, total: 0, ...avant}, b = {session: 0, jour: 0, cible: 0, total: 0, ...apres};
+  if(a.session <= 0 && b.session > 0) out.push({type: "premiers_mots"});
+  for(let k = Math.floor(a.session / 100) + 1; k * 100 <= b.session; k++) if(k * 100 > 0) out.push({type: "cent_mots", valeur: k * 100});
+  if(b.cible > 0){
+    if(a.jour < b.cible / 2 && b.jour >= b.cible / 2 && b.jour < b.cible) out.push({type: "moitie"});
+    if(a.jour < b.cible && b.jour >= b.cible) out.push({type: "cible_atteinte"});
+    if(a.jour < b.cible * 1.5 && b.jour >= b.cible * 1.5) out.push({type: "cible_depassee"});
+  }
+  jalons(a.total, b.total).forEach(v => out.push({type: "mille", valeur: v}));
+  return out;
+}
+// le plus marquant d’une liste de pas (un seul message à la fois, pour ne pas noyer l’utilisateur)
+const ORDRE_PAS = ["mille", "cible_depassee", "cible_atteinte", "moitie", "cent_mots", "premiers_mots"];
+const pasPrincipal = pas => (pas || []).slice().sort((x, y) => ORDRE_PAS.indexOf(x.type) - ORDRE_PAS.indexOf(y.type))[0] || null;
+// choix d’une variante de message, stable pour une même graine (pas de répétition immédiate du même texte)
+const variante = (liste, graine) => liste && liste.length ? liste[Math.abs(graine | 0) % liste.length] : "";
+
+// rythme d’écriture en mots par minute (session ou sprint)
+const rythme = (mots, ms) => ms > 0 ? Math.round(mots / (ms / 60000)) : 0;
+// durée prévue d’une session selon le plan (minutes) ; 0 = libre
+const DUREES_SESSION = {session_minimale: 15, pomodoro: 25, sprint: 5, libre: 0};
+
+/* RENDEZ-VOUS D’ÉCRITURE : heure fixée à l’avance (plan « implémentation »). Faut-il rappeler l’utilisateur ?
+   Oui si aujourd’hui est un jour de rendez-vous, que l’heure est passée, que rien n’a été écrit ni commencé
+   aujourd’hui, et qu’aucun rappel n’a déjà été fait aujourd’hui (une fois par jour, jamais plus). Pas de rappel
+   pendant une pause assumée (soutien) ni si l’objectif est en pause ou terminé. */
+const minutesDe = hhmm => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || "")); return m ? +m[1] * 60 + +m[2] : null; };
+function rappelRendezVous(rdv, jourIso, minutesMaintenant, etat = {}){
+  if(!rdv || !rdv.actif || etat.soutien || (etat.statut && etat.statut !== "actif")) return false;
+  const h = minutesDe(rdv.heure); if(h === null) return false;
+  if(!(((rdv.jours ?? LUN_VEN) >> jourSemaine(versJour(jourIso))) & 1)) return false;
+  if(minutesMaintenant < h) return false;
+  if(etat.demarree || (etat.mots || 0) > 0) return false;
+  return !(etat.rappels || []).includes(jourIso);
+}
+
+/* AGENDA DU TÉLÉPHONE : fichier .ics des rendez-vous d’écriture (récurrents, avec alarme). Le téléphone sonne même
+   quand SCIENTUS est fermé. Heure « flottante » (celle de l’appareil, pas de conversion de fuseau). */
+const ics2 = iso => iso.replace(/-/g, "");
+const icsTexte = t => String(t || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+function calendrierIcs(objectif, rdv, textes = {}){
+  const o = normaliser(objectif), h = minutesDe(rdv.heure); if(h === null) return "";
+  const masque = rdv.jours ?? o.jours_travail, BYDAY = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"].filter((_, b) => (masque >> b) & 1);
+  // premier jour de rendez-vous à partir du début de l’objectif
+  let debut = versJour(o.date_debut); while(!((masque >> jourSemaine(debut)) & 1)) debut++;
+  const hh = String(Math.floor(h / 60)).padStart(2, "0"), mm = String(h % 60).padStart(2, "0"), duree = rdv.duree || 25;
+  const lignes = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//WayDayZ//SCIENTUS Ma redaction//FR", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
+    `UID:scientus-${ics2(o.date_debut)}-${hh}${mm}@scientus`, `DTSTAMP:${ics2(o.date_debut)}T000000Z`,
+    `DTSTART:${ics2(versIso(debut))}T${hh}${mm}00`, `DURATION:PT${duree}M`,
+    `RRULE:FREQ=WEEKLY;BYDAY=${BYDAY.join(",")};UNTIL=${ics2(o.date_fin)}T235959`,
+    ...((o.jours_exclus || []).map(x => `EXDATE:${ics2(x)}T${hh}${mm}00`)),
+    `SUMMARY:${icsTexte(textes.titre || "Session d'écriture")} : ${icsTexte(o.titre)}`,
+    `DESCRIPTION:${icsTexte(textes.description || "")}`,
+    "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${icsTexte(textes.alarme || "Session d'écriture")}`, "TRIGGER:-PT10M", "END:VALARM",
+    "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${icsTexte(textes.alarme || "Session d'écriture")}`, "TRIGGER:PT0M", "END:VALARM",
+    "END:VEVENT", "END:VCALENDAR"];
+  return lignes.join("\r\n") + "\r\n";
+}
+
+/* EXPORT EXCEL du journal d’écriture : trois feuilles (journal par jour, sessions, objectif). Données seulement,
+   en lignes de cellules ; xlsxFichiers en fait un classeur Excel (.xlsx) sans bibliothèque supplémentaire. */
+function classeurJournal(d, entetes){
+  const o = normaliser(d.objectif), prevu = new Map(planInitial(o).map(x => [x.date, x.cible])), parJour = new Map();
+  (d.journal || []).forEach(x => { const j = parJour.get(x.date) || {redaction: 0, manuel: 0, elan: ""}; if(x.source === "elan") j.elan = x.elan; else if(x.source === "manuel") j.manuel += +x.mots_ecrits || 0; else j.redaction += +x.mots_ecrits || 0; parJour.set(x.date, j); });
+  const jours = [...parJour.keys()].sort();
+  const E = entetes;
+  return {feuilles: [
+    {nom: E.feuille_journal, lignes: [E.journal, ...jours.map(j => { const x = parJour.get(j); return [j, x.redaction + x.manuel, x.redaction, x.manuel, x.elan, prevu.get(j) || 0]; })]},
+    {nom: E.feuille_sessions, lignes: [E.sessions, ...(d.bilans || []).map(b => [b.date, b.debut ? new Date(b.debut).toTimeString().slice(0, 5) : "", b.fin ? new Date(b.fin).toTimeString().slice(0, 5) : "", b.debut && b.fin ? Math.round((b.fin - b.debut) / 60000) : "", b.mots_ecrits || 0, b.elan_avant || "", b.elan_apres || "", b.note || ""])]},
+    {nom: E.feuille_objectif, lignes: [[E.objectif[0], o.titre], [E.objectif[1], GABARITS[o.type_document] ? GABARITS[o.type_document].nom : o.type_document], [E.objectif[2], o.pages_cibles], [E.objectif[3], o.mots_par_page], [E.objectif[4], o.date_debut], [E.objectif[5], o.date_fin], [E.objectif[6], motsEcritsJusqua(d.journal, "9999-12-31")]]},
+  ]};
+}
+const xmlEsc = v => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const colonne = i => { let s = ""; i++; while(i > 0){ const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; };
+function xlsxFichiers(classeur){
+  const f = {}, n = classeur.feuilles.length;
+  f["[Content_Types].xml"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${classeur.feuilles.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`;
+  f["_rels/.rels"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  f["xl/workbook.xml"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${classeur.feuilles.map((s, i) => `<sheet name="${xmlEsc(String(s.nom).slice(0, 31))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`;
+  f["xl/_rels/workbook.xml.rels"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${classeur.feuilles.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}</Relationships>`;
+  classeur.feuilles.forEach((s, i) => {
+    const lignes = s.lignes.map((l, r) => `<row r="${r + 1}">${l.map((v, c) => { const ref = colonne(c) + (r + 1);
+      return typeof v === "number" && isFinite(v) ? `<c r="${ref}"><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v ?? "")}</t></is></c>`; }).join("")}</row>`).join("");
+    f[`xl/worksheets/sheet${i + 1}.xml`] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${lignes}</sheetData></worksheet>`;
+  });
+  return f;
+}
+
+/* MICRO : seuil de détection de la voix calibré sur le bruit ambiant de la pièce (mesuré une seconde au démarrage)
+   et sur la sensibilité choisie (1 = pièce bruyante, 5 = voix faible ou micro éloigné). */
+const FACTEUR_SENSIBILITE = {1: 5, 2: 4, 3: 3, 4: 2.3, 5: 1.7};
+function seuilVoix(bruitRms, sensibilite = 3){
+  const f = FACTEUR_SENSIBILITE[sensibilite] || 3, base = Math.max(+bruitRms || 0, 0.002);
+  return Math.min(0.06, Math.max(0.004, base * f));
+}
+// niveau affiché (0 à 100) à partir d’un RMS
+const niveauAffiche = rms => Math.min(100, Math.round(Math.sqrt(Math.max(0, rms)) * 220));
+
 const api = {versJour, versIso, ajouterMois, joursOuvres, estOuvre, nIemeJourOuvre, nbJoursParSemaine, LUN_VEN,
   GABARITS, depuisGabarit, normaliser, valider, cibleBase, cibleDuMois, planInitial, apercu, FACTEUR_ELAN, cibleDuJour, finProjetee,
   motsEcritsAvant, motsEcritsJusqua, ecartSousObjectifs, compterMots,
   SEUILS, indicateurs, NIVEAU_INDICATEUR, escalade, cibleReduite, STRATEGIES, proposerPlan, cibleSemaineRelance,
-  tacheSelonElan, jalons, serie};
+  tacheSelonElan, jalons, serie,
+  pasFranchis, pasPrincipal, variante, rythme, DUREES_SESSION, minutesDe, rappelRendezVous, calendrierIcs, classeurJournal, xlsxFichiers, colonne, seuilVoix, niveauAffiche};
 if(typeof module !== "undefined" && module.exports) module.exports = api; else racine.MaRedaction = api;
 })(typeof window !== "undefined" ? window : globalThis);

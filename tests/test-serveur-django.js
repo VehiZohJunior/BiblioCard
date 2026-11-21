@@ -30,6 +30,7 @@ async function appareil(nom){
   return w;
 }
 async function formulaire(w, mode, email, mdp){
+  await wait(2100); // un humain met plus de 2 secondes à remplir (protection anti-robots)
   const f = w.document.querySelector("#nuageF"); f.querySelector("[name=email]").value = email; f.querySelector("[name=mdp]").value = mdp;
   f.querySelector(`[data-m="${mode}"]`).click(); // le bouton envoie le formulaire
   for(let i = 0; i < 100 && !w.eval("nuage.connecte()"); i++) await wait(100);

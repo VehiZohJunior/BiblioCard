@@ -17,7 +17,7 @@ class OutilsApi:
         return getattr(self.client, methode)(url, data=donnees if donnees is not None else {}, content_type="application/json", **entetes)
 
     def inscrire(self, email="awa.kone@exemple.ci", mdp="Presse-Ivoirienne-2026"):
-        r = self.appel("post", "/api/comptes/inscription", {"email": email, "mot_de_passe": mdp, "nom": "Awa Koné", "appareil": "Chrome, PC"})
+        r = self.appel("post", "/api/comptes/inscription", {"email": email, "mot_de_passe": mdp, "nom": "Awa Koné", "appareil": "Chrome, PC", "duree_ms": 9000})
         self.assertEqual(r.status_code, 201, r.content)
         return r.json()["jeton"]
 
@@ -40,8 +40,12 @@ class Comptes(OutilsApi, TestCase):
 
     def test_refus(self):
         self.inscrire()
-        self.assertEqual(self.appel("post", "/api/comptes/inscription", {"email": "awa.kone@exemple.ci", "mot_de_passe": "Autre-Mot-2026"}).status_code, 409, "un seul compte par adresse")
-        self.assertEqual(self.appel("post", "/api/comptes/inscription", {"email": "x@exemple.ci", "mot_de_passe": "12345678"}).status_code, 400, "mot de passe trop faible")
+        self.assertEqual(self.appel("post", "/api/comptes/inscription", {"email": "awa.kone@exemple.ci", "mot_de_passe": "Autre-Mot-2026", "duree_ms": 9000}).status_code, 409, "un seul compte par adresse")
+        self.assertEqual(self.appel("post", "/api/comptes/inscription", {"email": "x@exemple.ci", "mot_de_passe": "12345678", "duree_ms": 9000}).status_code, 400, "mot de passe trop faible")
+        # anti-robots : champ piège rempli, ou formulaire envoyé en moins de 2 secondes
+        self.assertEqual(self.appel("post", "/api/comptes/inscription", {"email": "robot@exemple.ci", "mot_de_passe": "Presse-Ivoirienne-2026", "duree_ms": 9000, "site_web": "http://spam.example"}).status_code, 400, "champ piège")
+        self.assertEqual(self.appel("post", "/api/comptes/inscription", {"email": "robot@exemple.ci", "mot_de_passe": "Presse-Ivoirienne-2026", "duree_ms": 300}).status_code, 400, "trop rapide")
+        self.assertEqual(self.appel("post", "/api/comptes/inscription", {"email": "robot@exemple.ci", "mot_de_passe": "Presse-Ivoirienne-2026"}).status_code, 400, "sans durée")
         self.assertEqual(self.appel("post", "/api/comptes/inscription", {"email": "pas-une-adresse", "mot_de_passe": "Presse-Ivoirienne-2026"}).status_code, 400)
         self.assertEqual(self.appel("post", "/api/comptes/connexion", {"email": "awa.kone@exemple.ci", "mot_de_passe": "faux"}).status_code, 401)
         self.assertEqual(self.appel("get", "/api/comptes/moi").status_code, 401, "sans jeton")

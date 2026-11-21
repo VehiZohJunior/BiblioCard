@@ -7,7 +7,7 @@ const LS = "bibliocard.v3";
 const NOOP = 0;
 const state = { sources: [], style: "cames", cames: {upper:true, yearParen:false}, profile: "norcames", profiles: {}, citeMode: "parenthese", updatedAt: 0, exist: {}, evalExtra: [],
   comments: [], draft: {title:"", text:""}, thread: [], projects: {}, current: null, uiLang: "fr", catalogShare: false, catalogCfg: {url:"", key:""}, studentName: "", reviewerName: "", anonId: "" };
-const PKEYS = ["sources","style","profile","citeMode","exist","comments","draft","thread","plan","maRedac"]; // maRedac : module MA RÉDACTION (objectif, journal…)
+const PKEYS = ["sources","style","profile","citeMode","exist","comments","draft","thread","plan","maRedac","carnet"]; // maRedac : module MA RÉDACTION (objectif, journal…) ; carnet : CARNET DE RECHERCHE (lectures, fiches)
 const planVide = () => ({sujet: "", modele: "article_theorique", items: []});
 state.plan = planVide();
 state.maRedac = null;
@@ -28,13 +28,13 @@ const NOTES = {
 /* ---------- persistance ---------- */
 function setStatus(t, saving){ $("#statusText").textContent = t; $("#status").classList.toggle("saving", !!saving); }
 function newPid(){ return "j" + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
-function blankProject(name, kind){ return {id: newPid(), name, kind, createdAt: Date.now(), updatedAt: Date.now(), sources: [], style: "cames", profile: "norcames", citeMode: "parenthese", exist: {}, comments: [], draft: {title:"", text:""}, thread: [], plan: planVide(), maRedac: null}; }
+function blankProject(name, kind){ return {id: newPid(), name, kind, createdAt: Date.now(), updatedAt: Date.now(), sources: [], style: "cames", profile: "norcames", citeMode: "parenthese", exist: {}, comments: [], draft: {title:"", text:""}, thread: [], plan: planVide(), maRedac: null, carnet: null}; }
 // l’heure de modification ne bouge que si le contenu du projet a vraiment changé : c’est elle qui départage deux
 // appareils (sauvegarde en ligne), un simple enregistrement ne doit pas rendre « plus récente » une copie ancienne
 // (empreinte du contenu, car le projet et la copie de travail partagent les mêmes données en mémoire)
 const empreinteContenu = () => { const t = JSON.stringify(PKEYS.map(k => state[k])); let h = 5381; for(let i = 0; i < t.length; i++) h = (h * 33 + t.charCodeAt(i)) | 0; return t.length + ":" + h; };
 function syncCurrent(){ const p = state.projects[state.current]; if(!p) return; PKEYS.forEach(k => p[k] = state[k]); const e = empreinteContenu(); if(e !== p._empreinte || !p.updatedAt){ p._empreinte = e; p.updatedAt = Date.now(); } }
-function loadProject(pid){ const p = state.projects[pid]; if(!p) return; state.current = pid; PKEYS.forEach(k => { if(p[k] !== undefined) state[k] = JSON.parse(JSON.stringify(p[k])); }); state.comments = state.comments || []; state.thread = state.thread || []; state.draft = state.draft || {title:"", text:""}; if(!p.plan) state.plan = planVide(); }
+function loadProject(pid){ const p = state.projects[pid]; if(!p) return; state.current = pid; PKEYS.forEach(k => { if(p[k] !== undefined) state[k] = JSON.parse(JSON.stringify(p[k])); }); state.comments = state.comments || []; state.thread = state.thread || []; state.draft = state.draft || {title:"", text:""}; if(!p.plan) state.plan = planVide(); if(p.maRedac === undefined) state.maRedac = null; if(p.carnet === undefined) state.carnet = null; }
 function ensureProjects(){
   if(!state.anonId) state.anonId = "u" + Math.random().toString(36).slice(2, 12);
   if(!state.projects || !Object.keys(state.projects).length){
@@ -362,7 +362,7 @@ function renderEval(){
     download("bibliocard-fiabilite.csv", "\ufeff" + rows.map(r => r.join(";")).join("\n"), "text/csv"); };
   $("#evIn").onclick = () => $("#fileIn").click();
 }
-function renderAll(){ renderPlan(); renderProjBtn(); renderCatalog(); renderSync(); renderEval(); renderNorm(); renderFiles(); renderSheet(); renderTasks(); renderSynth(); renderExist(); renderReports(); renderIntext(); renderCards(); renderAnalyse(); renderThread(); if(window.renderMaRedac) window.renderMaRedac(); }
+function renderAll(){ renderPlan(); renderProjBtn(); renderCatalog(); renderSync(); renderEval(); renderNorm(); renderFiles(); renderSheet(); renderTasks(); renderSynth(); renderExist(); renderReports(); renderIntext(); renderCards(); renderAnalyse(); renderThread(); if(window.renderMaRedac) window.renderMaRedac();  if(window.CarnetUI){ if(document.body.dataset.view === "carnet") CarnetUI.rendre(); CarnetUI.rendreDossier(); } }
 
 /* ---------- tableau de bord ---------- */
 const DGROUPS = {home:["home"], norme:["norme"], fiches:["fiches","catalogue","citer"], export:["export"], methode:["methode"]};
@@ -433,7 +433,13 @@ $("#clearBtn").onclick = () => {
 };
 
 /* ---------- lecture des fichiers ---------- */
-async function waitFor(name){ for(let i = 0; i < 60 && !window[name]; i++) await new Promise(r => setTimeout(r, 100)); return window[name]; }
+// lecteurs Word et PDF chargés seulement quand on dépose un document (185 Ko de moins à l’ouverture) ;
+// le service worker les garde en cache, donc ils marchent aussi hors connexion
+const A_LA_DEMANDE = {mammoth: "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js", pdfjsLib: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"};
+async function waitFor(name){
+  const u = A_LA_DEMANDE[name];
+  if(u && !window[name] && !document.querySelector(`script[src="${u}"]`)){ const s = document.createElement("script"); s.src = u; s.async = true; document.head.appendChild(s); }
+  for(let i = 0; i < (u ? 150 : 60) && !window[name]; i++) await new Promise(r => setTimeout(r, 100)); return window[name]; }
 function htmlToMarked(html){
   // notes de bas de page de Word : numérotées en tête de ligne (« 1 P. Bourdieu, … »), sans la flèche de retour
   html = html.replace(/<li id="(?:foot|end)note-(\d+)"[^>]*>/g, "\n$1 ").replace(/<a href="#(?:foot|end)note-ref-\d+">\s*↑\s*<\/a>/g, "");
@@ -1124,7 +1130,8 @@ function propCarte(m, x, i){
    Un modèle de plan (moteur : MODELES_PLAN) que le chercheur réécrit avec ses propres intitulés, puis, pour
    chaque partie, des lectures trouvées dans OpenAlex et HAL. SCIENTUS ne rédige rien : il propose une
    structure et des sources à lire. Seuls le sujet et les intitulés partent en ligne, jamais le texte. */
-const plan = () => state.plan || (state.plan = planVide());
+const idPartie = () => "p" + Math.random().toString(36).slice(2, 9);
+const plan = () => { const P = state.plan || (state.plan = planVide()); P.items.forEach(it => { if(!it.id) it.id = idPartie(); }); return P; };
 const docAvecPlan = () => ui.files.find(f => f.text && f.text.length > 300);
 // plusieurs parties génériques donnent la même requête : une seule interrogation par adresse et par session
 const memoLectures = new Map();
@@ -1169,16 +1176,22 @@ async function lecturesPour(items){
   save(); renderPlan();
   if(items.every(it => it.lect.etat === "erreur")) toast("Je n’arrive pas à joindre OpenAlex ni HAL. Vérifie ta connexion Internet.");
 }
-function ajouterLecture(it, j){
-  const s = {...it.lect.L[j], id: "s" + Math.random().toString(36).slice(2, 10), file: ""};
-  ["_lien", "_src", "_notoriete", "_olKey", "_score", "_oaId", "_domaine", "_champ"].forEach(k => delete s[k]);
-  addSources([s]); renderPlan(); toast("Ajoutée à ta bibliographie, à relire");
+function ajouterLecture(it, j, aLire){
+  const L = it.lect.L[j], deja = state.sources.find(o => sameRef(o, L));
+  let id = deja && deja.id;
+  if(!deja){ const s = {...L, id: "s" + Math.random().toString(36).slice(2, 10), file: ""};
+    ["_lien", "_src", "_notoriete", "_olKey", "_score", "_oaId", "_domaine", "_champ"].forEach(k => delete s[k]); addSources([s]); id = s.id; }
+  if(aLire && window.CarnetUI){ CarnetUI.ajouterALire(id, it.id, L._lien || ""); renderPlan(); toast("Ajoutée à ta liste de lecture, pour cette partie", "Ouvrir le carnet", () => setView("carnet")); return; }
+  renderPlan(); toast("Ajoutée à ta bibliographie, à relire");
 }
 function remplacerPlan(items, msg){
   const P = plan(), avant = P.items;
-  P.items = items.map(x => ({n: x.n, t: x.t, r: x.r || "", sans: !!x.sans}));
+  // une partie qui garde son intitulé garde son identifiant, donc ses fiches et ses lectures du carnet
+  const pris = new Set();
+  P.items = items.map(x => { const a = avant.find(y => y.t === x.t && y.id && !pris.has(y.id)); const id = a ? a.id : idPartie(); pris.add(id); return {id, n: x.n, t: x.t, r: x.r || "", sans: !!x.sans}; });
   save(); renderPlan();
   if(avant.length) toast(msg, "Annuler", () => { P.items = avant; save(); renderPlan(); });
+  if(window.CarnetUI) CarnetUI.planChange();
 }
 function lecturesHtml(it){
   const L = it.lect;
@@ -1188,7 +1201,8 @@ function lecturesHtml(it){
   if(L.etat === "memes") return `<p class="legend">Cet intitulé cherche les mêmes mots que les parties plus haut : leurs lectures valent aussi pour celle-ci. Écris un intitulé plus précis pour en avoir d’autres.</p><div class="chips"><button class="chip" data-pa="lect">Chercher à nouveau</button></div>`;
   if(L.etat === "vague") return `<p class="legend">Cet intitulé est trop général pour chercher des lectures. Écris le sujet de ton travail en haut, ou un intitulé plus précis.</p><div class="chips"><button class="chip" data-pa="lect">Réessayer</button></div>`;
   if(!L.L.length) return `<p class="legend">Aucune lecture trouvée pour cet intitulé. Essaie un mot plus précis.</p><div class="chips"><button class="chip" data-pa="lect">Chercher à nouveau</button></div>`;
-  return `<ol class="lects">${L.L.map((s, j) => `<li><div class="ref">${bibFor(s)}</div><div class="lmeta"><span>${esc(s._src || "")}</span>${s._notoriete ? `<span>Citée ${s._notoriete} fois</span>` : ""}${s._lien ? `<a href="${esc(s._lien)}" target="_blank" rel="noopener">Lire en ligne</a>` : ""}${state.sources.some(o => sameRef(o, s)) ? `<span class="tag ok">Dans ta bibliographie</span>` : `<button class="chip" data-pa="add" data-j="${j}">Ajouter à ma bibliographie</button>`}</div></li>`).join("")}</ol>
+  return `<ol class="lects">${L.L.map((s, j) => `<li><div class="ref">${bibFor(s)}</div><div class="lmeta"><span>${esc(s._src || "")}</span>${s._notoriete ? `<span>Citée ${s._notoriete} fois</span>` : ""}${s._lien ? `<a href="${esc(s._lien)}" target="_blank" rel="noopener">Lire en ligne</a>` : ""}${(() => { const o = state.sources.find(x => sameRef(x, s)), lu = o && window.CarnetUI && CarnetUI.statutLecture(o.id);
+      return (lu ? `<span class="tag ok">${esc(lu)}</span>` : `<button class="chip" data-pa="alire" data-j="${j}">À lire pour cette partie</button>`) + (o ? `<span class="tag ok">Dans ta bibliographie</span>` : `<button class="chip" data-pa="add" data-j="${j}">Ajouter à ma bibliographie</button>`); })()}</div></li>`).join("")}</ol>
     <p class="legend">Lis chaque source avant de la citer. Mots recherchés : <span data-notr="1">${esc(L.requetes.join(" · "))}</span></p><div class="chips"><button class="chip" data-pa="lect">Chercher à nouveau</button></div>`;
 }
 function renderPlan(){
@@ -1228,10 +1242,11 @@ $("#planListe").addEventListener("click", e => {
   const a = b.dataset.pa;
   if(a === "lect"){ lecturesPour([it]); return; }
   if(a === "add"){ ajouterLecture(it, +b.dataset.j); return; }
+  if(a === "alire"){ ajouterLecture(it, +b.dataset.j, true); return; }
   if(a === "up" && i > 0) P.items.splice(i - 1, 2, P.items[i], P.items[i - 1]);
   else if(a === "down" && i < P.items.length - 1) P.items.splice(i, 2, P.items[i + 1], P.items[i]);
   else if(a === "niv") it.n = it.n > 1 ? 1 : 2;
-  else if(a === "del"){ P.items.splice(i, 1); toast("Partie supprimée", "Annuler", () => { P.items.splice(i, 0, it); save(); renderPlan(); }); }
+  else if(a === "del"){ P.items.splice(i, 1); if(window.CarnetUI) CarnetUI.planChange(); toast("Partie supprimée", "Annuler", () => { P.items.splice(i, 0, it); save(); renderPlan(); }); }
   save(); renderPlan();
 });
 function enrich(id){
@@ -1781,10 +1796,11 @@ function renderNuage(){
     <form class="nuage-f" id="nuageF">
       <input type="email" name="email" autocomplete="email" placeholder="${tr("Adresse e-mail")}" required>
       <input type="password" name="mdp" autocomplete="current-password" placeholder="${tr("Mot de passe (8 caractères au moins)")}" minlength="8" required>
+      <div class="piege" aria-hidden="true"><label>Site web <input type="text" name="site_web" tabindex="-1" autocomplete="off"></label></div>
       <div class="row"><button class="btn small primary" type="submit" data-m="connexion">${tr("Me connecter")}</button><button class="btn small" type="submit" data-m="inscription">${tr("Créer mon compte")}</button></div>
       <p class="legend" id="nuageMsg" role="status"></p>
     </form>`;
-  const f = $("#nuageF"); let mode = "connexion";
+  const f = $("#nuageF"); let mode = "connexion"; const ouvertLe = Date.now();
   f.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { mode = b.dataset.m; });
   const msg = f.querySelector("#nuageMsg");
   f.onsubmit = async e => {
@@ -1792,7 +1808,7 @@ function renderNuage(){
     if(f.dataset.envoi) return; // un seul envoi à la fois
     if(!enLigne()){ msg.textContent = tr("Hors ligne : la connexion à la sauvegarde demande Internet."); return; }
     msg.textContent = "…"; f.dataset.envoi = "1";
-    const r = await nuageAppel("POST", `/api/comptes/${mode}`, {email: f.querySelector("[name=email]").value, mot_de_passe: f.querySelector("[name=mdp]").value, appareil: navigator.userAgent.slice(0, 100)});
+    const r = await nuageAppel("POST", `/api/comptes/${mode}`, {email: f.querySelector("[name=email]").value.trim(), mot_de_passe: f.querySelector("[name=mdp]").value, appareil: navigator.userAgent.slice(0, 100), site_web: f.querySelector("[name=site_web]").value, duree_ms: Date.now() - ouvertLe});
     if((r.status === 200 || r.status === 201) && r.data && r.data.jeton){
       nuage.ecrire({jeton: r.data.jeton, email: r.data.compte.email}); renderNuage(); await nuageSynchroniser();
       toast(tr(mode === "inscription" ? "Compte créé : tes projets sont sauvegardés en ligne" : "Connecté : tes projets sont synchronisés"));
@@ -2402,6 +2418,8 @@ function setView(v){
   try{ localStorage.setItem("bibliocard.view", v); }catch(e){}
   if(v === "redac") updateCount();
   if(v === "plan") renderPlan();
+  if(v === "carnet" && window.CarnetUI) CarnetUI.rendre();
+  if(v === "redac" && window.CarnetUI) CarnetUI.rendreDossier();
   if(v === "projets") renderEtagere();
   marquerNav();
 }
@@ -2459,9 +2477,27 @@ async function loadWhisper(){
   red.asr = await withTimeout(T.pipeline("automatic-speech-recognition", "Xenova/whisper-base", {progress_callback: p => { if(p.status === "progress" && p.total) micUi(`Téléchargement de Whisper : ${Math.round(100 * p.loaded / p.total)} %`); }}), 600000);
   return red.asr;
 }
+/* MICRO BIEN RÉGLÉ : suppression du bruit, annulation d’écho et gain automatique du navigateur ; seuil de détection
+   de la voix calibré sur le bruit de la pièce (mesuré au démarrage ou avec « Mesurer le bruit de la pièce ») et sur
+   la sensibilité choisie (1 = pièce bruyante … 5 = voix faible ou micro éloigné). */
+const MICRO = "scientus.micro";
+const AUDIO_PROPRE = {audio: {echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1}};
+const microRegle = () => { try{ return {sens: 3, bruit: null, ...JSON.parse(localStorage.getItem(MICRO) || "{}")}; }catch(e){ return {sens: 3, bruit: null}; } };
+const microEnregistrer = v => { try{ localStorage.setItem(MICRO, JSON.stringify({...microRegle(), ...v})); }catch(e){} };
+const rmsDe = (an, buf) => { an.getFloatTimeDomainData(buf); let s2 = 0; for(const v of buf) s2 += v * v; return Math.sqrt(s2 / buf.length); };
+const afficherNiveau = rms => { const b = $("#micNiveau"); if(b) b.style.width = (window.MaRedaction ? MaRedaction.niveauAffiche(rms) : Math.min(100, rms * 900)) + "%"; };
+async function mesurerBruit(secondes = 3){
+  let st; try{ st = await navigator.mediaDevices.getUserMedia(AUDIO_PROPRE); }catch(e){ toast("Accès au micro refusé. Autorise le micro pour cette page."); return null; }
+  const ctx = new (window.AudioContext || window.webkitAudioContext)(), an = ctx.createAnalyser(); an.fftSize = 2048; ctx.createMediaStreamSource(st).connect(an);
+  const buf = new Float32Array(an.fftSize), mesures = [];
+  await new Promise(fin => { const t = setInterval(() => { const r = rmsDe(an, buf); mesures.push(r); afficherNiveau(r); if(mesures.length >= secondes * 8){ clearInterval(t); fin(); } }, 125); });
+  st.getTracks().forEach(t => t.stop()); ctx.close(); afficherNiveau(0);
+  mesures.sort((a, b) => a - b); const bruit = mesures[Math.floor(mesures.length / 2)] || 0;
+  microEnregistrer({bruit}); return bruit;
+}
 async function startWhisper(){
   try{ await loadWhisper(); }catch(e){ micUi("Whisper ne peut pas se charger ici. Il fonctionne sur la version installée sur ton site."); return false; }
-  try{ red.stream = await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ micUi("Accès au micro refusé. Autorise le micro pour cette page."); return false; }
+  try{ red.stream = await navigator.mediaDevices.getUserMedia(AUDIO_PROPRE); }catch(e){ micUi("Accès au micro refusé. Autorise le micro pour cette page."); return false; }
   const ctx = new (window.AudioContext || window.webkitAudioContext)(); const srcN = ctx.createMediaStreamSource(red.stream); const an = ctx.createAnalyser(); an.fftSize = 2048; srcN.connect(an);
   const buf = new Float32Array(an.fftSize); let rec = null, chunks = [], speaking = false, lastVoice = 0, segStart = 0;
   const queue = []; let busy = false;
@@ -2481,13 +2517,16 @@ async function startWhisper(){
   };
   const newRec = () => { chunks = []; rec = new MediaRecorder(red.stream); rec.ondataavailable = e => chunks.push(e.data); rec.onstop = () => { const b = new Blob(chunks, {type: rec.mimeType}); if(b.size > 2000) { queue.push(b); transcribe(); } }; rec.start(); segStart = Date.now(); };
   newRec();
+  // seuil : bruit de la pièce déjà mesuré, sinon mesuré pendant la première seconde (on commence à parler après le signal)
+  const reglage = microRegle(); let seuil = reglage.bruit !== null ? MaRedaction.seuilVoix(reglage.bruit, reglage.sens) : 0.015; const premiers = [];
   red.vad = setInterval(() => {
-    an.getFloatTimeDomainData(buf); let sum = 0; for(const v of buf) sum += v * v; const rms = Math.sqrt(sum / buf.length);
-    const now = Date.now(); if(rms > 0.015){ speaking = true; lastVoice = now; }
+    const rms = rmsDe(an, buf); afficherNiveau(rms);
+    if(reglage.bruit === null && premiers.length < 8){ premiers.push(rms); if(premiers.length === 8){ const b = premiers.slice().sort((x, y) => x - y)[3]; seuil = MaRedaction.seuilVoix(b, reglage.sens); microEnregistrer({bruit: b}); } return; }
+    const now = Date.now(); if(rms > seuil){ speaking = true; lastVoice = now; }
     if(speaking && (now - lastVoice > 1100 || now - segStart > 25000)){ speaking = false; rec.stop(); newRec(); }
     else if(!speaking && now - segStart > 8000){ rec.onstop = null; rec.stop(); newRec(); } // silence : on jette
   }, 120);
-  red.stopWhisper = () => { clearInterval(red.vad); try{ rec.stop(); }catch(_){} red.stream.getTracks().forEach(t => t.stop()); ctx.close(); };
+  red.stopWhisper = () => { clearInterval(red.vad); afficherNiveau(0); try{ rec.stop(); }catch(_){} red.stream.getTracks().forEach(t => t.stop()); ctx.close(); };
   return true;
 }
 async function startDictation(){ red.listening = true; micUi(); const ok = red.engine === "live" ? startLive() : await startWhisper(); if(!ok){ red.listening = false; $("#micBtn").classList.remove("on"); $("#micTitle").textContent = "Touche le micro pour dicter"; } else micUi(); }
@@ -2520,6 +2559,13 @@ async function transcrireEnregistrement(file){
 $("#transBtn").onclick = () => exiger("dictee") && $("#transIn").click();
 $("#transIn").onchange = async e => { const f = e.target.files[0]; e.target.value = ""; if(f) await transcrireEnregistrement(f); };
 $("#undoSeg").onclick = undoLast;
+// réglage du micro : sensibilité et mesure du bruit de la pièce
+if($("#micSens")){
+  $("#micSens").value = microRegle().sens;
+  $("#micSens").oninput = () => microEnregistrer({sens: +$("#micSens").value});
+  $("#micCalibrer").onclick = async () => { $("#micCalibrer").disabled = true; $("#micEtat").textContent = "Silence pendant 3 secondes : je mesure le bruit de la pièce…";
+    const b = await mesurerBruit(3); $("#micCalibrer").disabled = false; $("#micEtat").textContent = b === null ? "" : "Micro réglé sur le bruit de la pièce."; };
+}
 
 /* brouillon : enregistré avec le projet */
 function saveDraft(){ state.draft = {title: $("#draftTitle").value, text: $("#draft").value, updatedAt: Date.now()}; save(); }

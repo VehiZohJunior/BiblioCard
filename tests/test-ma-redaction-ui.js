@@ -61,7 +61,8 @@ const espaces = t => String(t).replace(/[  ]/g, " ");
   // 4. saisie manuelle, marquée « manuel »
   const fm = box.querySelector('form[data-mr-form="mots"]'); fm.querySelector("[name=mots]").value = "987"; fm.onsubmit(new w.Event("submit"));
   egal(w.eval(`state.maRedac.journal.filter(x => x.source === "manuel").map(x => x.mots_ecrits)`), [987], "saisie manuelle marquée « manuel »");
-  vrai(/1 000 mots écrits depuis le début/.test(espaces(d.querySelector("#toast") ? d.querySelector("#toast").textContent : "")), "jalon de 1 000 mots signalé");
+  { const t = espaces(d.querySelector("#toast") ? d.querySelector("#toast").textContent : "");
+    vrai(TEXTES.felicitations.mille.some(m => t.includes(m.replace("{valeur}", "1 000"))), "jalon de 1 000 mots signalé (l’une des formulations validées) : " + t); }
 
   // 5. élan : 5 augmente la cible du jour, 1 la réduit sans la supprimer
   clic('[data-mr-elan="5"]');
@@ -89,8 +90,8 @@ const espaces = t => String(t).replace(/[  ]/g, " ");
   clic('[data-mr-onglet="blocage"]'); vrai(/Signaux de blocage/.test(box.textContent), "tableau de bord du blocage");
 
   // 8. session et bilan
-  clic('[data-mr-onglet="jour"]'); clic('[data-mr="commencer"]');
-  const fb = box.querySelector('form[data-mr-form="bilan"]'); vrai(fb, "session commencée : bilan proposé");
+  clic('[data-mr-onglet="jour"]'); clic('[data-mr="commencer"]'); vrai(box.querySelector("#mrSession"), "session commencée : minuteur affiché"); clic('[data-mr="terminer"]');
+  const fb = box.querySelector('form[data-mr-form="bilan"]'); vrai(fb, "session terminée : bilan proposé");
   fb.querySelector("[name=note]").value = "Commencer par la méthode"; fb.onsubmit(new w.Event("submit"));
   egal(w.eval("state.maRedac.bilans.length"), 1, "bilan de session enregistré");
   egal(w.eval("state.maRedac.sessions.find(s => s.date === MaRedactionUI.aujourdhui()).demarree"), true, "la session prévue du jour est marquée démarrée");

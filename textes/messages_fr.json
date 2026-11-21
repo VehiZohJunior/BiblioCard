@@ -1,39 +1,114 @@
 {
-  "_statut": "VALIDÉ par l'utilisateur pilote le 2026-11-21 (soutien.ressources : encore à fournir, ligne masquée à l'écran en attendant) (spécification MA RÉDACTION, section 10). Aucun de ces textes n'est destiné au document de l'utilisateur : ce sont des questions, des consignes et des descriptions.",
-
+  "_statut": "VALIDÉ par l'utilisateur pilote le 2026-11-21, y compris les ajouts du même jour (felicitations, session, rendez_vous, deblocage, questions_par_section, export) et les textes du Carnet de recherche (js/carnet-ui.js). soutien.ressources : encore à fournir.",
   "rappel_production": "Le compteur mesure ce que tu as écrit, pas sa qualité.",
-
   "ui": {
     "titre_module": "Ma rédaction",
     "sans_objectif": "Fixe un objectif : SCIENTUS calcule ta cible de chaque jour et t'aide à garder le rythme.",
     "definir": "Définir mon objectif",
     "modifier": "Modifier l'objectif",
-    "onglets": {"jour": "Aujourd'hui", "ensemble": "Vue d'ensemble", "calendrier": "Calendrier", "plans": "Plans", "blocage": "Blocage"},
+    "onglets": {
+      "jour": "Aujourd'hui",
+      "ensemble": "Vue d'ensemble",
+      "calendrier": "Calendrier",
+      "plans": "Plans",
+      "blocage": "Blocage"
+    },
     "form": {
-      "titre": "Titre du document", "type": "Type de document", "pages": "Pages visées", "mots_par_page": "Mots par page",
-      "debut": "Date de début", "fin": "Date de fin", "duree": "ou durée en mois", "jours": "Jours d'écriture",
-      "exclus": "Jours exclus (fériés, absences)", "ajouter_exclu": "Ajouter", "plafond": "Plafond par jour (mots)",
-      "sous": "Découpage (sous-objectifs)", "sous_titre": "Section", "sous_pages": "pages", "ajouter_sous": "Ajouter une section",
-      "enregistrer": "Enregistrer l'objectif", "annuler": "Annuler"
+      "titre": "Titre du document",
+      "type": "Type de document",
+      "pages": "Pages visées",
+      "mots_par_page": "Mots par page",
+      "debut": "Date de début",
+      "fin": "Date de fin",
+      "duree": "ou durée en mois",
+      "jours": "Jours d'écriture",
+      "exclus": "Jours exclus (fériés, absences)",
+      "ajouter_exclu": "Ajouter",
+      "plafond": "Plafond par jour (mots)",
+      "sous": "Découpage (sous-objectifs)",
+      "sous_titre": "Section",
+      "sous_pages": "pages",
+      "ajouter_sous": "Ajouter une section",
+      "enregistrer": "Enregistrer l'objectif",
+      "annuler": "Annuler"
     },
-    "jours_semaine": ["L", "M", "M", "J", "V", "S", "D"],
+    "jours_semaine": [
+      "L",
+      "M",
+      "M",
+      "J",
+      "V",
+      "S",
+      "D"
+    ],
     "jour": {
-      "cible_libelle": "mots : ta cible du jour", "ecrits": "écrits aujourd'hui", "ajouter": "J'ai écrit", "mots": "mots", "ajouter_bouton": "Ajouter",
-      "depuis_redaction": "comptés dans ta Rédaction", "premiere_action": "Première action", "plan_actif": "Plan en cours",
-      "commencer": "Commencer la session", "terminer": "Terminer la session", "autre_question": "Autre question",
-      "inspiration": "Une question pour avancer", "adopter_date": "Adopter cette date", "difficulte": "Je suis fatigué ou en difficulté",
-      "reprendre": "Reprendre les relances", "accepter": "D'accord", "refuser": "Pas maintenant"
+      "cible_libelle": "mots : ta cible du jour",
+      "ecrits": "écrits aujourd'hui",
+      "ajouter": "J'ai écrit",
+      "mots": "mots",
+      "ajouter_bouton": "Ajouter",
+      "depuis_redaction": "comptés dans ta Rédaction",
+      "premiere_action": "Première action",
+      "plan_actif": "Plan en cours",
+      "commencer": "Commencer la session",
+      "terminer": "Terminer la session",
+      "autre_question": "Autre question",
+      "inspiration": "Une question pour avancer",
+      "adopter_date": "Adopter cette date",
+      "difficulte": "Je suis fatigué ou en difficulté",
+      "reprendre": "Reprendre les relances",
+      "accepter": "D'accord",
+      "refuser": "Pas maintenant"
     },
-    "ensemble": {"pages_ecrites": "pages écrites", "pages_restantes": "pages restantes", "cible_semaine": "Cible de la semaine", "fin_projetee": "Fin projetée à ton rythme", "fin_prevue": "Fin prévue", "rythme_inconnu": "Rythme encore inconnu", "statut": "Statut", "statuts": {"actif": "En cours", "pause": "En pause", "termine": "Terminé"}},
-    "calendrier": {"atteint": "Cible atteinte", "partiel": "Commencé", "manque": "Sans écriture", "a_venir": "À venir", "repos": "Repos ou exclu"},
-    "plans": {"propose": "Proposé pour toi", "effort": "Effort", "choisir": "Choisir ce plan", "refuser": "Pas pour moi", "actif": "En cours jusqu'au", "arreter": "Arrêter ce plan",
-      "contexte": "Ce qui t'arrive en ce moment", "perfectionnisme": "Je veux que ce soit parfait avant d'avancer", "blocage_introduction": "Je bloque sur l'introduction", "journee_chargee": "Ma journée est chargée"},
-    "blocage": {"titre": "Signaux de blocage", "jours_sans": "Jours d'écriture sans écriture (alerte à 2)", "retard": "Retard sur la cible, en jours (alerte au-delà de 1)", "elan": "Élan moyen sur 7 jours (alerte à 2 ou moins)", "plan": "Sessions prévues non démarrées (alerte à 3 sur 5)", "rien": "Aucun signal de blocage.", "recommandation": "Recommandation"},
-    "bilan": {"titre": "Bilan de la session", "enregistrer": "Enregistrer le bilan", "merci": "Bilan enregistré."}
+    "ensemble": {
+      "pages_ecrites": "pages écrites",
+      "pages_restantes": "pages restantes",
+      "cible_semaine": "Cible de la semaine",
+      "fin_projetee": "Fin projetée à ton rythme",
+      "fin_prevue": "Fin prévue",
+      "rythme_inconnu": "Rythme encore inconnu",
+      "statut": "Statut",
+      "statuts": {
+        "actif": "En cours",
+        "pause": "En pause",
+        "termine": "Terminé"
+      }
+    },
+    "calendrier": {
+      "atteint": "Cible atteinte",
+      "partiel": "Commencé",
+      "manque": "Sans écriture",
+      "a_venir": "À venir",
+      "repos": "Repos ou exclu"
+    },
+    "plans": {
+      "propose": "Proposé pour toi",
+      "effort": "Effort",
+      "choisir": "Choisir ce plan",
+      "refuser": "Pas pour moi",
+      "actif": "En cours jusqu'au",
+      "arreter": "Arrêter ce plan",
+      "contexte": "Ce qui t'arrive en ce moment",
+      "perfectionnisme": "Je veux que ce soit parfait avant d'avancer",
+      "blocage_introduction": "Je bloque sur l'introduction",
+      "journee_chargee": "Ma journée est chargée"
+    },
+    "blocage": {
+      "titre": "Signaux de blocage",
+      "jours_sans": "Jours d'écriture sans écriture (alerte à 2)",
+      "retard": "Retard sur la cible, en jours (alerte au-delà de 1)",
+      "elan": "Élan moyen sur 7 jours (alerte à 2 ou moins)",
+      "plan": "Sessions prévues non démarrées (alerte à 3 sur 5)",
+      "rien": "Aucun signal de blocage.",
+      "recommandation": "Recommandation"
+    },
+    "bilan": {
+      "titre": "Bilan de la session",
+      "enregistrer": "Enregistrer le bilan",
+      "merci": "Bilan enregistré."
+    }
   },
-
   "apercu": "{pages} pages = {mots_total} mots = {par_jour} mots par jour, soit {par_semaine} par semaine et environ {par_mois} par mois.",
-
   "accueil": {
     "cible_du_jour": "Cible du jour : {cible} mots.",
     "mots_restants": "Il reste {restants} mots, sur {jours} jours d'écriture.",
@@ -42,7 +117,6 @@
     "bouton_ecrit": "J'ai écrit … mots",
     "elan_question": "Quel est ton élan aujourd'hui, de 1 à 5 ?"
   },
-
   "avertissements": {
     "plafond": "À ce rythme, rattraper le retard demanderait plus que ton plafond de {plafond} mots par jour. Date de fin réaliste proposée : {date}.",
     "irrealisable": "L'objectif n'est pas atteignable à la date choisie sans dépasser {plafond} mots par jour. Date proposée : {date}, ou un plafond plus élevé.",
@@ -52,7 +126,6 @@
     "date_fin_avant_debut": "La date de fin doit suivre la date de début.",
     "aucun_jour_ouvre": "Aucun jour d'écriture dans cette période : vérifie les jours de travail et les jours exclus."
   },
-
   "premieres_actions": [
     "Ouvre ton texte et relis le dernier paragraphe écrit.",
     "Écris seulement le titre de la prochaine section.",
@@ -60,7 +133,6 @@
     "Ouvre ta bibliographie et choisis la source à citer en premier.",
     "Règle un minuteur de 15 minutes et commence."
   ],
-
   "interventions": {
     "1": "Deux jours sans écriture. Première action proposée : {premiere_action}",
     "2": "La cible du jour passe à {cible} mots. Une session courte suffit à relancer la dynamique.",
@@ -68,32 +140,51 @@
     "4": "Sept jours sans écriture : c'est le moment de revoir l'objectif (date, volume, découpage). En parler à ton encadrant ou à un pair peut aider.",
     "5": "Tu as signalé une fatigue ou une difficulté. Les relances sont suspendues. Prendre une pause est une décision raisonnable."
   },
-
   "plans": {
-    "session_minimale": {"nom": "Session minimale", "description": "15 minutes, une seule tâche écrite à l'avance.\nPour reprendre après une période de blocage.", "effort": "Très faible"},
-    "pomodoro": {"nom": "Pomodoro", "description": "3 cycles de 25 minutes, avec une pause de 5 minutes.\nPour une journée chargée.", "effort": "Moyen"},
-    "chapitre_dabord": {"nom": "Le factuel d'abord", "description": "Commencer par la section la plus factuelle : méthode, corpus, données.\nPour un blocage sur l'introduction.", "effort": "Moyen"},
-    "brouillon_imparfait": {"nom": "Brouillon imparfait", "description": "Un premier jet volontairement imparfait, marqué BROUILLON.\nPour sortir du perfectionnisme.", "effort": "Faible"},
-    "implementation": {"nom": "Rendez-vous d'écriture", "description": "Moment et lieu fixés à l'avance, par exemple mardi à 7 h, après le café.\nQuand les sessions prévues ne démarrent pas.", "effort": "Faible"},
-    "semaine_relance": {"nom": "Semaine de relance", "description": "Cible réduite de moitié pendant une semaine.\nAprès deux semaines de retard.", "effort": "Faible"}
+    "session_minimale": {
+      "nom": "Session minimale",
+      "description": "15 minutes, une seule tâche écrite à l'avance.\nPour reprendre après une période de blocage.",
+      "effort": "Très faible"
+    },
+    "pomodoro": {
+      "nom": "Pomodoro",
+      "description": "3 cycles de 25 minutes, avec une pause de 5 minutes.\nPour une journée chargée.",
+      "effort": "Moyen"
+    },
+    "chapitre_dabord": {
+      "nom": "Le factuel d'abord",
+      "description": "Commencer par la section la plus factuelle : méthode, corpus, données.\nPour un blocage sur l'introduction.",
+      "effort": "Moyen"
+    },
+    "brouillon_imparfait": {
+      "nom": "Brouillon imparfait",
+      "description": "Un premier jet volontairement imparfait, marqué BROUILLON.\nPour sortir du perfectionnisme.",
+      "effort": "Faible"
+    },
+    "implementation": {
+      "nom": "Rendez-vous d'écriture",
+      "description": "Moment et lieu fixés à l'avance, par exemple mardi à 7 h, après le café.\nQuand les sessions prévues ne démarrent pas.",
+      "effort": "Faible"
+    },
+    "semaine_relance": {
+      "nom": "Semaine de relance",
+      "description": "Cible réduite de moitié pendant une semaine.\nAprès deux semaines de retard.",
+      "effort": "Faible"
+    }
   },
-
   "energie": {
     "exigeante": "Énergie haute : bon moment pour une tâche exigeante, comme la discussion ou une relecture de fond.",
     "moyenne": "Énergie moyenne : avance la section en cours.",
     "legere": "Énergie basse : choisis une tâche légère, comme annoter, compléter la bibliographie ou mettre en forme."
   },
-
   "jalons": {
     "mots": "{mots} mots écrits depuis le début. Prochain objectif : {prochain} mots.",
     "section": "Section terminée. Prochaine étape : {prochaine}."
   },
-
   "serie": {
     "jours": "{jours} jours d'écriture.",
     "en_suspens": "Une journée sans écriture : une session, même minimale, aujourd'hui garde la série."
   },
-
   "prompts_inspiration": [
     "Quelle objection ferait ton lecteur à cette phrase ?",
     "Résume ta section en une phrase, puis compare-la à ton introduction : disent-elles la même chose ?",
@@ -103,16 +194,194 @@
     "Quelle question de ta problématique cette section aide-t-elle à résoudre ?",
     "Qu'aurait répondu l'auteur que tu critiques ?"
   ],
-
   "bilan_session": {
     "question_mots": "Combien de mots as-tu écrits pendant cette session ?",
     "question_elan_apres": "Ton élan maintenant, de 1 à 5 ?",
     "question_reussite": "Qu'est-ce qui a marché pendant cette session ?"
   },
-
   "soutien": {
     "message": "Ton bien-être passe avant ton document. Une pause est possible à tout moment.",
     "conseil": "Parler à un professionnel de santé ou à une personne de confiance peut aider.",
     "ressources": "À RENSEIGNER par l'utilisateur pilote (section 11, question 5) : services de soutien et contacts à afficher."
+  },
+  "felicitations": {
+    "debut_session": [
+      "C'est parti. Le plus dur est fait : tu as commencé.",
+      "Session lancée. Un mot après l'autre.",
+      "Bien joué d'avoir ouvert ta session aujourd'hui."
+    ],
+    "premiers_mots": [
+      "Les premiers mots sont là. Continue sur ta lancée.",
+      "Démarrage réussi. La page n'est plus blanche.",
+      "Bravo, tu es en train d'écrire."
+    ],
+    "cent_mots": [
+      "{valeur} mots dans cette session. Beau rythme.",
+      "{valeur} mots de plus. Ça avance.",
+      "Encore {valeur} mots écrits. Tu tiens le cap."
+    ],
+    "moitie": [
+      "La moitié de ta cible du jour est atteinte.",
+      "Mi-parcours pour aujourd'hui. Le plus long est derrière toi."
+    ],
+    "cible_atteinte": [
+      "Cible du jour atteinte. Bravo !",
+      "Objectif du jour rempli. Ta journée mérite d'être saluée.",
+      "C'est fait pour aujourd'hui. Chaque jour comme celui-ci rapproche la fin."
+    ],
+    "cible_depassee": [
+      "Tu as dépassé ta cible de moitié. Garde de l'énergie pour demain.",
+      "Belle journée d'écriture, au-delà de ta cible."
+    ],
+    "mille": [
+      "{valeur} mots écrits depuis le début de ton projet.",
+      "Cap des {valeur} mots franchi. Ton document prend forme."
+    ],
+    "fin_session": [
+      "Session terminée : {mots} mots en {minutes} minutes.",
+      "Bravo pour cette session : {mots} mots écrits."
+    ],
+    "serie": [
+      "{jours} jours d'écriture. Ta régularité paie.",
+      "{jours} jours où tu as écrit. Continue comme ça."
+    ],
+    "plan_suivi": [
+      "Rendez-vous d'écriture tenu. C'est exactement ainsi qu'on avance."
+    ]
+  },
+  "session": {
+    "titre": "Session d'écriture",
+    "durees": {
+      "session_minimale": "15 min",
+      "pomodoro": "25 min",
+      "sprint": "Sprint 5 min",
+      "libre": "Libre"
+    },
+    "choisir_duree": "Durée de la session",
+    "objectif_session": "Objectif de la session (mots)",
+    "mots_session": "mots dans cette session",
+    "rythme": "mots par minute",
+    "temps_restant": "restant",
+    "temps_ecoule": "écoulé",
+    "pause": "Pause",
+    "reprendre": "Reprendre",
+    "terminer": "Terminer la session",
+    "concentration": "Mode concentration",
+    "quitter_concentration": "Quitter le mode concentration",
+    "sons": "Sons",
+    "sons_actifs": "Sons activés",
+    "sons_coupes": "Sons coupés",
+    "fin_temps": "Le temps prévu est écoulé. Tu peux continuer ou terminer ta session.",
+    "relecture": "Avant de terminer : relis ta dernière phrase. Est-elle claire pour un lecteur qui ne connaît pas ton sujet ?",
+    "dicter": "Dicter",
+    "sections": {
+      "general": "Toutes sections",
+      "introduction": "Introduction",
+      "methode": "Méthode",
+      "resultats": "Résultats",
+      "discussion": "Discussion",
+      "conclusion": "Conclusion"
+    }
+  },
+  "rendez_vous": {
+    "titre": "Rendez-vous d'écriture",
+    "explication": "Choisis l'heure à laquelle tu écris. À cette heure-là, si ta session n'a pas commencé, SCIENTUS te le rappelle d'un petit signal.",
+    "heure": "Heure",
+    "jours": "Jours",
+    "activer": "Activer le rappel",
+    "enregistrer": "Enregistrer le rendez-vous",
+    "rappel": "C'est l'heure de ton rendez-vous d'écriture. Une session courte suffit pour aujourd'hui.",
+    "rappel_titre": "SCIENTUS : rendez-vous d'écriture",
+    "agenda": "Ajouter à l'agenda de mon téléphone",
+    "agenda_explication": "Le rendez-vous s'ajoute à ton agenda, avec une alarme 10 minutes avant : ton téléphone te prévient même quand SCIENTUS est fermé.",
+    "agenda_titre": "Session d'écriture",
+    "agenda_description": "Ouvre SCIENTUS, page Rédaction, et commence ta session.",
+    "notifications": "Autoriser les notifications",
+    "enregistre": "Rendez-vous enregistré."
+  },
+  "deblocage": {
+    "titre": "Je bloque",
+    "outils": {
+      "sprint": {
+        "nom": "Sprint de 5 minutes",
+        "consigne": "Écris sans t'arrêter pendant 5 minutes, sans corriger. Tu reliras après."
+      },
+      "parler": {
+        "nom": "Le dire d'abord",
+        "consigne": "Explique ton idée à voix haute, comme à un ami, avec le micro de dictée. Tu reformuleras ensuite."
+      },
+      "trois_questions": {
+        "nom": "Trois questions",
+        "consigne": "Note en une ligne : que veux-tu montrer ? Avec quelle preuve ? Pour quel lecteur ?"
+      },
+      "plus_petit_pas": {
+        "nom": "Le plus petit pas",
+        "consigne": "Écris une seule phrase, n'importe laquelle, sur ta section. Juste une."
+      }
+    }
+  },
+  "questions_par_section": {
+    "introduction": [
+      "Quel problème ton travail aide-t-il à comprendre ?",
+      "Pourquoi ce sujet compte-t-il maintenant, et pour qui ?",
+      "Quelle est ta question de recherche, en une phrase ?"
+    ],
+    "methode": [
+      "Qu'as-tu observé ou collecté, où et quand ?",
+      "Pourquoi cette méthode plutôt qu'une autre ?",
+      "Qu'est-ce qu'un autre chercheur devrait savoir pour refaire ton travail ?"
+    ],
+    "resultats": [
+      "Quel est le résultat le plus inattendu ?",
+      "Quel tableau ou quelle figure résume le mieux tes données ?",
+      "Que montrent les chiffres, sans encore les interpréter ?"
+    ],
+    "discussion": [
+      "Tes résultats confirment-ils ou contredisent-ils les auteurs que tu cites ?",
+      "Quelle limite de ton travail un lecteur attentif relèverait-il ?",
+      "Que changent tes résultats pour la pratique ou la recherche ?"
+    ],
+    "conclusion": [
+      "Qu'est-ce que ton lecteur doit retenir, en trois points ?",
+      "Quelle question reste ouverte après ton travail ?",
+      "Ta conclusion répond-elle à la question posée dans l'introduction ?"
+    ]
+  },
+  "export": {
+    "word": "Exporter mon texte en Word",
+    "excel": "Exporter mon journal d'écriture en Excel",
+    "fichier_excel": "journal-ecriture",
+    "feuille_journal": "Journal",
+    "feuille_sessions": "Sessions",
+    "feuille_objectif": "Objectif",
+    "journal": [
+      "Date",
+      "Mots écrits",
+      "Dans la Rédaction",
+      "Saisie manuelle",
+      "Élan",
+      "Cible prévue"
+    ],
+    "sessions": [
+      "Date",
+      "Début",
+      "Fin",
+      "Durée (min)",
+      "Mots",
+      "Élan avant",
+      "Élan après",
+      "Ce qui a marché"
+    ],
+    "objectif": [
+      "Titre",
+      "Type",
+      "Pages visées",
+      "Mots par page",
+      "Début",
+      "Fin prévue",
+      "Mots écrits au total"
+    ],
+    "fait": "Journal exporté.",
+    "indisponible": "L'export Excel demande une connexion la première fois. Réessaie une fois connecté."
   }
 }

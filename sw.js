@@ -1,8 +1,8 @@
 // SCIENTUS : fonctionnement hors connexion
 // À chaque mise à jour : incrémenter CACHE ET le « ?v= » des styles et scripts dans les pages (même numéro ;
 // tests/test-version.js le vérifie). Le « ?v= » oblige même un ancien service worker à charger les bons fichiers.
-const CACHE = "bibliocard-v58";
-const CORE = ["./", "./index.html", "./accueil.html", "./confidentialite.html", "./cgu.html", "./cgv.html", "./css/bibliocard.css", "./js/config.js", "./js/theme.js", "./js/i18n-en.js", "./js/moteur.js", "./js/ma-redaction.js", "./js/ma-redaction-ui.js", "./textes/messages_fr.json", "./js/app.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./logo-c.png"];
+const CACHE = "bibliocard-v59";
+const CORE = ["./", "./index.html", "./accueil.html", "./confidentialite.html", "./cgu.html", "./cgv.html", "./css/bibliocard.css", "./js/config.js", "./js/theme.js", "./js/audience.js", "./favicon.ico", "./favicon-32.png", "./404.html", "./js/i18n-en.js", "./js/moteur.js", "./js/ma-redaction.js", "./js/ma-redaction-ui.js", "./js/carnet.js", "./js/carnet-ui.js", "./textes/messages_fr.json", "./js/app.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./logo-c.png"];
 const LIBS = [
   "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",

@@ -22,6 +22,13 @@ def inscription(request):
         return erreur("requête illisible")
     if limite(f"inscription:{ip_de(request)}", 10, 3600):
         return erreur("trop de créations de compte depuis cette connexion, réessaie dans une heure", 429)
+    # anti-robots : le champ « site_web » est invisible pour un humain ; il faut au moins 2 secondes pour remplir le formulaire
+    try:
+        duree = int(d.get("duree_ms", 0))
+    except (TypeError, ValueError):
+        duree = 0
+    if str(d.get("site_web", "")).strip() or duree < 2000:
+        return erreur("demande refusée : réessaie dans quelques secondes", 400)
     email = str(d.get("email", "")).strip().lower()
     mdp = str(d.get("mot_de_passe", ""))
     nom = str(d.get("nom", "")).strip()[:150]

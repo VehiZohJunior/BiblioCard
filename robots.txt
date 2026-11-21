@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /tests/
+Disallow: /serveur/
+Disallow: /supabase/
+Disallow: /_essai/
+
+Sitemap: https://vehizohjunior.github.io/BiblioCard/sitemap.xml

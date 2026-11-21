@@ -1171,3 +1171,234 @@ body[data-view="plagiat"] main.simple{padding-bottom:calc(40px + var(--nav-h) + 
 .mr-bilan input,.mr-bilan select{font:inherit;padding:7px 9px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg);color:var(--ink)}
 .mr-onglets{scrollbar-width:none}
 .mr-onglets::-webkit-scrollbar{display:none}
+/* ===== Session d'écriture (MA RÉDACTION) ===== */
+.mr-lanceur{display:grid;gap:8px;margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg)}
+.mr-l{font-size:13px;color:var(--muted)}
+.mr-l input{margin-left:6px;width:100px;font:inherit;padding:6px 8px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--ink)}
+.mr-durees{display:flex;flex-wrap:wrap;gap:6px}
+.mr-durees button{font:inherit;font-size:14px;padding:7px 12px;border-radius:99px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer}
+.mr-durees button[aria-pressed="true"]{background:var(--brass);border-color:var(--brass);color:#fff;font-weight:600}
+.mr-session{margin:12px 0;padding:14px;border-radius:var(--r-lg);background:var(--brass-soft);border:1px solid var(--line)}
+.mr-s-haut{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.mr-anneau{width:72px;height:72px;flex:none}
+.mr-anneau circle:last-child{transition:stroke-dashoffset var(--dur-lent) var(--ease)}
+.mr-temps{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.mr-n.petit{font-size:22px}
+.mr-s-boutons{margin-top:12px}
+.mr-debloc{margin:12px 0;border:1px solid var(--line);border-radius:var(--r-md);padding:8px 12px}
+.mr-debloc summary{cursor:pointer;font-weight:600}
+.mr-outils{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:8px}
+.mr-outil{display:grid;gap:3px;text-align:left;padding:10px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;cursor:pointer}
+.mr-outil span{font-size:13px;color:var(--muted)}
+.mr-consigne{margin:10px 0 2px;padding:10px 12px;border-radius:var(--r-sm);background:var(--ok-soft);font-weight:500}
+.mr-question select{font:inherit;font-size:13px;padding:3px 6px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg);color:var(--ink)}
+.mr-rdv{margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:var(--r-md)}
+.mr-rdv h3{margin:0 0 4px;font-size:15px}
+.mr-rdv input[type=time]{font:inherit;padding:6px 8px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg);color:var(--ink)}
+.mr-exports{margin-top:12px}
+/* mode concentration : seulement la session et la page d’écriture */
+body.mr-focus .topbar, body.mr-focus .appnav, body.mr-focus #viewRedac > .back2, body.mr-focus #viewRedac > h1, body.mr-focus #viewRedac > .lead,
+body.mr-focus #viewRedac > .mic, body.mr-focus #viewRedac > .wbar, body.mr-focus #viewRedac > .outils, body.mr-focus #viewRedac > details,
+body.mr-focus #viewRedac > #voixPanel, body.mr-focus #maRedac > :not(.mr-corps), body.mr-focus .mr-corps > :not(#mrSession){display:none!important}
+body.mr-focus #maRedac{position:sticky;top:0;z-index:5;margin:0 0 10px;padding:6px;box-shadow:var(--shadow)}
+body.mr-focus #mrSession{margin:0}
+body.mr-focus .paper{max-width:780px;margin:0 auto}
+body.mr-focus #draft{min-height:70vh;font-size:19px;line-height:1.85}
+body.mr-focus main.simple{padding-top:8px;padding-bottom:40px}
+/* niveau du micro et réglage */
+.micniveau{height:6px;border-radius:99px;background:var(--sunk);overflow:hidden;margin:6px 0 2px}
+.micniveau i{display:block;height:100%;width:0;background:var(--grad-action, var(--grad));transition:width 120ms linear}
+.micregl input[type=range]{display:block;width:100%;max-width:320px;margin-top:6px}
+body.mr-focus .micniveau{display:block!important}
+/* en-tête de la page d’accueil sur téléphone : le bouton reste entier (2026-11-21) */
+.vhead .vbtn{white-space:nowrap;flex-shrink:0}
+@media (max-width:479px){ .vhead .vin{gap:10px;padding:0 14px} .vhead .vlogo{min-width:0;flex-shrink:1;overflow:hidden} .vhead .vlogo .wordmark{font-size:15px;letter-spacing:.12em} .vhead .vbtn.small{padding:8px 13px;font-size:13.5px} }
+/* champ piège anti-robots : hors écran, jamais vu ni atteint au clavier */
+.piege{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}
+/* bandeau de consentement (mesure d’audience) : les deux choix ont le même poids */
+.consentement{position:fixed;z-index:60;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));max-width:560px;margin:0 auto;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:var(--r-lg,16px);box-shadow:0 12px 40px rgba(10,12,30,.28);padding:16px 18px;font-size:14.5px;line-height:1.5}
+.consentement p{margin:0 0 12px}
+.consentement a{color:var(--brass)}
+.consentement-choix{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.consentement-choix .btn{min-width:110px}
+@media (max-width:999px){ body[data-view] .consentement{bottom:calc(84px + env(safe-area-inset-bottom,0px))} }
+/* un seul appel à l’action : lien secondaire en texte */
+.vlien{display:inline-flex;align-items:center;padding:13px 6px;color:var(--ink);font-weight:500;text-underline-offset:4px}
+@media (max-width:399px){ .vlong{display:none} }
+/* ===== CARNET DE RECHERCHE (2026-11-21) : un carnet de chercheur, fiches de lecture rangées par partie du plan ===== */
+body[data-view="carnet"] #viewBiblio, body[data-view="carnet"] #viewRedac, body[data-view="carnet"] #viewPlan, body[data-view="carnet"] #viewProjets, body[data-view="carnet"] #viewPlagiat, body[data-view="carnet"] .composer, body[data-view="carnet"] .dock{display:none!important}
+body:not([data-view="carnet"]) #viewCarnet{display:none}
+body[data-view="carnet"] main.simple{padding-bottom:calc(40px + var(--nav-h) + env(safe-area-inset-bottom,0px))}
+body[data-view="carnet"] #toast{bottom:calc(16px + var(--nav-h) + env(safe-area-inset-bottom,0px))}
+@media (min-width:1000px){ body[data-view="carnet"] main.simple{padding-bottom:60px} body[data-view="carnet"] #toast{bottom:24px} }
+.carnet .lead{max-width:62ch}
+.c-onglets{position:sticky;top:0;z-index:5;background:var(--bg);scrollbar-width:none}
+.c-onglets::-webkit-scrollbar{display:none}
+.cnb{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:var(--sunk);color:var(--ink);font-size:12px;font-weight:600;vertical-align:middle}
+.cbloc{margin:14px 0;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-lg,16px);background:var(--surface)}
+.cbloc h3{margin:0 0 8px;font-size:16px}
+.cchamps{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:8px 0}
+.cchamps .f{flex:1 1 180px;min-width:0}
+.cchamps select,.cchamps input{max-width:100%}
+.cchamps>select{flex:1 1 180px;min-width:0}
+.cchamps .cpage{flex:0 0 86px}
+.cchk{display:inline-flex;align-items:center;gap:6px;font-size:14px}
+/* saisie : une page de carnet, lignée */
+.csaisie{margin:12px 0;padding:14px 16px;border:1px solid var(--line-strong);border-radius:var(--r-lg,16px);background:var(--surface)}
+.csaisie textarea#cTexte{width:100%;font-family:var(--doc,Georgia,serif);font-size:16.5px;line-height:28px;border:0;border-radius:6px;padding:4px 8px;background:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,var(--line) 27px,var(--line) 28px);background-color:var(--sunk);color:var(--ink);resize:vertical}
+.cdetect{min-height:22px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+.cextraits{margin-top:8px}
+.cextraits textarea{width:100%;margin:6px 0}
+/* types de fiches : une couleur discrète par type */
+.ctype{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:6px;background:var(--sunk);color:var(--ink);border-left:3px solid var(--muted)}
+.t-citation{border-left-color:#7A5AF8} .t-paraphrase{border-left-color:#0E9AA7} .t-resume{border-left-color:#3D7BD9} .t-idee{border-left-color:#C98A1B} .t-question{border-left-color:#C2410C} .t-definition{border-left-color:#15803D} .t-donnee{border-left-color:#BE185D}
+.cth{display:inline-block;color:var(--brass);background:none;border:0;padding:0 4px 0 0;cursor:pointer;font:inherit;font-size:13px}
+.cpart{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted);margin:0 4px 4px 0}
+.cliste,.clects,.cfiches,.cthemes,.cchaps,.cprep,.cverifs,.cvois{list-style:none;margin:0;padding:0}
+.cliste li{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}
+.cliste li:first-child{border-top:0}
+.cclasser .ctexte{flex:1 1 100%;font-family:var(--doc,Georgia,serif)}
+.cverifs li{padding:4px 0;font-size:14px}
+/* fiches : des fiches bristol */
+.cfiche{position:relative;margin:10px 0;padding:12px 14px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:var(--shadow-sm)}
+.cfiche.epinglee{border-color:var(--brass)}
+.cfiche.utilisee{opacity:.82}
+.cf1{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.csrc{font-size:13px;color:var(--muted)}
+.cfiche .ctexte{font-family:var(--doc,Georgia,serif);font-size:16px;line-height:1.55;margin:8px 0;overflow-wrap:anywhere}
+.ccomm{font-size:14px;color:var(--muted);font-style:italic;margin:0 0 6px;padding-left:10px;border-left:2px solid var(--line)}
+.cact{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:13.5px}
+.cvois li{padding:6px 0;font-size:14px;border-top:1px dashed var(--line)}
+.cparties{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0;display:grid;gap:4px}
+.cparties label{font-size:14px}
+/* lectures */
+.clect{padding:12px 0;border-top:1px solid var(--line)}
+.clect:first-child{border-top:0}
+.clect.s-lue{opacity:.7}
+.clect.s-abandonnee{opacity:.5}
+.cl1 b{margin-right:4px}
+.cl2{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:8px 0;font-size:14px}
+.cpg input{width:58px}
+.cq{margin:6px 0}
+.cq input{width:100%}
+.cajout .link{margin-top:4px}
+/* préparation des parties */
+.cprep li{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.cprep li:first-child,.cchaps>li:first-child{border-top:0}
+.cprep .cpt{font-size:14.5px}
+.cprep .cbarre{grid-column:1/-1}
+.cchaps>li{display:block;padding:12px 0;border-top:1px solid var(--line)}
+.cchaps>li.n2{padding-left:18px}
+.cch1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.cbarre{display:block;height:6px;border-radius:99px;background:var(--sunk);overflow:hidden;margin:6px 0}
+.cbarre i{display:block;height:100%;background:var(--muted);border-radius:99px}
+.e-mince .cbarre i{background:#C98A1B}
+.e-en_cours .cbarre i{background:#3D7BD9}
+.e-prete .cbarre i{background:#15803D}
+.cetat{font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+.e-prete .cetat{color:#15803D}
+:root[data-theme="dark"] .e-prete .cetat{color:#4ADE80}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .e-prete .cetat{color:#4ADE80} }
+.cfil{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--sunk)}
+.cfil ol{margin:6px 0 10px;padding-left:22px}
+.cfil li{padding:6px 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cfil li>span:nth-child(2){flex:1 1 200px}
+.cfilbt button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;width:32px;height:30px;cursor:pointer}
+/* thèmes */
+.cthemes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:10px}
+.ctheme{width:100%;text-align:left;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.ctheme b{flex:1 1 auto}
+.ctheme .legend{flex:1 1 100%;margin:0}
+/* lecteur */
+.clecteur .clbar{gap:8px;align-items:center;flex-wrap:wrap}
+.clecteur .clbar input{width:52px}
+.cpagetexte{margin:10px 0;padding:18px 20px;max-height:62vh;overflow:auto;border-radius:10px;background:var(--sunk);font-family:var(--doc,Georgia,serif);font-size:17px;line-height:1.7;color:var(--ink)}
+.cpagetexte p{margin:0 0 12px}
+.csel{position:sticky;bottom:8px;display:flex;flex-wrap:wrap;gap:8px;padding:8px;border-radius:12px;background:var(--surface);border:1px solid var(--line-strong);box-shadow:0 8px 24px rgba(10,12,30,.18)}
+.csel[hidden]{display:none}
+/* mode promenade : plein écran, gros boutons */
+.cpromenade{max-width:640px;margin:0 auto;padding:12px 0}
+.cpromenade h2{margin:0 0 6px}
+.cpromenade textarea{width:100%;font-family:var(--doc,Georgia,serif);font-size:19px;line-height:1.6;padding:14px;border-radius:14px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);margin:10px 0}
+.cpromenade .btn{min-height:52px;padding:0 22px;font-size:16px}
+.cprom{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.cprom .legend{flex:1 1 220px;margin:0}
+/* dossier de fiches dans la Rédaction */
+.cdossier{margin:0 0 16px;padding:12px 16px;border:1px solid var(--line);border-radius:var(--r-lg,16px);background:var(--surface)}
+.cdossier[hidden]{display:none}
+.cdossier summary{cursor:pointer;font-size:15px}
+.cdos{margin:10px 0;padding-left:20px}
+.cdos li{padding:8px 0;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cdos li:first-child{border-top:0}
+.cdos .ctexte{flex:1 1 220px;font-family:var(--doc,Georgia,serif);font-size:15px}
+.cdos li.utilisee{opacity:.65}
+body.mr-focus .cdossier:not([hidden]){display:block!important}
+.cexports{margin:16px 0}
+/* barre du bas sur téléphone : sept modules */
+@media (max-width:419px){ .appnav button{font-size:10.5px} }
+/* carnet : tous les champs ont l’allure de ceux de l’application */
+.carnet select,.carnet input:not([type=checkbox]):not([type=radio]):not([type=search]),.carnet .cextraits textarea,.carnet .cpromenade textarea,.cdossier select,.carnet input[type=search]{font:inherit;font-size:15px;color:var(--ink);padding:8px 10px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg);box-sizing:border-box;max-width:100%}
+.carnet .f select,.carnet .f input,.cdossier .f select{display:block;width:100%;margin-top:3px}
+.carnet .cpg input,.carnet .clbar input{padding:6px 8px;width:64px}
+.carnet select:focus,.carnet input:focus,.carnet textarea:focus,.cdossier select:focus{outline:none;border-color:var(--or);box-shadow:0 0 0 3px color-mix(in srgb,var(--or) 25%,transparent)}
+.carnet .csaisie textarea#cTexte:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--or) 25%,transparent)}
+/* ===== MÉDAILLONS (2026-11-21, à la demande de l’utilisateur) : chaque icône dans un disque en dégradé, trait blanc,
+   halo doux. Couleurs de la famille du logo (cyan → violet), plus quelques teintes pour distinguer les modules. ===== */
+.med,.menu .mi,.dz-ic,.vic,.vfi,.plag-carte .pci,.cmed{--m1:#8E7DFF;--m2:#5B3BEE;display:inline-grid;place-items:center;flex:none;border-radius:50%;color:#fff;
+  background:radial-gradient(120% 120% at 30% 20%,var(--m1) 0%,var(--m2) 70%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -2px 6px rgba(0,0,0,.18),0 0 0 4px color-mix(in srgb,var(--m2) 16%,transparent),0 8px 18px -8px color-mix(in srgb,var(--m2) 70%,transparent)}
+.med svg,.menu .mi svg,.dz-ic svg,.vic svg,.vfi svg,.plag-carte .pci svg,.cmed svg{stroke:#fff;color:#fff;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
+.m-violet{--m1:#9C8CFF;--m2:#5B3BEE} .m-cyan{--m1:#4FE3F4;--m2:#0B8FA6} .m-indigo{--m1:#6E7CF0;--m2:#2B3596} .m-teal{--m1:#4BE0C2;--m2:#0E8C76}
+.m-ambre{--m1:#F7C766;--m2:#C27C0E} .m-rose{--m1:#F58CC8;--m2:#C0307E} .m-ardoise{--m1:#8B93B8;--m2:#454C73}
+/* menu : un médaillon par module */
+.menu .mi{width:38px;height:38px}
+.menu .mi svg{width:19px;height:19px}
+.menu [data-go="biblio"] .mi{--m1:#9C8CFF;--m2:#5B3BEE}
+.menu [data-go="redac"] .mi{--m1:#4FE3F4;--m2:#0B8FA6}
+.menu [data-go="plagiat"] .mi{--m1:#F58CC8;--m2:#C0307E}
+.menu [data-go="carnet"] .mi{--m1:#4BE0C2;--m2:#0E8C76}
+.menu [data-go="plan"] .mi{--m1:#6E7CF0;--m2:#2B3596}
+.menu [data-dt="norme"] .mi{--m1:#F7C766;--m2:#C27C0E}
+.menu [data-dt="fiches"] .mi{--m1:#9C8CFF;--m2:#5B3BEE}
+.menu [data-dt="export"] .mi{--m1:#4FE3F4;--m2:#0B8FA6}
+.menu [data-dt="methode"] .mi{--m1:#8B93B8;--m2:#454C73}
+/* accueil de l’application : la zone de dépôt */
+.dz-ic{width:68px;height:68px;border-radius:50%!important}
+.dz-ic svg{width:30px;height:30px}
+/* page publique : icônes des cartes et des fonctions */
+.vic{width:52px;height:52px;border-radius:50%;margin-bottom:16px}
+.vfi{width:48px;height:48px;margin-bottom:14px}
+.vfi svg{width:22px;height:22px}
+/* page anti-plagiat : les deux choix */
+.plag-carte .pci{width:46px;height:46px;margin-bottom:8px}
+.plag-carte .pci svg{width:22px;height:22px}
+/* navigation : l’icône du module ouvert dans son médaillon */
+.appnav button svg{transition:color var(--dur) var(--ease),background var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.appnav button[aria-current="page"] svg{box-sizing:content-box;padding:5px;border-radius:50%;color:#fff;stroke:#fff;background:radial-gradient(120% 120% at 30% 20%,#9C8CFF 0%,#5B3BEE 70%);box-shadow:0 0 0 3px color-mix(in srgb,#5B3BEE 18%,transparent),0 6px 14px -6px rgba(91,59,238,.7)}
+@media (max-width:999px){ .appnav button svg{width:18px;height:18px} .appnav button{gap:2px} }
+@media (min-width:1000px){
+  .appnav button[data-nav] svg{box-sizing:content-box;padding:6px;border-radius:50%;background:color-mix(in srgb,var(--brass) 12%,transparent);color:var(--brass)}
+  .appnav button[aria-current="page"] svg{color:#fff;background:radial-gradient(120% 120% at 30% 20%,#9C8CFF 0%,#5B3BEE 70%)}
+}
+/* carnet : médaillons des rubriques et chiffres du jour */
+.cmed{width:34px;height:34px}
+.cmed svg{width:17px;height:17px}
+.cbloc h3{display:flex;align-items:center;gap:10px}
+.cchiffres{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:14px 0}
+.cchiffre{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:16px 10px 14px;border-radius:18px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.cchiffre:hover{transform:translateY(-2px);border-color:var(--line-strong)}
+.cchiffre .med{width:46px;height:46px}
+.cchiffre .med svg{width:22px;height:22px}
+.cchiffre b{font-family:var(--serif);font-size:30px;line-height:1;letter-spacing:-.02em}
+.cchiffre span{font-size:13px;color:var(--muted);line-height:1.3}
+.cchiffre.alerte{border-color:color-mix(in srgb,#C27C0E 55%,var(--line))}
+.cchiffre.ok{border-color:color-mix(in srgb,#0E8C76 55%,var(--line))}
+.cprom .med{width:46px;height:46px}
+.cprom .med svg{width:22px;height:22px}
+.cdossier summary{display:flex;align-items:center;gap:10px;list-style:none}
+.cdossier summary::-webkit-details-marker{display:none}
+.cdossier summary .cmed{width:32px;height:32px}
+/* conversation : l’assistant SCIENTUS signe ses messages d’un petit médaillon */
+.msg.a .av{--m1:#9C8CFF;--m2:#5B3BEE;width:30px;height:30px;border-radius:50%;color:#fff;background:radial-gradient(120% 120% at 30% 20%,var(--m1) 0%,var(--m2) 70%);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 0 0 3px color-mix(in srgb,var(--m2) 14%,transparent),0 6px 14px -6px color-mix(in srgb,var(--m2) 70%,transparent)}
+.msg.a .av svg{width:16px;height:16px;stroke:#fff;color:#fff}
+.msg.a .av svg *{stroke:#fff}

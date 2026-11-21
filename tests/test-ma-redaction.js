@@ -160,6 +160,41 @@ TEXTES.prompts_inspiration.forEach(p => vrai(/\?$/.test(p), `prompt d’inspirat
 const JUGEMENT = /paresse|paresseu|honte|nul\b|échec|faible volonté|tu aurais dû|inadmissible|décevant/i;
 tous.forEach(t => vrai(!JUGEMENT.test(t), `aucun jugement de la personne : « ${t.slice(0, 60)}… »`));
 
+// ---------- Sessions agréables (2026-11-21) ----------
+egal(M.pasFranchis({session: 0, jour: 0, cible: 200, total: 0}, {session: 12, jour: 12, cible: 200, total: 12}).map(x => x.type), ["premiers_mots"], "premiers mots : félicité");
+egal(M.pasFranchis({session: 90, jour: 90, cible: 200, total: 90}, {session: 110, jour: 110, cible: 200, total: 110}).map(x => x.type), ["cent_mots", "moitie"], "100 mots et moitié de la cible");
+egal(M.pasFranchis({session: 150, jour: 190, cible: 200, total: 990}, {session: 170, jour: 210, cible: 200, total: 1010}).map(x => x.type), ["cible_atteinte", "mille"], "cible atteinte et cap des 1 000 mots");
+egal(M.pasFranchis({session: 50, jour: 50, cible: 200}, {session: 40, jour: 40, cible: 200}), [], "texte effacé : aucun message, jamais de reproche");
+egal(M.pasPrincipal([{type: "premiers_mots"}, {type: "cible_atteinte"}]).type, "cible_atteinte", "un seul message à la fois : le plus marquant");
+egal([M.variante(["a", "b", "c"], 0), M.variante(["a", "b", "c"], 4)], ["a", "b"], "variantes de messages");
+egal(M.rythme(250, 10 * 60000), 25, "rythme : 250 mots en 10 minutes = 25 mots par minute");
+const rdv = {heure: "07:00", jours: M.LUN_VEN, actif: true};
+egal(M.rappelRendezVous(rdv, "2027-01-04", 7 * 60 + 5, {}), true, "rendez-vous passé, rien écrit : rappel");
+egal(M.rappelRendezVous(rdv, "2027-01-04", 6 * 60 + 59, {}), false, "avant l’heure : pas de rappel");
+egal(M.rappelRendezVous(rdv, "2027-01-04", 8 * 60, {mots: 40}), false, "déjà écrit aujourd’hui : pas de rappel");
+egal(M.rappelRendezVous(rdv, "2027-01-04", 8 * 60, {demarree: true}), false, "session déjà commencée : pas de rappel");
+egal(M.rappelRendezVous(rdv, "2027-01-04", 8 * 60, {rappels: ["2027-01-04"]}), false, "une seule fois par jour");
+egal(M.rappelRendezVous(rdv, "2027-01-09", 8 * 60, {}), false, "pas un jour de rendez-vous (samedi) : pas de rappel");
+egal(M.rappelRendezVous(rdv, "2027-01-04", 8 * 60, {soutien: true}), false, "pause assumée : aucun rappel");
+egal(M.rappelRendezVous(rdv, "2027-01-04", 8 * 60, {statut: "pause"}), false, "objectif en pause : aucun rappel");
+const ics = M.calendrierIcs({...REF, jours_exclus: ["2027-01-06"]}, rdv, {titre: "Session d'écriture", alarme: "Écris"});
+vrai(/DTSTART:20270104T070000/.test(ics) && /RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20270703T235959/.test(ics), "agenda : rendez-vous récurrent jusqu’à la fin de l’objectif");
+vrai(/EXDATE:20270106T070000/.test(ics) && (ics.match(/BEGIN:VALARM/g) || []).length === 2 && /TRIGGER:-PT10M/.test(ics), "agenda : jours exclus, alarme 10 minutes avant et à l’heure");
+vrai(/SUMMARY:Session d'écriture : Mémoire/.test(ics) && ics.endsWith("END:VCALENDAR\r\n"), "agenda : titre et fin de fichier conformes");
+const journalX = {objectif: REF, journal: [{date: "2027-01-04", mots_ecrits: 150, source: "redaction"}, {date: "2027-01-04", mots_ecrits: 50, source: "manuel"}, {date: "2027-01-04", mots_ecrits: 0, source: "elan", elan: 4}], bilans: [{date: "2027-01-04", debut: Date.UTC(2027, 0, 4, 7, 0), fin: Date.UTC(2027, 0, 4, 7, 25), mots_ecrits: 200, elan_avant: 3, elan_apres: 4, note: "Méthode d’abord"}]};
+const cl = M.classeurJournal(journalX, TEXTES.export);
+egal(cl.feuilles.map(f => f.nom), ["Journal", "Sessions", "Objectif"], "Excel : trois feuilles");
+egal(cl.feuilles[0].lignes[1], ["2027-01-04", 200, 150, 50, 4, 193], "Excel : une ligne par jour (total, Rédaction, saisie, élan, cible prévue)");
+egal(cl.feuilles[1].lignes[1].slice(3), [25, 200, 3, 4, "Méthode d’abord"], "Excel : les sessions avec leur durée");
+const fx = M.xlsxFichiers(cl);
+vrai(fx["xl/workbook.xml"].includes('<sheet name="Journal"') && fx["xl/worksheets/sheet1.xml"].includes("<v>200</v>") && fx["xl/worksheets/sheet2.xml"].includes("Méthode d’abord"), "Excel : classeur .xlsx valide (feuilles, nombres, texte)");
+egal([M.colonne(0), M.colonne(25), M.colonne(26)], ["A", "Z", "AA"], "Excel : noms de colonnes");
+vrai(M.seuilVoix(0.003, 5) < M.seuilVoix(0.003, 3) && M.seuilVoix(0.003, 3) < M.seuilVoix(0.003, 1), "micro : plus sensible = seuil plus bas");
+vrai(M.seuilVoix(0.01, 3) > M.seuilVoix(0.002, 3), "micro : pièce bruyante = seuil plus haut");
+vrai(M.seuilVoix(0, 5) >= 0.004 && M.seuilVoix(1, 1) <= 0.06, "micro : seuil toujours dans des bornes raisonnables");
+vrai(Object.values(TEXTES.felicitations).every(l => l.length >= 1) && TEXTES.felicitations.cent_mots.length >= 3, "félicitations : plusieurs variantes");
+Object.values(TEXTES.questions_par_section).flat().forEach(q => vrai(/\?$/.test(q), `question par section = une question : « ${q} »`));
+
 errs.forEach(e => console.log("ÉCHEC " + e));
 console.log(errs.length ? `erreurs : ${errs.length}` : "erreurs : aucune");
 process.exit(errs.length ? 1 : 0);

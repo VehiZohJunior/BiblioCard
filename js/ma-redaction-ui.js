@@ -12,7 +12,9 @@ const ui = {onglet: "jour", formulaire: false, question: 0};
 // ---------- outils ----------
 const aujourdhui = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const nb = n => Math.round(+n || 0).toLocaleString("fr-FR");
-const remplir = (t, v) => String(t || "").replace(/\{(\w+)\}/g, (m, k) => v[k] !== undefined ? v[k] : m);
+// accord en français : « 1 minute », « 0 mot » (le nom qui suit la valeur perd son s quand la valeur vaut 0 ou 1)
+const singulier = x => { const n = +String(x).replace(/[\s  ]/g, "").replace(",", "."); return !isNaN(n) && Math.abs(n) < 2; };
+const remplir = (t, v) => String(t || "").replace(/\{(\w+)\}( ([a-zéèàêîôû]+)s\b)?/g, (m, k, suite, nom) => v[k] === undefined ? m : v[k] + (suite ? " " + nom + (singulier(v[k]) ? "" : "s") : ""));
 const dateLongue = iso => iso ? new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", {day: "numeric", month: "long", year: "numeric"}) : "";
 const id = () => "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const D = () => state.maRedac;
@@ -83,10 +85,12 @@ function vueJour(d){
   html += `<form class="mr-ligne" data-mr-form="mots"><label>${esc(U.ajouter)} <input type="number" min="1" max="20000" name="mots" inputmode="numeric" required> ${esc(U.mots)}</label><button class="btn small" type="submit">${esc(U.ajouter_bouton)}</button></form>`;
   html += `<p class="legend"><b>${esc(U.premiere_action)}</b> : ${esc(premiere)}</p>`;
   if(plan) html += `<p class="legend"><b>${esc(U.plan_actif)}</b> : ${esc(T.plans[plan.strategie].nom)}</p>`;
-  html += d.session ? bilan(d) : `<button class="btn small primary" type="button" data-mr="commencer">${esc(U.commencer)}</button>`;
+  html += d.session ? (d.session.termine ? bilan(d) : panneauSession(d)) : lanceurSession(d);
+  html += deblocage(d);
+  if(!d.rdv) html += `<p class="legend"><button class="link" type="button" data-mr="voir-rdv">${esc(T.rendez_vous.titre)}</button> : ${esc(T.rendez_vous.explication)}</p>`;
   if(serie.jours) html += `<p class="legend">${esc(remplir(T.serie.jours, {jours: serie.jours}))}${serie.en_suspens ? ` ${esc(T.serie.en_suspens)}` : ""}</p>`;
-  const q = T.prompts_inspiration[ui.question % T.prompts_inspiration.length];
-  html += `<div class="mr-question"><b>${esc(U.inspiration)}</b><p>${esc(q)}</p><button class="link" type="button" data-mr="question">${esc(U.autre_question)}</button></div>`;
+  html += questionInspiration();
+  html += exports();
   html += `<p><button class="link mr-discret" type="button" data-mr="difficulte">${esc(U.difficulte)}</button></p>`;
   return html;
 }
@@ -96,8 +100,8 @@ function carteIntervention(iv, cible, premiere){
   return `<div class="mr-iv mr-iv${n}" role="status"><p>${esc(texte)}</p><div class="row"><button class="btn small primary" type="button" data-mr-iv="acceptee" data-id="${iv.id}">${esc(U.accepter)}</button><button class="btn small" type="button" data-mr-iv="refusee" data-id="${iv.id}">${esc(U.refuser)}</button></div></div>`;
 }
 function bilan(d){
-  const U = T.ui.bilan, B = T.bilan_session, ecrits = Math.max(0, motsDuJour(d, aujourdhui()) - (d.session.mots_depart || 0));
-  return `<form class="mr-bilan" data-mr-form="bilan"><h3>${esc(U.titre)}</h3>
+  const U = T.ui.bilan, B = T.bilan_session, ecrits = etatEcriture(d).session || Math.max(0, motsDuJour(d, aujourdhui()) - (d.session.mots_depart || 0));
+  return `<form class="mr-bilan" data-mr-form="bilan"><h3>${esc(U.titre)}</h3><p class="legend">${esc(T.session.relecture)}</p>
     <label>${esc(B.question_mots)} <input type="number" min="0" name="mots" value="${ecrits}" inputmode="numeric"></label>
     <label>${esc(B.question_elan_apres)} <select name="elan">${[1, 2, 3, 4, 5].map(n => `<option${n === 3 ? " selected" : ""}>${n}</option>`).join("")}</select></label>
     <label>${esc(B.question_reussite)} <input name="note" maxlength="200"></label>
@@ -137,7 +141,7 @@ function vuePlans(d){
   const U = T.ui.plans, jour = aujourdhui(), ind = MR.indicateurs(d.objectif, d.journal, jour, d.sessions);
   const propose = MR.proposerPlan(ind, d.contexte, d.refus, jour), actif = planActif(d, jour);
   const ctx = ["perfectionnisme", "blocage_introduction", "journee_chargee"].map(k => `<label class="mr-ctx"><input type="checkbox" data-mr-ctx="${k}"${d.contexte[k] ? " checked" : ""}> ${esc(U[k])}</label>`).join("");
-  return `<fieldset class="mr-contexte"><legend>${esc(U.contexte)}</legend>${ctx}</fieldset>
+  return `${rendezVous(d)}<fieldset class="mr-contexte"><legend>${esc(U.contexte)}</legend>${ctx}</fieldset>
     ${actif ? `<p class="note">${esc(T.plans[actif.strategie].nom)} · ${esc(U.actif)} ${esc(dateLongue(actif.date_fin))} <button class="link" type="button" data-mr="arreter">${esc(U.arreter)}</button></p>` : ""}
     <div class="mr-plans">${MR.STRATEGIES.map(s => { const p = T.plans[s];
       return `<article class="mr-plan${s === propose ? " propose" : ""}">${s === propose ? `<span class="tag ok">${esc(U.propose)}</span>` : ""}<h3>${esc(p.nom)}</h3>
@@ -205,6 +209,10 @@ function lier(box){
   box.querySelectorAll("[data-mr-plan]").forEach(b => b.onclick = () => choisirPlan(b.dataset.mrPlan));
   box.querySelectorAll("[data-mr-refus]").forEach(b => b.onclick = () => { donnees().refus.push({date: aujourdhui(), strategie: b.dataset.mrRefus}); enregistrer(); });
   box.querySelectorAll("[data-mr-ctx]").forEach(c => c.onchange = () => { donnees().contexte[c.dataset.mrCtx] = c.checked; enregistrer(); });
+  box.querySelectorAll("[data-mr-duree]").forEach(b => b.onclick = () => { ui.duree = b.dataset.mrDuree; box.querySelectorAll("[data-mr-duree]").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false")); });
+  const conc = box.querySelector("#mrConcentre"); if(conc) conc.onchange = () => { ui.concentration = conc.checked; };
+  box.querySelectorAll("[data-mr-outil]").forEach(b => b.onclick = () => outil(b.dataset.mrOutil));
+  const sec = box.querySelector("[data-mr-section]"); if(sec) sec.onchange = () => { ui.section = sec.value; ui.question = 0; rendre(); };
   const st = box.querySelector("[data-mr-statut]"); if(st) st.onchange = () => { donnees().objectif.statut = st.value; enregistrer(); };
   box.querySelectorAll("form[data-mr-form]").forEach(f => {
     if(f.dataset.mrForm === "objectif"){ f.oninput = () => apercuFormulaire(f); f.querySelector("[name=type_document]").onchange = () => { const g = MR.depuisGabarit(f.querySelector("[name=type_document]").value);
@@ -218,7 +226,10 @@ function soumettre(f){
   const d = donnees(), type = f.dataset.mrForm;
   if(type === "objectif"){ const r = apercuFormulaire(f); if(!r.ok) return; const {o, sous} = lireFormulaire(f);
     d.objectif = {...o, date_fin: r.objectif.date_fin}; d.sous = sous; ui.formulaire = false; ui.onglet = "jour"; d.compteur = null; enregistrer(); return; }
-  if(type === "mots"){ const n = +f.querySelector("[name=mots]").value; if(n > 0){ d.journal.push({id: id(), date: aujourdhui(), mots_ecrits: n, source: "manuel"}); verifierJalons(d, n); enregistrer(); } return; }
+  if(type === "mots"){ const n = +f.querySelector("[name=mots]").value; if(n > 0){ const avant = etatEcriture(d); d.journal.push({id: id(), date: aujourdhui(), mots_ecrits: n, source: "manuel"}); apresEcriture(d, avant); enregistrer(); } return; }
+  if(type === "rdv"){ let masque = 0; for(let b = 0; b < 7; b++) if(f.querySelector(`[name=j${b}]`).checked) masque |= 1 << b;
+    d.rdv = {heure: f.querySelector("[name=heure]").value || "07:00", jours: masque, actif: f.querySelector("[name=actif]").checked, duree: 25};
+    toast(T.rendez_vous.enregistre); enregistrer(); return; }
   if(type === "bilan"){ const s = d.session, jour = aujourdhui();
     d.bilans.push({id: id(), date: jour, debut: s.debut, fin: Date.now(), mots_ecrits: +f.querySelector("[name=mots]").value || 0, elan_avant: s.elan_avant || elanDuJour(d, jour), elan_apres: +f.querySelector("[name=elan]").value, note: f.querySelector("[name=note]").value.trim()});
     d.session = null; toast(T.ui.bilan.merci); enregistrer(); }
@@ -236,9 +247,24 @@ function action(a, b){
   if(a === "question"){ ui.question++; rendre(); return; }
   if(a === "difficulte"){ d.soutien = true; d.interventions.push({id: id(), date: jour, niveau: 5, declencheurs: ["detresse"], reponse: "acceptee"}); enregistrer(); return; }
   if(a === "reprendre"){ d.soutien = false; enregistrer(); return; }
-  if(a === "commencer"){ d.session = {debut: Date.now(), elan_avant: elanDuJour(d, jour), mots_depart: motsDuJour(d, jour)};
-    const s = d.sessions.find(x => x.date === jour); if(s) s.demarree = true; enregistrer(); return; }
+  if(a === "commencer"){ const obj = $("#mrObjSession"); demarrerSession(d, ui.duree || "pomodoro", obj ? +obj.value || 0 : 0); return; }
+  if(a === "pause"){ const s = d.session; if(s.en_pause_depuis){ s.pauses_ms = (s.pauses_ms || 0) + Date.now() - s.en_pause_depuis; delete s.en_pause_depuis; } else s.en_pause_depuis = Date.now(); enregistrer(); return; }
+  if(a === "dicter"){ const mb = $("#micBtn"); if(mb) mb.click(); return; }
+  if(a === "concentration"){ document.body.classList.toggle("mr-focus"); ui.concentration = document.body.classList.contains("mr-focus"); rendre(); return; }
+  if(a === "sons"){ try{ localStorage.setItem(SONS, sonsActifs() ? "0" : "1"); }catch(e){} if(sonsActifs()) carillon(); rendre(); return; }
+  if(a === "terminer"){ terminerSession(d); return; }
+  if(a === "voir-rdv"){ ui.onglet = "plans"; rendre(); return; }
+  if(a === "agenda"){ const R2 = T.rendez_vous; download(`rendez-vous-ecriture.ics`, MR.calendrierIcs(d.objectif, d.rdv, {titre: R2.agenda_titre, description: R2.agenda_description, alarme: R2.rappel_titre}), "text/calendar"); return; }
+  if(a === "notifications"){ try{ Notification.requestPermission().then(() => rendre()); }catch(e){} return; }
+  if(a === "export-word"){ const w = $("#wDoc"); if(w) w.click(); return; }
+  if(a === "export-excel"){ exporterExcel(); return; }
   if(a === "arreter"){ const p = planActif(d, jour); if(p) p.active = false; enregistrer(); }
+}
+function outil(k){
+  const d = donnees();
+  if(k === "sprint"){ ui.consigne = "sprint"; demarrerSession(d, "sprint", 0); return; }
+  if(k === "parler"){ ui.consigne = "parler"; if(!d.session) demarrerSession(d, "libre", 0); const mb = $("#micBtn"); if(mb && !(typeof red !== "undefined" && red.listening)) mb.click(); return; }
+  ui.consigne = k; rendre();
 }
 function choisirPlan(strategie){
   const d = donnees(), jour = aujourdhui(), o = MR.normaliser(d.objectif);
@@ -260,14 +286,170 @@ function repondre(ivId, reponse){
   enregistrer();
 }
 
+// ================= SESSION D’ÉCRITURE AGRÉABLE =================
+// sons : un carillon doux pour féliciter, trois petits bips pour un rendez-vous ; coupables d’un geste
+const SONS = "scientus.sons";
+const sonsActifs = () => { try{ return localStorage.getItem(SONS) !== "0"; }catch(e){ return true; } };
+let audio = null;
+function jouer(notes){
+  if(!sonsActifs() || (D() && D().soutien)) return;
+  try{
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if(audio.state === "suspended") audio.resume();
+    let t = audio.currentTime + 0.02;
+    notes.forEach(([freq, duree, volume]) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = "sine"; o.frequency.value = freq; o.connect(g); g.connect(audio.destination);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(volume, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
+      o.start(t); o.stop(t + duree + 0.05); t += duree * 0.85;
+    });
+  }catch(e){}
+}
+const carillon = () => jouer([[784, 0.18, 0.12], [1047, 0.32, 0.10]]);          // sol, do : « bravo »
+const grandCarillon = () => jouer([[659, 0.16, 0.11], [784, 0.16, 0.11], [1047, 0.42, 0.11]]);
+const bip = () => jouer([[880, 0.12, 0.14], [880, 0.12, 0.14], [880, 0.12, 0.14]]);  // rappel
+
+// félicitations : un seul message à la fois, une variante différente à chaque fois
+let graine = Math.floor(Math.random() * 97);
+function feliciter(type, valeurs = {}){
+  const liste = T.felicitations[type]; if(!liste) return;
+  toast(remplir(MR.variante(liste, graine++), valeurs));
+  ["cible_atteinte", "cible_depassee", "mille", "fin_session"].includes(type) ? grandCarillon() : carillon();
+}
+// état servant à repérer les pas franchis (mots de la session, du jour, cible, total)
+function etatEcriture(d){
+  const jour = aujourdhui(), c = MR.cibleDuJour(d.objectif, d.journal.filter(x => x.date < jour), jour, elanDuJour(d, jour) || 3);
+  const jourMots = motsDuJour(d, jour);
+  return {session: d.session && !d.session.termine ? Math.max(0, jourMots - (d.session.mots_depart || 0)) : 0, jour: jourMots, cible: c.cible, total: MR.motsEcritsJusqua(d.journal, jour)};
+}
+function apresEcriture(d, avant){
+  const pas = MR.pasFranchis(avant, etatEcriture(d)), p = MR.pasPrincipal(pas);
+  if(p) feliciter(p.type, {valeur: nb(p.valeur)});
+}
+
+// temps de la session (pauses déduites)
+const ecoule = s => Math.max(0, (s.en_pause_depuis || Date.now()) - s.debut - (s.pauses_ms || 0));
+const mmss = ms => { const t = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
+
+function lanceurSession(d){
+  const S = T.session, jour = aujourdhui(), c = MR.cibleDuJour(d.objectif, d.journal.filter(x => x.date < jour), jour, elanDuJour(d, jour) || 3);
+  const reste = Math.max(0, c.cible - motsDuJour(d, jour)), choix = ui.duree || "pomodoro";
+  return `<div class="mr-lanceur"><span class="mr-l">${esc(S.choisir_duree)}</span><div class="mr-durees" role="group">${Object.entries(S.durees).map(([k, v]) => `<button type="button" aria-pressed="${choix === k}" data-mr-duree="${k}">${esc(v)}</button>`).join("")}</div>
+    <label class="mr-l">${esc(S.objectif_session)} <input type="number" min="0" max="20000" id="mrObjSession" value="${reste || ""}" inputmode="numeric"></label>
+    <label class="mr-ctx"><input type="checkbox" id="mrConcentre"${ui.concentration ? " checked" : ""}> ${esc(S.concentration)}</label>
+    <button class="btn primary" type="button" data-mr="commencer">${esc(T.ui.jour.commencer)}</button></div>`;
+}
+function anneau(pct){
+  const r = 34, c = 2 * Math.PI * r;
+  return `<svg class="mr-anneau" viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="${r}" fill="none" stroke="var(--sunk)" stroke-width="8"/><circle id="mrAnneau" cx="40" cy="40" r="${r}" fill="none" stroke="var(--brass)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - pct / 100)}" transform="rotate(-90 40 40)"/></svg>`;
+}
+function panneauSession(d){
+  const S = T.session, s = d.session, e = etatEcriture(d), pct = s.objectif ? Math.min(100, Math.round(100 * e.session / s.objectif)) : 0;
+  return `<div class="mr-session" id="mrSession">
+    <div class="mr-s-haut">${anneau(pct)}<div><div class="mr-temps" id="mrTemps">${mmss(s.duree ? s.duree * 60000 - ecoule(s) : ecoule(s))}</div><div class="legend">${esc(s.duree ? S.temps_restant : S.temps_ecoule)}</div></div>
+      <div><div class="mr-n" id="mrMotsSession">${nb(e.session)}</div><div class="legend">${esc(S.mots_session)}${s.objectif ? ` / ${nb(s.objectif)}` : ""}</div></div>
+      <div><div class="mr-n petit" id="mrRythme">${ecoule(s) < 60000 ? "…" : nb(MR.rythme(e.session, ecoule(s)))}</div><div class="legend">${esc(S.rythme)}</div></div></div>
+    <div class="row mr-s-boutons">
+      <button class="btn small" type="button" data-mr="pause">${esc(s.en_pause_depuis ? S.reprendre : S.pause)}</button>
+      <button class="btn small" type="button" data-mr="dicter">${esc(S.dicter)}</button>
+      <button class="btn small" type="button" data-mr="concentration">${esc(document.body.classList.contains("mr-focus") ? S.quitter_concentration : S.concentration)}</button>
+      <button class="btn small" type="button" data-mr="sons" aria-pressed="${sonsActifs()}">${esc(sonsActifs() ? S.sons_actifs : S.sons_coupes)}</button>
+      <button class="btn small primary" type="button" data-mr="terminer">${esc(S.terminer)}</button></div></div>`;
+}
+// la session vit à la seconde sans tout redessiner
+setInterval(() => {
+  const d = D(); if(!d || !d.session || d.session.termine || !$("#mrTemps")) return;
+  const s = d.session, e = etatEcriture(d), t = ecoule(s);
+  $("#mrTemps").textContent = mmss(s.duree ? s.duree * 60000 - t : t);
+  if($("#mrRythme")) $("#mrRythme").textContent = t < 60000 ? "…" : nb(MR.rythme(e.session, t));
+  if(s.duree && t >= s.duree * 60000 && !s.fin_annoncee){ s.fin_annoncee = true; toast(T.session.fin_temps); grandCarillon(); save(); }
+}, 1000);
+function majCompteurSession(d){
+  const e = etatEcriture(d), s = d.session; if(!s || s.termine) return;
+  if($("#mrMotsSession")) $("#mrMotsSession").textContent = nb(e.session);
+  const a = $("#mrAnneau"); if(a && s.objectif){ const c = 2 * Math.PI * 34; a.setAttribute("stroke-dashoffset", c * (1 - Math.min(1, e.session / s.objectif))); }
+}
+function demarrerSession(d, duree, objectif){
+  const jour = aujourdhui();
+  d.session = {debut: Date.now(), duree: MR.DUREES_SESSION[duree] || 0, type: duree, objectif: objectif || 0, elan_avant: elanDuJour(d, jour), mots_depart: motsDuJour(d, jour), pauses_ms: 0};
+  const s = d.sessions.find(x => x.date === jour); if(s) s.demarree = true;
+  // rendez-vous tenu (autour de l’heure prévue)
+  const h = d.rdv && d.rdv.actif ? MR.minutesDe(d.rdv.heure) : null, m = new Date().getHours() * 60 + new Date().getMinutes();
+  if(h !== null && m >= h - 30 && m <= h + 120) feliciter("plan_suivi"); else feliciter("debut_session");
+  if(ui.concentration) document.body.classList.add("mr-focus");
+  enregistrer(); const ta = $("#draft"); if(ta){ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+function terminerSession(d){
+  const s = d.session, e = etatEcriture(d);
+  s.termine = true; s.fin = Date.now(); document.body.classList.remove("mr-focus");
+  if(typeof red !== "undefined" && red.listening && typeof stopDictation === "function") stopDictation();
+  feliciter("fin_session", {mots: nb(e.session), minutes: Math.max(1, Math.round(ecoule(s) / 60000))});
+  const serie = MR.serie(d.objectif, d.journal, aujourdhui()); if(serie.jours >= 2) setTimeout(() => feliciter("serie", {jours: serie.jours}), 2500);
+  enregistrer();
+}
+
+// « Je bloque » : outils de déblocage (consignes, jamais de texte écrit à la place de l’utilisateur)
+function deblocage(d){
+  const B = T.deblocage;
+  return `<details class="mr-debloc"${ui.consigne ? " open" : ""}><summary>${esc(B.titre)}</summary><div class="mr-outils">${Object.entries(B.outils).map(([k, o]) => `<button class="mr-outil" type="button" data-mr-outil="${k}"><b>${esc(o.nom)}</b><span>${esc(o.consigne)}</span></button>`).join("")}</div>
+    ${ui.consigne ? `<p class="mr-consigne">${esc(B.outils[ui.consigne].consigne)}</p>` : ""}</details>`;
+}
+// question d’inspiration, au choix par section
+function questionInspiration(){
+  const U = T.ui.jour, S = T.session, sec = ui.section || "general", liste = sec === "general" ? T.prompts_inspiration : T.questions_par_section[sec];
+  const q = liste[ui.question % liste.length];
+  return `<div class="mr-question"><div class="mr-tete"><b>${esc(U.inspiration)}</b><select data-mr-section aria-label="Section">${Object.entries(S.sections).map(([k, v]) => `<option value="${k}"${sec === k ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></div>
+    <p>${esc(q)}</p><button class="link" type="button" data-mr="question">${esc(U.autre_question)}</button></div>`;
+}
+// exports : le texte en Word, le journal d’écriture en Excel
+function exports(){ const E = T.export; return `<div class="row mr-exports"><button class="btn small" type="button" data-mr="export-word">${esc(E.word)}</button><button class="btn small" type="button" data-mr="export-excel">${esc(E.excel)}</button></div>`; }
+async function exporterExcel(){
+  const d = donnees(), E = T.export, JSZip = window.JSZip || await waitFor("JSZip");
+  const fichiers = MR.xlsxFichiers(MR.classeurJournal(d, E));
+  if(!JSZip){ toast(E.indisponible); return; }
+  const z = new JSZip(); Object.entries(fichiers).forEach(([p, c]) => z.file(p, c));
+  const blob = await z.generateAsync({type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  download(`${E.fichier_excel}-${aujourdhui()}.xlsx`, blob, blob.type); toast(E.fait);
+}
+
+// rendez-vous d’écriture : réglage, agenda du téléphone, notifications, rappel par un petit signal
+function rendezVous(d){
+  const R = T.rendez_vous, r = d.rdv || {heure: "07:00", jours: MR.normaliser(d.objectif).jours_travail, actif: true, duree: 25};
+  return `<form class="mr-rdv" data-mr-form="rdv"><h3>${esc(R.titre)}</h3><p class="legend">${esc(R.explication)}</p>
+    <div class="mr-ligne"><label>${esc(R.heure)} <input type="time" name="heure" value="${esc(r.heure)}"></label>
+      <span class="mr-jours">${T.ui.jours_semaine.map((x, b) => `<label class="mr-j"><input type="checkbox" name="j${b}"${(r.jours >> b) & 1 ? " checked" : ""}>${esc(x)}</label>`).join("")}</span></div>
+    <label class="mr-ctx"><input type="checkbox" name="actif"${r.actif ? " checked" : ""}> ${esc(R.activer)}</label>
+    <div class="row"><button class="btn small primary" type="submit">${esc(R.enregistrer)}</button>
+      ${d.rdv ? `<button class="btn small" type="button" data-mr="agenda">${esc(R.agenda)}</button>` : ""}
+      ${"Notification" in window && Notification.permission === "default" ? `<button class="btn small" type="button" data-mr="notifications">${esc(R.notifications)}</button>` : ""}</div>
+    ${d.rdv ? `<p class="legend">${esc(R.agenda_explication)}</p>` : ""}</form>`;
+}
+function verifierRendezVous(){
+  const d = D(); if(!d || !d.objectif || !d.rdv || !T) return;
+  const jour = aujourdhui(), now = new Date(), m = now.getHours() * 60 + now.getMinutes();
+  const demarree = !!d.session || (d.bilans || []).some(b => b.date === jour) || (d.sessions || []).some(s => s.date === jour && s.demarree);
+  if(!MR.rappelRendezVous(d.rdv, jour, m, {soutien: d.soutien, statut: d.objectif.statut || "actif", demarree, mots: motsDuJour(d, jour), rappels: d.rappels || []})) return;
+  d.rappels = (d.rappels || []).concat(jour).slice(-60); save();
+  bip(); toast(T.rendez_vous.rappel);
+  try{ if("Notification" in window && Notification.permission === "granted"){
+    const n = {body: T.rendez_vous.rappel, tag: "scientus-rdv", icon: "icon-192.png"};
+    if(navigator.serviceWorker && navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(r => r.showNotification(T.rendez_vous.rappel_titre, n)).catch(() => new Notification(T.rendez_vous.rappel_titre, n));
+    else new Notification(T.rendez_vous.rappel_titre, n);
+  } }catch(e){}
+}
+setInterval(verifierRendezVous, 60000);
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") verifierRendezVous(); });
+
 // ---------- démarrage ----------
 async function charger(){
-  try{ T = window.TEXTES_MA_REDACTION || await (await fetch("textes/messages_fr.json?v=58")).json(); }catch(e){ T = null; }
+  try{ T = window.TEXTES_MA_REDACTION || await (await fetch("textes/messages_fr.json?v=59")).json(); }catch(e){ T = null; }
   if(!T || !T.ui || !T.plans || !T.interventions) T = null; // textes absents ou illisibles : le module reste masqué, rien ne casse
-  rendre();
+  rendre(); verifierRendezVous();
 }
-if($("#draft")){ let t; $("#draft").addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => { const d = D(); if(d && d.objectif){ compterRedaction(); save(); if(ui.onglet === "jour" && !ui.formulaire) rendre(); } }, 1200); }); }
+if($("#draft")){ let t; $("#draft").addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => { const d = D(); if(d && d.objectif && T){ const avant = etatEcriture(d); compterRedaction(); apresEcriture(d, avant); save();
+  // pendant une session, on met seulement à jour le compteur (le curseur reste dans le texte) ; sinon l’accueil
+  if(d.session && !d.session.termine) majCompteurSession(d); else if(ui.onglet === "jour" && !ui.formulaire) rendre(); } }, 900); }); }
 window.renderMaRedac = rendre;
-window.MaRedactionUI = {ui, rendre, compterRedaction, aujourdhui};
+window.MaRedactionUI = {ui, rendre, compterRedaction, aujourdhui, verifierRendezVous, etatEcriture};
 charger();
 })();
