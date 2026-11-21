@@ -60,7 +60,7 @@ function rendre(){
 
 function vueJour(d){
   const U = T.ui.jour, jour = aujourdhui(), o = d.objectif, elan = elanDuJour(d, jour);
-  if(d.soutien) return `<div class="mr-soutien"><p>${esc(T.interventions["5"])}</p><p>${esc(T.soutien.message)}</p><p>${esc(T.soutien.conseil)}</p><p class="legend">${esc(T.soutien.ressources)}</p><button class="btn small" type="button" data-mr="reprendre">${esc(U.reprendre)}</button></div>`;
+  if(d.soutien) return `<div class="mr-soutien"><p>${esc(T.interventions["5"])}</p><p>${esc(T.soutien.message)}</p><p>${esc(T.soutien.conseil)}</p>${/^À RENSEIGNER/.test(T.soutien.ressources || "") ? "" : `<p class="legend">${esc(T.soutien.ressources)}</p>`}<button class="btn small" type="button" data-mr="reprendre">${esc(U.reprendre)}</button></div>`;
   const c = MR.cibleDuJour(o, d.journal.filter(x => x.date < jour), jour, elan || 3);
   const plan = planActif(d, jour);
   let cible = c.cible; if(cible && (d.reduction[jour] || (plan && plan.strategie === "semaine_relance"))) cible = MR.cibleReduite(cible);
