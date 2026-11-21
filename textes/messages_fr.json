@@ -1,0 +1,89 @@
+{
+  "_statut": "BROUILLON À VALIDER par l'utilisateur pilote avant publication (spécification MA RÉDACTION, section 10). Aucun de ces textes n'est destiné au document de l'utilisateur : ce sont des questions, des consignes et des descriptions.",
+
+  "rappel_production": "Le compteur mesure ce que tu as écrit, pas sa qualité.",
+
+  "apercu": "{pages} pages = {mots_total} mots = {par_jour} mots par jour, soit {par_semaine} par semaine et environ {par_mois} par mois.",
+
+  "accueil": {
+    "cible_du_jour": "Cible du jour : {cible} mots.",
+    "mots_restants": "Il reste {restants} mots, sur {jours} jours d'écriture.",
+    "jour_de_repos": "Aujourd'hui n'est pas un jour d'écriture prévu. Tu peux écrire si tu le souhaites, sans objectif.",
+    "termine": "L'objectif de mots est atteint. Prévois maintenant une relecture.",
+    "bouton_ecrit": "J'ai écrit … mots",
+    "elan_question": "Quel est ton élan aujourd'hui, de 1 à 5 ?"
+  },
+
+  "avertissements": {
+    "plafond": "À ce rythme, rattraper le retard demanderait plus que ton plafond de {plafond} mots par jour. Date de fin réaliste proposée : {date}.",
+    "irrealisable": "L'objectif n'est pas atteignable à la date choisie sans dépasser {plafond} mots par jour. Date proposée : {date}, ou un plafond plus élevé.",
+    "sous_objectifs": "Les sous-objectifs totalisent {somme} pages pour un objectif de {attendu} pages (écart : {ecart}).",
+    "date_debut_trop_ancienne": "La date de début ne peut pas remonter à plus de 7 jours.",
+    "date_fin_ou_duree": "Indique une date de fin ou une durée en mois.",
+    "date_fin_avant_debut": "La date de fin doit suivre la date de début.",
+    "aucun_jour_ouvre": "Aucun jour d'écriture dans cette période : vérifie les jours de travail et les jours exclus."
+  },
+
+  "premieres_actions": [
+    "Ouvre ton texte et relis le dernier paragraphe écrit.",
+    "Écris seulement le titre de la prochaine section.",
+    "Note trois mots-clés de ce que tu vas traiter aujourd'hui.",
+    "Ouvre ta bibliographie et choisis la source à citer en premier.",
+    "Règle un minuteur de 15 minutes et commence."
+  ],
+
+  "interventions": {
+    "1": "Deux jours sans écriture. Première action proposée : {premiere_action}",
+    "2": "La cible du jour passe à {cible} mots. Une session courte suffit à relancer la dynamique.",
+    "3": "Proposition : une session minimale de 15 minutes aujourd'hui, puis un plan pour la semaine prochaine.",
+    "4": "Sept jours sans écriture : c'est le moment de revoir l'objectif (date, volume, découpage). En parler à ton encadrant ou à un pair peut aider.",
+    "5": "Tu as signalé une fatigue ou une difficulté. Les relances sont suspendues. Prendre une pause est une décision raisonnable."
+  },
+
+  "plans": {
+    "session_minimale": {"nom": "Session minimale", "description": "15 minutes, une seule tâche écrite à l'avance.\nPour reprendre après une période de blocage.", "effort": "Très faible"},
+    "pomodoro": {"nom": "Pomodoro", "description": "3 cycles de 25 minutes, avec une pause de 5 minutes.\nPour une journée chargée.", "effort": "Moyen"},
+    "chapitre_dabord": {"nom": "Le factuel d'abord", "description": "Commencer par la section la plus factuelle : méthode, corpus, données.\nPour un blocage sur l'introduction.", "effort": "Moyen"},
+    "brouillon_imparfait": {"nom": "Brouillon imparfait", "description": "Un premier jet volontairement imparfait, marqué BROUILLON.\nPour sortir du perfectionnisme.", "effort": "Faible"},
+    "implementation": {"nom": "Rendez-vous d'écriture", "description": "Moment et lieu fixés à l'avance, par exemple mardi à 7 h, après le café.\nQuand les sessions prévues ne démarrent pas.", "effort": "Faible"},
+    "semaine_relance": {"nom": "Semaine de relance", "description": "Cible réduite de moitié pendant une semaine.\nAprès deux semaines de retard.", "effort": "Faible"}
+  },
+
+  "energie": {
+    "exigeante": "Énergie haute : bon moment pour une tâche exigeante, comme la discussion ou une relecture de fond.",
+    "moyenne": "Énergie moyenne : avance la section en cours.",
+    "legere": "Énergie basse : choisis une tâche légère, comme annoter, compléter la bibliographie ou mettre en forme."
+  },
+
+  "jalons": {
+    "mots": "{mots} mots écrits depuis le début. Prochain objectif : {prochain} mots.",
+    "section": "Section terminée. Prochaine étape : {prochaine}."
+  },
+
+  "serie": {
+    "jours": "{jours} jours d'écriture.",
+    "en_suspens": "Une journée sans écriture : une session, même minimale, aujourd'hui garde la série."
+  },
+
+  "prompts_inspiration": [
+    "Quelle objection ferait ton lecteur à cette phrase ?",
+    "Résume ta section en une phrase, puis compare-la à ton introduction : disent-elles la même chose ?",
+    "Quel exemple concret illustrerait cette idée ?",
+    "Quelle source de ta bibliographie appuie cette affirmation ?",
+    "Que manquerait-il au lecteur si ce paragraphe disparaissait ?",
+    "Quelle question de ta problématique cette section aide-t-elle à résoudre ?",
+    "Qu'aurait répondu l'auteur que tu critiques ?"
+  ],
+
+  "bilan_session": {
+    "question_mots": "Combien de mots as-tu écrits pendant cette session ?",
+    "question_elan_apres": "Ton élan maintenant, de 1 à 5 ?",
+    "question_reussite": "Qu'est-ce qui a marché pendant cette session ?"
+  },
+
+  "soutien": {
+    "message": "Ton bien-être passe avant ton document. Une pause est possible à tout moment.",
+    "conseil": "Parler à un professionnel de santé ou à une personne de confiance peut aider.",
+    "ressources": "À RENSEIGNER par l'utilisateur pilote (section 11, question 5) : services de soutien et contacts à afficher."
+  }
+}
