@@ -7,9 +7,10 @@ const LS = "bibliocard.v3";
 const NOOP = 0;
 const state = { sources: [], style: "cames", cames: {upper:true, yearParen:false}, profile: "norcames", profiles: {}, citeMode: "parenthese", updatedAt: 0, exist: {}, evalExtra: [],
   comments: [], draft: {title:"", text:""}, thread: [], projects: {}, current: null, uiLang: "fr", catalogShare: false, catalogCfg: {url:"", key:""}, studentName: "", reviewerName: "", anonId: "" };
-const PKEYS = ["sources","style","profile","citeMode","exist","comments","draft","thread","plan"];
+const PKEYS = ["sources","style","profile","citeMode","exist","comments","draft","thread","plan","maRedac"]; // maRedac : module MA RÉDACTION (objectif, journal…)
 const planVide = () => ({sujet: "", modele: "article_theorique", items: []});
 state.plan = planVide();
+state.maRedac = null;
 const GKEYS = ["profiles","evalExtra","projects","current","uiLang","catalogShare","catalogCfg","studentName","reviewerName","anonId","updatedAt"];
 const KINDS = {memoire:"Mémoire de master", these:"Thèse de doctorat", article:"Article scientifique", communication:"Communication", rapport:"Rapport", autre:"Autre"};
 const ui = { pages: {}, filter: "", files: [], dismissed: new Set() };
@@ -27,7 +28,7 @@ const NOTES = {
 /* ---------- persistance ---------- */
 function setStatus(t, saving){ $("#statusText").textContent = t; $("#status").classList.toggle("saving", !!saving); }
 function newPid(){ return "j" + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
-function blankProject(name, kind){ return {id: newPid(), name, kind, createdAt: Date.now(), updatedAt: Date.now(), sources: [], style: "cames", profile: "norcames", citeMode: "parenthese", exist: {}, comments: [], draft: {title:"", text:""}, thread: [], plan: planVide()}; }
+function blankProject(name, kind){ return {id: newPid(), name, kind, createdAt: Date.now(), updatedAt: Date.now(), sources: [], style: "cames", profile: "norcames", citeMode: "parenthese", exist: {}, comments: [], draft: {title:"", text:""}, thread: [], plan: planVide(), maRedac: null}; }
 // l’heure de modification ne bouge que si le contenu du projet a vraiment changé : c’est elle qui départage deux
 // appareils (sauvegarde en ligne), un simple enregistrement ne doit pas rendre « plus récente » une copie ancienne
 // (empreinte du contenu, car le projet et la copie de travail partagent les mêmes données en mémoire)
@@ -361,7 +362,7 @@ function renderEval(){
     download("bibliocard-fiabilite.csv", "\ufeff" + rows.map(r => r.join(";")).join("\n"), "text/csv"); };
   $("#evIn").onclick = () => $("#fileIn").click();
 }
-function renderAll(){ renderPlan(); renderProjBtn(); renderCatalog(); renderSync(); renderEval(); renderNorm(); renderFiles(); renderSheet(); renderTasks(); renderSynth(); renderExist(); renderReports(); renderIntext(); renderCards(); renderAnalyse(); renderThread(); }
+function renderAll(){ renderPlan(); renderProjBtn(); renderCatalog(); renderSync(); renderEval(); renderNorm(); renderFiles(); renderSheet(); renderTasks(); renderSynth(); renderExist(); renderReports(); renderIntext(); renderCards(); renderAnalyse(); renderThread(); if(window.renderMaRedac) window.renderMaRedac(); }
 
 /* ---------- tableau de bord ---------- */
 const DGROUPS = {home:["home"], norme:["norme"], fiches:["fiches","catalogue","citer"], export:["export"], methode:["methode"]};

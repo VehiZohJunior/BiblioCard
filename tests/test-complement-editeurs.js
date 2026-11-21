@@ -66,7 +66,7 @@ egal(E.memeOeuvre(Object.assign(E.blank(), {authors: [{family: "Mbembe", given: 
   egal(d.querySelector("#biblio").textContent.includes("Complété en ligne (BnF)"), true, "la marque indique la source");
   const biblio = [...d.querySelectorAll("#biblio .entry .ref")].map(e => e.textContent).join("\n");
   egal(/Collection|Pratiques politiques|couv. ill|essai sur l’imagination politique dans l’Afrique contemporaine \(2e/.test(biblio), false, "rien d’autre que la bibliographie dans les entrées");
-  egal(appels.every(a => /^https:\/\/(doi\.org|catalogue\.bnf\.fr|theses\.fr|api\.datacite\.org|api\.crossref\.org|api\.openalex\.org|openlibrary\.org|api\.archives-ouvertes\.fr)\//.test(a.url)), true, "seulement des services publics officiels, aucun relais tiers");
+  egal(appels.filter(a => /^https?:/.test(a.url)).every(a => /^https:\/\/(doi\.org|catalogue\.bnf\.fr|theses\.fr|api\.datacite\.org|api\.crossref\.org|api\.openalex\.org|openlibrary\.org|api\.archives-ouvertes\.fr)\//.test(a.url)), true, "seulement des services publics officiels, aucun relais tiers");
   errs.forEach(e => console.log("ÉCHEC " + e));
   console.log(errs.length ? `erreurs : ${errs.length}` : "erreurs : aucune");
   process.exit(errs.length ? 1 : 0);

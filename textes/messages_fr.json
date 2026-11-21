@@ -3,6 +3,35 @@
 
   "rappel_production": "Le compteur mesure ce que tu as écrit, pas sa qualité.",
 
+  "ui": {
+    "titre_module": "Ma rédaction",
+    "sans_objectif": "Fixe un objectif : SCIENTUS calcule ta cible de chaque jour et t'aide à garder le rythme.",
+    "definir": "Définir mon objectif",
+    "modifier": "Modifier l'objectif",
+    "onglets": {"jour": "Aujourd'hui", "ensemble": "Vue d'ensemble", "calendrier": "Calendrier", "plans": "Plans", "blocage": "Blocage"},
+    "form": {
+      "titre": "Titre du document", "type": "Type de document", "pages": "Pages visées", "mots_par_page": "Mots par page",
+      "debut": "Date de début", "fin": "Date de fin", "duree": "ou durée en mois", "jours": "Jours d'écriture",
+      "exclus": "Jours exclus (fériés, absences)", "ajouter_exclu": "Ajouter", "plafond": "Plafond par jour (mots)",
+      "sous": "Découpage (sous-objectifs)", "sous_titre": "Section", "sous_pages": "pages", "ajouter_sous": "Ajouter une section",
+      "enregistrer": "Enregistrer l'objectif", "annuler": "Annuler"
+    },
+    "jours_semaine": ["L", "M", "M", "J", "V", "S", "D"],
+    "jour": {
+      "cible_libelle": "mots : ta cible du jour", "ecrits": "écrits aujourd'hui", "ajouter": "J'ai écrit", "mots": "mots", "ajouter_bouton": "Ajouter",
+      "depuis_redaction": "comptés dans ta Rédaction", "premiere_action": "Première action", "plan_actif": "Plan en cours",
+      "commencer": "Commencer la session", "terminer": "Terminer la session", "autre_question": "Autre question",
+      "inspiration": "Une question pour avancer", "adopter_date": "Adopter cette date", "difficulte": "Je suis fatigué ou en difficulté",
+      "reprendre": "Reprendre les relances", "accepter": "D'accord", "refuser": "Pas maintenant"
+    },
+    "ensemble": {"pages_ecrites": "pages écrites", "pages_restantes": "pages restantes", "cible_semaine": "Cible de la semaine", "fin_projetee": "Fin projetée à ton rythme", "fin_prevue": "Fin prévue", "rythme_inconnu": "Rythme encore inconnu", "statut": "Statut", "statuts": {"actif": "En cours", "pause": "En pause", "termine": "Terminé"}},
+    "calendrier": {"atteint": "Cible atteinte", "partiel": "Commencé", "manque": "Sans écriture", "a_venir": "À venir", "repos": "Repos ou exclu"},
+    "plans": {"propose": "Proposé pour toi", "effort": "Effort", "choisir": "Choisir ce plan", "refuser": "Pas pour moi", "actif": "En cours jusqu'au", "arreter": "Arrêter ce plan",
+      "contexte": "Ce qui t'arrive en ce moment", "perfectionnisme": "Je veux que ce soit parfait avant d'avancer", "blocage_introduction": "Je bloque sur l'introduction", "journee_chargee": "Ma journée est chargée"},
+    "blocage": {"titre": "Signaux de blocage", "jours_sans": "Jours d'écriture sans écriture (alerte à 2)", "retard": "Retard sur la cible, en jours (alerte au-delà de 1)", "elan": "Élan moyen sur 7 jours (alerte à 2 ou moins)", "plan": "Sessions prévues non démarrées (alerte à 3 sur 5)", "rien": "Aucun signal de blocage.", "recommandation": "Recommandation"},
+    "bilan": {"titre": "Bilan de la session", "enregistrer": "Enregistrer le bilan", "merci": "Bilan enregistré."}
+  },
+
   "apercu": "{pages} pages = {mots_total} mots = {par_jour} mots par jour, soit {par_semaine} par semaine et environ {par_mois} par mois.",
 
   "accueil": {

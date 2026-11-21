@@ -43,12 +43,12 @@ const ouvrir = async (stockage, reponses) => {
   egal(d.querySelector('#cnxSeg [data-cx="off"]').getAttribute("aria-pressed"), "true", "hors ligne : le choix est coché dans le menu");
   const ta = d.querySelector("#smart"); ta.value = "Comme l’a montré A. Mbembe (2000), la postcolonie est un régime de violence."; ta.dispatchEvent(new w.Event("input"));
   await d.querySelector("#addBtn").onclick(); await wait(300);
-  egal(o.appels.length, 0, "hors ligne : aucune requête vers Internet");
+  egal(o.appels.filter(u => /^https?:/.test(u)).length, 0, "hors ligne : aucune requête vers Internet (les fichiers de l’application elle-même, en cache, ne comptent pas)");
   egal(w.eval("state.sources.length"), 1, "hors ligne : l’œuvre citée a quand même son entrée");
   egal(w.eval("state.sources[0]._cite") ? "en attente" : "", "en attente", "hors ligne : sa recherche est mise de côté");
   // l’utilisateur repasse en automatique (connexion présente) : la recherche reprend toute seule
   d.querySelector('#cnxSeg [data-cx="auto"]').click(); await wait(600);
-  egal(o.appels.length > 0, true, "retour en ligne : les recherches reprennent");
+  egal(o.appels.filter(u => /^https?:/.test(u)).length > 0, true, "retour en ligne : les recherches reprennent");
   egal(w.eval("state.sources[0].title"), "De la postcolonie", "retour en ligne : l’entrée provisoire est remplacée par l’œuvre trouvée");
   egal(d.querySelector("#cnxPill").hidden, true, "en ligne : plus de pastille");
 
